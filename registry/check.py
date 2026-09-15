@@ -164,6 +164,33 @@ def against_the_schema(manifest: pathlib.Path, schema: pathlib.Path) -> list[str
     ]
 
 
+def release(where: pathlib.Path) -> str | None:
+    """The lemonfiber release a `targets.toml` names, or nothing if it names none."""
+    import tomllib
+
+    try:
+        return tomllib.loads(where.read_text(encoding="utf-8")).get("lemonfiber")
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+
+
+def targeted(theirs: pathlib.Path) -> str:
+    """Which release the author proved against, against the one these checks ran.
+
+    Two different facts, and `targets.toml` says so: the plugin's is the author's
+    claim, this catalogue's is the build the checks were made on. A disagreement is
+    not a fault — a plugin proved against an older release may be perfectly good —
+    but it is the thing a reviewer most wants told rather than left to notice.
+    """
+    ours = release(ROOT / "targets.toml")
+    said = release(theirs)
+    if said is None:
+        return "its targets.toml names no lemonfiber release"
+    if ours is None or said == ours:
+        return f"proved by its author against {said}, which is what these checks ran"
+    return f"proved by its author against {said}; these checks ran {ours}"
+
+
 def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
     """One registration, and everything that has to hold for it."""
     said: list[str] = []
@@ -202,8 +229,7 @@ def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
             return False, [proved.stdout.strip() or proved.stderr.strip()]
         said.append(proved.stdout.strip().splitlines()[-1])
 
-        target = (work / "targets.toml").read_text(encoding="utf-8")
-        said.append(f"the author proved it against {target.strip().splitlines()[-1]}")
+        said.append(targeted(work / "targets.toml"))
     return True, said
 
 
