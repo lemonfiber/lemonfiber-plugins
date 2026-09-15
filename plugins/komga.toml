@@ -9,5 +9,5 @@ schema = 1
 [plugin]
 id       = "komga"
 origin   = "https://github.com/lemonfiber/plugin-komga"
-revision = "4c28c6216bc9063e174161bba7ea40409502a56f"
+revision = "884173e8615966f99c8405ead35540b3a3e03c71"
 note     = "Comics are the one medium the bundled stack acquires nothing for."
