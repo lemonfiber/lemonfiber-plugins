@@ -134,11 +134,24 @@ def assembled(source: pathlib.Path, into: pathlib.Path) -> str | None:
     return None
 
 
+class Unaskable(Exception):
+    """Something this run needed was not there, which is not a fault in a plugin."""
+
+
 def against_the_schema(manifest: pathlib.Path, schema: pathlib.Path) -> list[str]:
-    """The manifest, against the schema the binary publishes (`F5-R2`, `ARCH-R92`)."""
+    """The manifest, against the schema the binary publishes (`F5-R2`, `ARCH-R92`).
+
+    A missing reader is raised rather than returned, because a registration that could
+    not be checked is unproven and a list of no faults would read as clear.
+    """
     import tomllib
 
-    from jsonschema import Draft202012Validator
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError as absent:  # pragma: no cover - the workflow installs it
+        raise Unaskable(
+            "jsonschema is not installed, so no manifest was held to the published schema"
+        ) from absent
 
     try:
         held = tomllib.loads(manifest.read_text(encoding="utf-8"))
@@ -229,7 +242,11 @@ def main() -> int:
 
         refused = 0
         for plugin in found:
-            held, said = one(plugin, artefacts)
+            try:
+                held, said = one(plugin, artefacts)
+            except Unaskable as unasked:
+                print(f"::error::{unasked}")
+                return 2
             mark = "ok  " if held else "FAIL"
             print(f"  {mark} {plugin['id']} @ {plugin['revision'][:12]}")
             for line in said:
