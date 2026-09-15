@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import os
 import pathlib
 import shutil
 import subprocess
@@ -73,14 +72,21 @@ def published(into: pathlib.Path) -> str | None:
 
     Their absence is a regression in lemonfiber rather than a fault in any plugin, and
     saying which is the difference between a catalogue that is broken and one that is
-    reporting something broken.
+    reporting something broken. Which is also why a failed request is not reported as
+    an absent artefact until the forge has been asked whether it would answer at all:
+    the workflow passes a token in the environment and a contributor running this at a
+    shell has one stored by `gh`, and telling the second that lemonfiber has dropped a
+    file would send them to the wrong repository.
     """
-    if not (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")):
-        return "no token in the environment, so the forge was not asked"
     into.mkdir(parents=True, exist_ok=True)
     for name in PUBLISHED:
         asked = ran("gh", "api", f"repos/{UPSTREAM}/contents/contract/{name}?ref={REF}")
         if asked.returncode != 0:
+            if ran("gh", "auth", "status").returncode != 0:
+                return (
+                    "the forge would not answer: `gh` is not authenticated here and no "
+                    "GH_TOKEN is set, so nothing was asked about anything"
+                )
             return f"{UPSTREAM}@{REF} carries no contract/{name}"
         try:
             body = json.loads(asked.stdout)["content"]

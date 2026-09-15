@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import pathlib
 import subprocess
 import sys
@@ -53,9 +52,15 @@ PUBLISHED = (
 
 
 def fetch(path: str) -> tuple[dict | None, str | None]:
-    """One generated artefact out of lemonfiber's own tree, or why not."""
-    if not (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")):
-        return None, "no token in the environment, so the forge was not asked"
+    """One generated artefact out of lemonfiber's own tree, or why not.
+
+    The forge is asked before anything is concluded about whether it could be. A
+    token in the environment is how the workflow authenticates and it is not how an
+    author at a shell does — `gh` holds one for them — and refusing to ask because
+    one variable is unset reported *unproven* to somebody who could have had the
+    answer. Unproven when the answer was available is the failure this file exists
+    to avoid, not an instance of caution.
+    """
     asked = subprocess.run(
         ["gh", "api", f"repos/{UPSTREAM}/contents/{path}?ref={REF}"],
         capture_output=True, text=True, check=False,
