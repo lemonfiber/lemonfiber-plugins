@@ -1,0 +1,13 @@
+# Uptime Kuma — watches the services the stack depends on and says which one went,
+# rather than that something did.
+#
+# Registered at the revision somebody read. Moving it forward is a pull request
+# moving `revision`, which is that reading happening again.
+
+schema = 1
+
+[plugin]
+id       = "uptime-kuma"
+origin   = "https://github.com/lemonfiber/plugin-uptime-kuma"
+revision = "3416b7198f647ebb2a5fde34b3eea6ffa32304f3"
+note     = "Every capability it declares is its own; nothing in the stack asks for one yet."
