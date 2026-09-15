@@ -9,5 +9,5 @@ schema = 1
 [plugin]
 id       = "uptime-kuma"
 origin   = "https://github.com/lemonfiber/plugin-uptime-kuma"
-revision = "3416b7198f647ebb2a5fde34b3eea6ffa32304f3"
+revision = "d5d4e2a3a9ebc8eb581d33184c2e5b3a2f2b7f8b"
 note     = "Every capability it declares is its own; nothing in the stack asks for one yet."
