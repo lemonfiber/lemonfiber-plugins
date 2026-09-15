@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import os
 import pathlib
 import shutil
 import subprocess
@@ -73,14 +72,21 @@ def published(into: pathlib.Path) -> str | None:
 
     Their absence is a regression in lemonfiber rather than a fault in any plugin, and
     saying which is the difference between a catalogue that is broken and one that is
-    reporting something broken.
+    reporting something broken. Which is also why a failed request is not reported as
+    an absent artefact until the forge has been asked whether it would answer at all:
+    the workflow passes a token in the environment and a contributor running this at a
+    shell has one stored by `gh`, and telling the second that lemonfiber has dropped a
+    file would send them to the wrong repository.
     """
-    if not (os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")):
-        return "no token in the environment, so the forge was not asked"
     into.mkdir(parents=True, exist_ok=True)
     for name in PUBLISHED:
         asked = ran("gh", "api", f"repos/{UPSTREAM}/contents/contract/{name}?ref={REF}")
         if asked.returncode != 0:
+            if ran("gh", "auth", "status").returncode != 0:
+                return (
+                    "the forge would not answer: `gh` is not authenticated here and no "
+                    "GH_TOKEN is set, so nothing was asked about anything"
+                )
             return f"{UPSTREAM}@{REF} carries no contract/{name}"
         try:
             body = json.loads(asked.stdout)["content"]
@@ -134,11 +140,24 @@ def assembled(source: pathlib.Path, into: pathlib.Path) -> str | None:
     return None
 
 
+class Unaskable(Exception):
+    """Something this run needed was not there, which is not a fault in a plugin."""
+
+
 def against_the_schema(manifest: pathlib.Path, schema: pathlib.Path) -> list[str]:
-    """The manifest, against the schema the binary publishes (`F5-R2`, `ARCH-R92`)."""
+    """The manifest, against the schema the binary publishes (`F5-R2`, `ARCH-R92`).
+
+    A missing reader is raised rather than returned, because a registration that could
+    not be checked is unproven and a list of no faults would read as clear.
+    """
     import tomllib
 
-    from jsonschema import Draft202012Validator
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError as absent:  # pragma: no cover - the workflow installs it
+        raise Unaskable(
+            "jsonschema is not installed, so no manifest was held to the published schema"
+        ) from absent
 
     try:
         held = tomllib.loads(manifest.read_text(encoding="utf-8"))
@@ -149,6 +168,33 @@ def against_the_schema(manifest: pathlib.Path, schema: pathlib.Path) -> list[str
         f"plugin.toml{''.join(f'.{step}' for step in fault.path)}: {fault.message}"
         for fault in sorted(validator.iter_errors(held), key=lambda fault: list(fault.path))
     ]
+
+
+def release(where: pathlib.Path) -> str | None:
+    """The lemonfiber release a `targets.toml` names, or nothing if it names none."""
+    import tomllib
+
+    try:
+        return tomllib.loads(where.read_text(encoding="utf-8")).get("lemonfiber")
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+
+
+def targeted(theirs: pathlib.Path) -> str:
+    """Which release the author proved against, against the one these checks ran.
+
+    Two different facts, and `targets.toml` says so: the plugin's is the author's
+    claim, this catalogue's is the build the checks were made on. A disagreement is
+    not a fault — a plugin proved against an older release may be perfectly good —
+    but it is the thing a reviewer most wants told rather than left to notice.
+    """
+    ours = release(ROOT / "targets.toml")
+    said = release(theirs)
+    if said is None:
+        return "its targets.toml names no lemonfiber release"
+    if ours is None or said == ours:
+        return f"proved by its author against {said}, which is what these checks ran"
+    return f"proved by its author against {said}; these checks ran {ours}"
 
 
 def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
@@ -189,8 +235,7 @@ def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
             return False, [proved.stdout.strip() or proved.stderr.strip()]
         said.append(proved.stdout.strip().splitlines()[-1])
 
-        target = (work / "targets.toml").read_text(encoding="utf-8")
-        said.append(f"the author proved it against {target.strip().splitlines()[-1]}")
+        said.append(targeted(work / "targets.toml"))
     return True, said
 
 
@@ -229,7 +274,11 @@ def main() -> int:
 
         refused = 0
         for plugin in found:
-            held, said = one(plugin, artefacts)
+            try:
+                held, said = one(plugin, artefacts)
+            except Unaskable as unasked:
+                print(f"::error::{unasked}")
+                return 2
             mark = "ok  " if held else "FAIL"
             print(f"  {mark} {plugin['id']} @ {plugin['revision'][:12]}")
             for line in said:

@@ -25,7 +25,7 @@ plugins/
 └── <id>.toml      where it is, and the revision somebody read
 ```
 
-An entry is six lines:
+An entry is a pointer and nothing else:
 
 ```toml
 schema = 1
@@ -48,9 +48,9 @@ request moving that one line, and that is the same person reading again.
    [`plugin-template`](https://github.com/lemonfiber/plugin-template), replace
    the service, record your fixtures, and get your own repository green. Nothing
    here can be registered that would not pass there.
-2. **Fork this repository and add one file**, `plugins/<your-id>.toml`, with the
-   five fields above. The id is your plugin's `[plugin].id` and the file is named
-   for it.
+2. **Fork this repository and add one file**, `plugins/<your-id>.toml`, carrying
+   the fields above — `note` is the only optional one. The id is your plugin's
+   `[plugin].id`, and the file is named for it.
 3. **Point `revision` at the commit you want read.** Not `main` — the exact
    commit.
 4. **Open a pull request.** CI runs before anybody looks (below). If it is red,
