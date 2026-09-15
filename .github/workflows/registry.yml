@@ -1,0 +1,66 @@
+# What this catalogue says about every registration, before a person reads one.
+#
+# `REPO-R61` is the whole of this file: fetch each registered revision and, out of the
+# data in that revision alone, validate the manifest against the schema lemonfiber
+# publishes, run every declared proof against that plugin's own recordings, and check
+# its declared reach statically. A registration failing any of it is refused here
+# rather than in review, which is what `F5-R2` asks the catalogue's CI to be.
+#
+# Nothing from a registered repository runs (`REPO-R62`). The programs are this
+# repository's own copies and the registered revision supplies data — see the comment
+# on `assembled()` in `registry/check.py`, which is where the direction is enforced.
+name: registry
+on: [pull_request]
+permissions:
+  contents: read
+
+jobs:
+  # The pointers, before anything is fetched. An entry that does not say what an entry
+  # may say is a defect in the registration rather than in the plugin, and a reviewer
+  # should be told which of the two they are looking at.
+  entries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: The rules refuse what they exist to refuse
+        run: python3 registry/entry.py --self-test
+      - name: Every entry says what an entry may say
+        run: python3 registry/entry.py
+
+  # The harness here is the template's harness, byte for byte. A catalogue holding its
+  # own fork of the validator would be a second opinion about what a manifest means,
+  # and the plugin repositories would go green against a rule this one had dropped.
+  harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The harness here is the template's harness
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh repo clone lemonfiber/plugin-template "$RUNNER_TEMP/template" -- --depth 1
+          diff -ru "$RUNNER_TEMP/template/.github/interim" .github/interim
+
+  # The registrations themselves.
+  plugins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: The one dependency this repository has, and it is a schema reader
+        run: pip install --disable-pip-version-check --only-binary :all: jsonschema==4.25.1
+      - name: Every registration, against what lemonfiber publishes and its own recordings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 registry/check.py

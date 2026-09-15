@@ -1,0 +1,35 @@
+# Calls the reusable workflows defined once in lemonfiber/spec (Q-R56).
+name: ci
+on: [pull_request]
+permissions:
+  contents: read
+
+jobs:
+  # `pull-requests: write` is what lets the gate close a pull request whose
+  # citation is missing or names an identifier that does not exist, rather than
+  # only going red at it. A reusable workflow's permissions block is a request,
+  # and a caller granting less than it asks for fails the whole run before any
+  # job starts — every required context silent, and nothing to report against.
+  # The workflow-level `contents: read` is the default for a job that declares
+  # nothing, and a job-level block replaces that default outright, so
+  # `contents: read` is restated here rather than inherited.
+  spec-check:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: lemonfiber/spec/.github/workflows/spec-check.yml@fc0091f4eb6b12333116ea9a3ef8c286d540b152 # main
+  hygiene:
+    uses: lemonfiber/spec/.github/workflows/hygiene.yml@fc0091f4eb6b12333116ea9a3ef8c286d540b152 # main
+  security:
+    uses: lemonfiber/spec/.github/workflows/security.yml@fc0091f4eb6b12333116ea9a3ef8c286d540b152 # main
+  dco:
+    uses: lemonfiber/spec/.github/workflows/dco.yml@fc0091f4eb6b12333116ea9a3ef8c286d540b152 # main
+  attribution:
+    uses: lemonfiber/spec/.github/workflows/attribution.yml@fc0091f4eb6b12333116ea9a3ef8c286d540b152 # main
+  commitlint:
+    uses: lemonfiber/spec/.github/workflows/commitlint.yml@fc0091f4eb6b12333116ea9a3ef8c286d540b152 # main
+  labeler:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: lemonfiber/spec/.github/workflows/labeler.yml@fc0091f4eb6b12333116ea9a3ef8c286d540b152 # main

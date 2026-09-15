@@ -1,0 +1,19 @@
+# The lemonfiber release this catalogue checks registrations against (REPO-R56).
+#
+# A catalogue that validated against a different build than the operator runs would
+# be vouching for something it had not tested, so the release is pinned here and
+# named rather than inferred from whatever `main` holds on the day a registration
+# lands.
+#
+# It is one number for the whole catalogue rather than one per entry. A plugin
+# names the release *it* was proved against in its own `targets.toml`, and the two
+# are different facts: that one is the author's claim, this one is the build these
+# checks ran. Where they disagree, the disagreement is the interesting part and is
+# reported rather than resolved.
+#
+# `0.16.0` is the release that publishes the manifest schema and the capability
+# vocabulary, and it is `planned`. Until it ships, `registry/check.py` reads those
+# artefacts from `lemonfiber/lemonfiber@main`, where they are committed when the
+# change lands rather than when a release is cut, and says which it read.
+
+lemonfiber = "0.16.0"

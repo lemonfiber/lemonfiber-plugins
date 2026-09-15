@@ -1,0 +1,34 @@
+# The Python lint floor for this organisation, as this repository carries it.
+#
+# The two programs here are a gate: one decides whether an entry says what an
+# entry may say, the other decides whether a registration holds against what
+# lemonfiber publishes. They are the same kind of thing every other copy of this
+# file lints, and `check_shared_files.py` holds this copy to the canonical one in
+# the spec — not byte for byte, because this preamble is this repository's own,
+# but on the lists below: a copy may select more and may not ignore more.
+target-version = "py312"
+
+# Not what these scripts get wrong. They carry long paths, long digests, long
+# image references and long report lines, and one of them emits a markdown table
+# row that would say something different if it were broken.
+line-length = 110
+
+[lint]
+# Correctness first — `F` is the half that finds undefined names and unreachable
+# code, `B` the half that finds the mistakes that still run. `ISC` is here for
+# one shape in particular: two adjacent strings inside a list are one string,
+# and the difference between that and a missing comma is invisible. The rest
+# keep the scripts reading alike, which matters when they are maintained by
+# whoever is passing.
+select = ["E", "W", "F", "B", "I", "SIM", "UP", "RUF", "EXE", "FURB", "ISC"]
+
+ignore = [
+    # These scripts quote the repository's own prose back in their messages, and
+    # it uses typographic dashes and quotes deliberately.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # Width, as above. The rules worth having here find undefined names and
+    # mistakes that still run.
+    "E501",
+]
