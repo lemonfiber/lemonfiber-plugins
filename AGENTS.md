@@ -49,11 +49,17 @@ spec's `70-operations/plugins.toml` and answers a different question. Spec page:
 ## Before you push
 
 ```sh
-python3 registry/entry.py --self-test
-python3 registry/entry.py
-python3 registry/check.py          # needs git, a token, and jsonschema
+GH_TOKEN=$(gh auth token) just ci
 ```
 
-Commit trailers are exactly `Spec: <ids>` and `Signed-off-by:`. No AI
-attribution anywhere — not in commits, pull request bodies, or squash messages.
+Every gate CI runs over the contents of this repository, in CI's order. The jobs
+it leaves out are named in the `justfile` beside the recipe, with what covers
+each. `just` lists the recipes it is made of.
+
+`just ci` turns this clone's git hooks on as its first step, and
+`.githooks/commit-msg` then refuses a commit that CI would refuse — a
+non-conventional subject, a missing sign-off, a missing `Spec:` citation, or a
+trailer crediting an assistant. All four rules are in
+[50-governance/contributing.md](https://github.com/lemonfiber/spec/blob/main/50-governance/contributing.md).
+
 Stage paths explicitly; never `git add -A`.
