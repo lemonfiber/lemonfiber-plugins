@@ -1,5 +1,4 @@
-# Task runner for the lemonfiber/lemonfiber-plugins repo. `just` with no argument
-# lists tasks.
+# Task runner for lemonfiber/lemonfiber-plugins. `just` with no argument lists these.
 default:
     @just --list
 
@@ -9,6 +8,8 @@ default:
 # to hang `core.hooksPath` on the way the other repos do — it is this recipe or
 # nothing, and `ci` depends on it so that running the checks once turns the hooks
 # on for good. The setting is per-clone local config and no commit can carry it.
+#
+# Turn on this clone's git hooks. Once per clone.
 hooks:
     git config core.hooksPath .githooks
     @echo "hooks on: .githooks/commit-msg, .githooks/pre-push"
@@ -34,11 +35,15 @@ hooks:
 #                                              `actionlint` are the two commands
 #   osv-scanner, gitleaks, label               forge-side, and decide nothing about
 #                                              a registration
+#
+# Every gate CI runs over this repository's contents — not the whole of CI.
 ci: hooks entries plugins typos links
 
 # The rules refuse what they exist to refuse, then every entry against them. The
 # self-test runs first: a gate nobody has seen fail is a gate nobody knows the
 # shape of.
+#
+# The rules refuse what they exist to refuse, then every entry against them.
 entries:
     python3 registry/entry.py --self-test
     python3 registry/entry.py
@@ -54,6 +59,8 @@ entries:
 # It reads the forge, so give it a token — `GH_TOKEN=$(gh auth token) just
 # plugins`. Without one it says which of its questions went unasked rather than
 # passing them.
+#
+# Every registration, fetched at the revision it names. Needs a token.
 plugins:
     uv run --no-project --quiet --with jsonschema==4.25.1 python3 registry/check.py
 
