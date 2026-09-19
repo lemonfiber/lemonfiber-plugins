@@ -69,7 +69,7 @@ anything here.
 
 ## What CI checks on a registration
 
-Three jobs, and the order is deliberate — the cheap answer about your *entry*
+Four jobs, and the order is deliberate — the cheap answer about your *entry*
 comes before anything is fetched, so a reviewer is never left wondering whether
 the problem is the registration or the plugin.
 
@@ -77,6 +77,7 @@ the problem is the registration or the plugin.
 | --- | --- |
 | `entries` | Every entry says what an entry may say: a plugin id that matches its filename, an `https` origin with no credentials, a full commit, no field this registry does not read, and no origin registered twice under two names. Its own rules are self-tested first, so a green run is a run whose gate still refuses things. |
 | `harness` | The programs under `.github/interim/` are byte-identical to `plugin-template`'s. A registry holding its own fork of the validator would be a second opinion about what a manifest means, and plugin repositories would go green against a rule this one had dropped. |
+| `template` | The template an author starts from, held to those same commands: it validates and proves unmodified, or this repository says so. The byte-diff above answers whether the two harnesses agree; this answers whether the template still passes them. Neither of the other gates asks it — a byte-diff fires on a change to the harness and the template's own CI fires on a commit there, and what these checks read is lemonfiber's and moves on its default branch. |
 | `plugins` | Each registered revision is fetched, and out of the data in it: the manifest is validated against the schema lemonfiber publishes, every claim and contribution is held to the published capability vocabulary and extension points, every declared reach is checked statically, and every declared proof is run against that plugin's own recorded responses. |
 
 Those checks are `REPO-R61`, and they run against the `lemonfiber` release named
@@ -104,6 +105,7 @@ python3 registry/entry.py --self-test   # the gate refuses what it should
 python3 registry/entry.py               # every entry, read
 python3 registry/check.py               # every registration, held to everything
 python3 registry/check.py --only komga  # one of them
+python3 registry/check.py --template    # the template, held to the same
 ```
 
 `check.py` needs `git`, a GitHub token in the environment, and `jsonschema`.
@@ -115,11 +117,18 @@ so that its proofs are proofs rather than because anybody should run it. Putting
 it in a list an operator browses for something to install would be offering a
 teaching artefact as a thing to use.
 
-It is held to the format all the same, and somewhere better suited to it: the
-spec's [`70-operations/plugins.toml`](https://github.com/lemonfiber/spec/blob/main/70-operations/plugins.toml)
+It is held to the format all the same, in two places and for two different
+reasons. The spec's [`70-operations/plugins.toml`](https://github.com/lemonfiber/spec/blob/main/70-operations/plugins.toml)
 registers it for the release train, so a release that breaks what every author
-starts from stops the train. That is a different question from *what may I
-install*, and it belongs to a different list.
+starts from stops the train. And the `template` job above runs *these* checks
+over it on every change here, because an author's own CI is a copy of these
+commands and the template is what they copy: it has to validate and prove
+unmodified against them, or the first thing somebody meets is a starting point
+that does not pass.
+
+Neither of those is a registration. *Is this good to install* and *does the
+thing every author begins with still hold* are different questions, and only the
+first of them is what the list in `plugins/` answers.
 
 ## What this never becomes
 
