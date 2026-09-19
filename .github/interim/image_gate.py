@@ -4,9 +4,9 @@
 Two requirements about a plugin's image, and they answer differently:
 
 `F3-R8` — an image MUST be named by an immutable digest, and one named by tag
-alone MUST be refused. `validate.py` checks the manifest says a digest;
-this checks the registry has it, and that the `tag` recorded beside it is the
-tag that resolves to it today. A digest that does not correspond to its tag is
+alone MUST be refused. The published schema is what says the manifest carries
+one; this checks the registry has it, and that the `tag` recorded beside it is
+the tag that resolves to it today. A digest that does not correspond to its tag is
 not detectable without reaching a registry, and the contract says so — but this
 repository can reach one, so it does.
 
