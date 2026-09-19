@@ -320,11 +320,7 @@ def main() -> int:
 
         refused = 0
         for plugin in found:
-            try:
-                held, said = one(plugin, artefacts)
-            except Unaskable as unasked:
-                print(f"::error::{unasked}")
-                return 2
+            held, said = one(plugin, artefacts)
             mark = "ok  " if held else "FAIL"
             print(f"  {mark} {plugin['id']} @ {plugin['revision'][:12]}")
             for line in said:
