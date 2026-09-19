@@ -30,6 +30,10 @@ spec's `70-operations/plugins.toml` and answers a different question. Spec page:
 - **The harness is the template's harness, byte for byte.** `.github/interim/`
   is copied from `plugin-template` and diffed against it in CI. Fix a validator
   bug there and bring the copy across; never fix it here alone.
+- **Nothing here describes the manifest format** (`F10-R2`). The generated
+  schema lemonfiber publishes is the only description of it, and the harness
+  fetches that schema rather than restating any of it. A rule added here must be
+  one lemonfiber itself holds a manifest to and one no schema can state.
 - **Everything must be reviewable as a diff** (`REPO-R60`). No archives, no
   encoded blobs, no generated artefacts.
 - **This is not a service** (`REPO-R59`) and nothing here is resolved at run

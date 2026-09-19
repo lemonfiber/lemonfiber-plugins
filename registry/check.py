@@ -6,6 +6,13 @@ validate the manifest against the schema lemonfiber publishes, run every declare
 against that plugin's own recordings, and check its declared reach statically. A
 registration failing any of it is refused here rather than in review.
 
+The schema is the only description of the manifest format anything here reads, and the
+harness carries none of its own (`F10-R2`). What the harness decides is what a schema
+cannot state: a claimed capability the published vocabulary does not carry, a probe left
+unbound, a contribution at a point that does not exist or carrying what that point does
+not declare, a recording that is not in the revision, and a recipe reaching an address
+or carrying a value no pair permits.
+
 **Nothing from a registered repository is executed** (`REPO-R62`). Four paths are copied
 out of the fetched tree and the rest of it is left where it lies: the manifest, the
 recordings, the release the author says they proved against, and nothing else. The
@@ -178,30 +185,19 @@ class Unaskable(Exception):
     """Something this run needed was not there, which is not a fault in a plugin."""
 
 
-def against_the_schema(manifest: pathlib.Path, schema: pathlib.Path) -> list[str]:
-    """The manifest, against the schema the binary publishes (`F5-R2`, `ARCH-R92`).
+def a_reader_is_here() -> None:
+    """That something in this environment can read a JSON Schema at all.
 
-    A missing reader is raised rather than returned, because a registration that could
-    not be checked is unproven and a list of no faults would read as clear.
+    Asked once, before any registration is judged, and raised rather than returned: a
+    registration that could not be held to the schema is unproven, and the harness
+    reporting no faults would read as clear.
     """
-    import tomllib
-
     try:
-        from jsonschema import Draft202012Validator
+        import jsonschema  # noqa: F401
     except ImportError as absent:  # pragma: no cover - the workflow installs it
         raise Unaskable(
             "jsonschema is not installed, so no manifest was held to the published schema"
         ) from absent
-
-    try:
-        held = tomllib.loads(manifest.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as broken:
-        return [f"plugin.toml is not readable as TOML: {broken}"]
-    validator = Draft202012Validator(json.loads(schema.read_text(encoding="utf-8")))
-    return [
-        f"plugin.toml{''.join(f'.{step}' for step in fault.path)}: {fault.message}"
-        for fault in sorted(validator.iter_errors(held), key=lambda fault: list(fault.path))
-    ]
 
 
 def release(where: pathlib.Path) -> str | None:
@@ -247,21 +243,19 @@ def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
         if why is not None:
             return False, [why]
 
-        faults = against_the_schema(work / "plugin.toml", artefacts / SCHEMA)
-        if faults:
-            return False, faults
-        said.append("the published schema accepts this manifest")
-
-        # Everything the schema cannot say: that a claimed capability is one the
-        # vocabulary carries, that every probe it declares is bound, that a contribution
-        # sits at a point that exists and carries what that point declares, and that no
-        # recipe reaches an address or carries a value no pair permits. The last of those
-        # is the static reach REPO-R61 asks for.
+        # One pass, against all three artefacts. The manifest goes through an
+        # off-the-shelf reader holding it to the published schema, and then through the
+        # rules that schema cannot state: that a claimed capability is one the vocabulary
+        # carries, that every probe it declares is bound, that a contribution sits at a
+        # point that exists and carries what that point declares, and that no recipe
+        # reaches an address or carries a value no pair permits. The last of those is the
+        # static reach REPO-R61 asks for.
         held = ran(sys.executable, str(work / ".github/interim/validate.py"),
                    "--published", str(artefacts), at=work)
         if held.returncode != 0:
             return False, [held.stdout.strip() or held.stderr.strip()]
-        said.append("every claim, contribution and declared reach holds")
+        said.append("the published schema accepts this manifest, and every claim, "
+                    "contribution and declared reach holds")
 
         proved = ran(sys.executable, str(work / ".github/interim/prove.py"),
                      "--against", "fixtures", at=work)
@@ -303,6 +297,12 @@ def main() -> int:
         if not found:
             print("No plugins are registered yet, so there is nothing to hold to anything.")
             return 0
+
+    try:
+        a_reader_is_here()
+    except Unaskable as unasked:
+        print(f"::error::{unasked}")
+        return 2
 
     with tempfile.TemporaryDirectory() as box:
         artefacts = pathlib.Path(box) / "published"

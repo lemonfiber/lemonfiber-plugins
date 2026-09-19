@@ -1,38 +1,58 @@
 #!/usr/bin/env python3
-"""Validate `plugin.toml` against the manifest contract — until a schema exists.
+"""Hold `plugin.toml` to what lemonfiber publishes, and to nothing written here.
 
 **This is CI harness, not plugin content.** A plugin is `plugin.toml` and
 `fixtures/`; nothing under `.github/` is part of what an operator installs, and
 nothing here is ever run by lemonfiber (`F3-R6`).
 
-`F3-R2` requires a manifest to be validated against a **published schema**, and
-`ARCH-R92` requires that schema to be *generated from the types lemonfiber
-deserialises* and published with every release. No release publishes one yet:
-the plugin machinery is `0.16.0`, which is `planned`. So there is nothing to
-validate against, and the honest options are to report this plugin unvalidated
-or to check it against the contract by hand.
+**Nothing in this file describes the manifest format.** Which tables a manifest
+may carry, which fields each one takes, of what kind, out of which closed set and
+within which bounds is `plugin-manifest.schema.json`'s to say. That schema is
+generated from the types lemonfiber deserialises (`ARCH-R92`), published with
+every release, and is the same document lemonfiber's own conformance stage walks
+a manifest against before it parses one — so an off-the-shelf reader and the
+binary reach the same verdict about the shape of a file. `F3-R2` asks for exactly
+that, and `F10-R2` forbids a second, hand-maintained description standing beside
+it.
 
-This does the second and says so. It is deliberately **not** a schema and must
-never be published as one: `F10-R2` forbids a second, hand-maintained
-description of the manifest format precisely because it can disagree with the
-parser, and a plugin that validates in an author's editor and is refused on an
-operator's machine is the failure that rule exists to prevent. When the schema
-is published, `ci.yml` switches to it and this file is deleted — and until then
-`schema_gate.py` is what fails the day it appears.
+One stood here, and the reason that mattered is not tidiness. It had drifted from
+the reader in both directions. It refused a `version` that is not semver, a
+`hostname` that is not a DNS label, a `dashboard_group` outside four words, a
+`form` or a `media_type` outside two lists copied off the stack, an upper-case
+digest, a recipe carrying no step, a captured value whose `origin` was outside
+four words, and a set of proofs that only ever read a status — and lemonfiber
+refuses none of those. An author who changed a manifest to satisfy it changed it
+for no reason, and an author who could not was stuck on a rule nobody had
+written down anywhere else.
 
-Two of the things a manifest declares into are **published by lemonfiber** and
-not describable here at all: the core capability vocabulary and the extension
-points. Which names exist is lemonfiber's to say, so every rule that depends on
-knowing them is skipped without `--published <dir>` and **reported as skipped**
-rather than passed — a validator that quietly checked less than it claimed is
-the same defect as a stand-in that outlives what it stood in for.
+What is left restates nothing the schema states. It is the reader's own
+refusals — what lemonfiber decides *after* a file has been accepted as a
+manifest — in the one place they can be asked before the reader exists:
 
-    validate.py                    the rules that need nothing outside this file
-    validate.py --published <dir>  those, and every rule the published artefacts decide
+  * what lemonfiber publishes elsewhere — which capability names exist, which
+    points a contribution may be made at, and what a row at one carries;
+  * what spans two places in the document — a claim and the `provides` it
+    answers, a remedy and the check it names, a substitution and the step that
+    captured it;
+  * what needs the source on disk — a recording a binding names;
+  * what a value means rather than what shape it is — a digest that fixes what
+    runs, an image that carries no second pin, a configuration directory that is
+    not the library, a call that names something rather than somewhere and uses
+    a verb a runner could make.
+
+Every rule here was read off `lemonfiber-plugin` before it was written. Being
+weaker than the reader is what a stand-in is; disagreeing with it is the defect,
+so a rule that refused something lemonfiber accepts has been deleted rather than
+kept, and nothing is added here without checking the reader first.
+
+    validate.py --published <dir>  the manifest, against the three artefacts
+    validate.py                    the rules that need none of them, which is few
     validate.py --self-test        each rule refuses the shape it exists to refuse
 
-Every violation is reported in one pass, each naming its location (`ARCH-R94`,
-`F1-R9`, `F10-R10`). Exit 0 = conforms, 1 = does not.
+The three are fetched by `published_gate.py`; this reads them off a directory so
+that the catalogue can supply its own copy. Every violation is reported in one
+pass, each naming its location (`ARCH-R94`, `F1-R9`, `F10-R10`). Exit 0 =
+conforms, 1 = does not.
 """
 
 from __future__ import annotations
@@ -40,92 +60,43 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import re
+import string
 import sys
 import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MANIFEST = "plugin.toml"
 
-SUPPORTED_SCHEMA_VERSIONS = {1}
-
-TOP_LEVEL = (
-    "schema_version", "plugin", "service", "claim", "wiring", "proof",
-    "contribution", "recipe", "secret", "override", "requires",
-)
-
-PLUGIN_REQUIRED = ("id", "name", "version", "description", "without_it", "upstream", "license", "forms")
-SERVICE_REQUIRED = ("id", "name", "image", "digest", "tag", "criticality")
-SERVICE_OPTIONAL = (
-    "port", "bind", "health", "media_types", "takes_data", "provides", "config_path",
-)
-WIRING_PERMITTED = ("hostname", "dashboard_group")
-PROOF_REQUIRED = ("id", "title", "request", "expect", "why")
-PROOF_OPTIONAL = ("fixture",)
-CLAIM_REQUIRED = ("capability", "probe")
-PROBE_REQUIRED = ("id", "request", "expect", "fixture")
-# What an `expect` may constrain. Anything else is a proof this runner would
-# silently not check, which is worse than one that fails.
-EXPECT_PERMITTED = (
-    "status", "json", "json_has_keys", "json_types", "json_at_least",
-    "json_array_min", "json_is_absent", "content_type", "body_starts_with",
-)
-# An expectation that says something about the body rather than the network path.
-# At least one proof must carry one (ARCH-R105).
-BODY_CONSTRAINTS = frozenset(EXPECT_PERMITTED) - {"status"}
-
-# `stack.toml`'s vocabulary minus the one value a plugin may not assign itself
-# (`ARCH-R97`). Named in full so a refusal can list what was available.
-CRITICALITIES = ("core", "important", "enhancing", "optional")
-FORBIDDEN_CRITICALITY = "critical"
-
-BINDS = ("loopback", "lan")
-HEALTH_KINDS = ("http", "tcp", "container")
-MEDIA_TYPES = ("tv", "movies", "music", "books", "comics")
-
-# The bundled dashboard's groups, which is what a plugin's entry joins.
-DASHBOARD_GROUPS = ("Watch", "Library", "Automation", "Acquisition")
-
-# A single DNS label: what may go in front of the operator's own domain.
-DNS_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
-# A name, not an address: what a recipe may reach outside the stack.
-DNS_NAME = re.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$")
-IP_LITERAL = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$|^\[?[0-9a-fA-F:]*:[0-9a-fA-F:]*\]?$")
-
-# The two shapes a capability name may take, and nothing else. A core name is
-# lemonfiber's and a namespaced one is the plugin's, and which kind a name is has
-# to be decidable by reading it rather than by looking it up.
-CORE_CAPABILITY = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
-NAMESPACED = re.compile(r"^([a-z0-9][a-z0-9-]*):([a-z0-9][a-z0-9-]*(?:[.\-][a-z0-9]+)*)$")
+# The three artefacts lemonfiber generates and publishes. Named here only so that
+# a directory can be read; what is *in* them is never restated in this file.
+SCHEMA = "plugin-manifest.schema.json"
+VOCABULARY = "capability-vocabulary.json"
+EXTENSION_POINTS = "extension-points.json"
 
 # The capability that runs a recipe. A manifest declaring one and not asking for
 # this would be installed on a build that parses the block and skips it, which is
 # a plugin whose behaviour is narrower than its manifest.
 RECIPE_CAPABILITY = "recipe.run"
 
-# The forms `lemonfiber-media-stack` declares. Read from the stack rather than
-# listed here would be better and is what lemonfiber will do; this file has no
-# stack to read.
-STACK_FORMS = (
-    "search", "dl", "hunt", "tv", "movies", "music", "books",
-    "auto", "library", "full", "proxy",
-)
+# The reader's own constants, and the only reason they are repeated here: each is
+# a refusal `lemonfiber-plugin` makes about what a value *means*, which the
+# generated schema does not state and a `pattern` in it could not state in the
+# same terms. Read off the reader; check it before changing one.
+DIGEST_PREFIX = "sha256:"
+DIGEST_LENGTH = 64
+ID_LETTERS = frozenset(string.ascii_lowercase + string.digits + "-")
+DATA = "/data"
+METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
 
-# The fields `stack.toml` has that a plugin's service may not (`ARCH-R84`), each
-# refused by name rather than ignored.
-FORBIDDEN_SERVICE_FIELDS = (
-    "grants", "depends_on", "host_managed", "profile", "api", "last_release", "environment",
-)
-
-DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:[-+].*)?$")
-
-VOCABULARY = "capability-vocabulary.json"
-EXTENSION_POINTS = "extension-points.json"
+# The one key an expectation can carry that says something about the network path
+# rather than about the answer. Everything else `Expect` declares is a body
+# constraint, and which keys those are is read out of the published schema rather
+# than listed here.
+NOT_A_BODY = "status"
 
 
 class Published:
-    """What lemonfiber says exists, or the fact that nobody asked it.
+    """What lemonfiber says, or the fact that nobody asked it.
 
     Absent is not empty. A validator holding an empty vocabulary would refuse
     every core capability by name and read as though the plugin were wrong; one
@@ -133,13 +104,14 @@ class Published:
     it skipped.
     """
 
-    def __init__(self, vocabulary: dict | None, points: dict | None) -> None:
+    def __init__(self, schema: dict | None, vocabulary: dict | None, points: dict | None) -> None:
+        self.schema = schema
         self.vocabulary = vocabulary
         self.points = points
 
     @property
     def asked(self) -> bool:
-        return self.vocabulary is not None and self.points is not None
+        return self.schema is not None and self.vocabulary is not None and self.points is not None
 
     def capability(self, name: str) -> dict | None:
         for entry in (self.vocabulary or {}).get("capabilities", []):
@@ -179,12 +151,40 @@ class Published:
             for identity in entry.get("occupied", [])
         }
 
+    def body_constraints(self) -> set[str]:
+        """The keys an expectation can constrain a body with.
+
+        Read out of the published schema rather than written down, which is the
+        whole of this file's rule: `Expect` is a closed set there, so the set of
+        keys that are not the status is derivable and a copy of it would be one
+        more thing to keep in step.
+        """
+        expect = ((self.schema or {}).get("$defs", {}).get("Expect") or {}).get("properties", {})
+        return set(expect) - {NOT_A_BODY}
+
+
+def listed(value: object) -> list:
+    """A value as the list it should be, or an empty one.
+
+    Every rule below runs after the schema has had its say and *whatever* the
+    schema said: a manifest is reported whole, so a block the schema refused is
+    still walked. Reading it defensively is what keeps that from becoming a
+    stack trace, and a stack trace in a gate is a gate nobody can tell apart
+    from a broken manifest.
+    """
+    return value if isinstance(value, list) else []
+
+
+def table(value: object) -> dict:
+    """The same, for a value that should be a table."""
+    return value if isinstance(value, dict) else {}
+
 
 def shaped(document: object, holding: str) -> dict | None:
     """The artefact, if it is the shape this reads, and nothing if it is not.
 
-    This file reads two documents it does not own and cannot describe — which is
-    the whole point of them being published. A shape it does not recognise has to
+    This file reads documents it does not own and cannot describe — which is the
+    whole point of them being published. A shape it does not recognise has to
     become a refusal that names the artefact, because the alternative is a stack
     trace, and a stack trace in a gate is a gate nobody can tell apart from a
     broken manifest.
@@ -197,21 +197,37 @@ def shaped(document: object, holding: str) -> dict | None:
     return document
 
 
+def a_schema(document: object) -> dict | None:
+    """The generated schema, if what was read is one.
+
+    Only that it is a JSON object declaring the draft it is written in. What it
+    *says* is not this file's to check — a reader is what decides that, and
+    describing the schema here would be the thing this file no longer does.
+    """
+    if not isinstance(document, dict) or "$schema" not in document:
+        return None
+    return document
+
+
 def read_published(directory: str | None) -> Published:
     if directory is None:
-        return Published(None, None)
+        return Published(None, None, None)
     where = pathlib.Path(directory)
 
-    def read(name: str, holding: str) -> dict | None:
+    def read(name: str) -> object | None:
         path = where / name
         if not path.is_file():
             return None
         try:
-            return shaped(json.loads(path.read_text(encoding="utf-8")), holding)
+            return json.loads(path.read_text(encoding="utf-8"))
         except ValueError:
             return None
 
-    return Published(read(VOCABULARY, "capabilities"), read(EXTENSION_POINTS, "points"))
+    return Published(
+        a_schema(read(SCHEMA)),
+        shaped(read(VOCABULARY), "capabilities"),
+        shaped(read(EXTENSION_POINTS), "points"),
+    )
 
 
 class Report:
@@ -233,169 +249,244 @@ class Report:
         self.unasked.append(what)
 
 
-def validate_plugin(table: dict, report: Report) -> None:
-    where = "[plugin]"
-    for field in PLUGIN_REQUIRED:
-        report.check(field in table, where, f"missing required field {field!r}")
+class Unreadable(Exception):
+    """The schema reader is not installed, so nothing was held to the schema.
 
-    for field in ("id", "name", "version", "description", "without_it", "upstream", "license"):
-        if field in table:
-            report.check(
-                isinstance(table[field], str) and table[field].strip(),
-                f"{where}.{field}",
-                "must be a non-empty string",
-            )
+    Raised rather than reported, because a run that could not hold a manifest to
+    the schema has decided nothing about its shape, and a list of no faults would
+    read as clear.
+    """
 
-    if isinstance(table.get("id"), str):
-        report.check(
-            table["id"] == table["id"].lower() and bool(re.fullmatch(r"[a-z0-9][a-z0-9-]*", table["id"])),
-            f"{where}.id",
-            f"{table['id']!r} must be lowercase, and the name it is installed and journalled under",
+
+def readable_expectations(published: Published, report: Report) -> None:
+    """That the published schema still says what an expectation may constrain.
+
+    The body rules below read that set out of the schema rather than carrying a
+    copy. A schema this cannot find it in would make every one of them decide
+    *no body is constrained*, which reads as a fault in the plugin — so it is
+    named as what it is instead.
+    """
+    if published.schema is not None and not published.body_constraints():
+        report.fail(
+            SCHEMA,
+            "declares no `Expect` this can read, so what an expectation may constrain about a "
+            "body is not readable out of it",
         )
 
-    if isinstance(table.get("version"), str):
-        report.check(SEMVER.match(table["version"]) is not None, f"{where}.version",
-                     f"{table['version']!r} is not semver")
 
-    forms = table.get("forms")
-    if forms is not None and report.check(
-        isinstance(forms, list) and forms,
-        f"{where}.forms",
-        "must be a non-empty array of forms the stack declares",
-    ):
-        for form in forms:
-            report.check(
-                form in STACK_FORMS,
-                f"{where}.forms",
-                f"{form!r} names no form the stack declares; available: {', '.join(STACK_FORMS)}",
-            )
+def against_the_schema(manifest: dict, published: Published, report: Report) -> None:
+    """The whole of the manifest's shape, decided by an off-the-shelf reader.
 
-
-def validate_health(health: dict, report: Report) -> None:
-    where = "[[service]].health"
-    kind = health.get("kind")
-    if not report.check(kind in HEALTH_KINDS, where,
-                        f"kind {kind!r} is not one of {', '.join(HEALTH_KINDS)}"):
+    Which is the point: the reader is a library nobody here wrote, the schema is
+    generated from the types lemonfiber parses with, and what passes here is what
+    passes lemonfiber's own conformance stage. An author's editor does this same
+    thing against this same document with nothing installed.
+    """
+    if published.schema is None:
+        report.skipped("the manifest's shape, which the published schema decides")
         return
-    if kind == "http":
-        report.check("path" in health, where, "an http health declares the path it asks for")
-    if "timeout_s" in health:
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError as absent:  # pragma: no cover - the workflow installs it
+        raise Unreadable(
+            "jsonschema is not installed, so nothing was held to the published schema"
+        ) from absent
+
+    validator = Draft202012Validator(published.schema)
+    for fault in sorted(validator.iter_errors(manifest), key=lambda one: list(one.path)):
+        where = "".join(f".{step}" for step in fault.path)
+        report.fail(f"{MANIFEST}{where}" if where else MANIFEST, fault.message)
+
+
+def validate_plugin(plugin: dict, report: Report) -> None:
+    """Who the plugin says it is, and whether an operator could go and check.
+
+    The licence is recorded rather than constrained: the bundled set is a list
+    this project stands behind and a plugin is the operator's own choice, so
+    refusing to install proprietary software on somebody else's machine would be
+    the tool standing between an operator and their stack. An absent one is a
+    different matter — it is the operator not being told.
+    """
+    where = "[plugin]"
+    licence = plugin.get("license")
+    if isinstance(licence, str):
         report.check(
-            isinstance(health["timeout_s"], int) and health["timeout_s"] > 0,
-            f"{where}.timeout_s",
-            "must be a positive integer",
+            licence.strip() != "", f"{where}.license",
+            "is blank; an operator choosing whether to run somebody else's software is owed the "
+            "one fact that says what running it commits them to",
         )
+    name = plugin.get("id")
+    if isinstance(name, str):
+        report.check(
+            bool(name) and all(letter in ID_LETTERS for letter in name),
+            f"{where}.id",
+            f"{name!r} is not a plain lowercase name; it is the namespace every capability and "
+            "contribution this plugin declares is prefixed with, so a separator in it would make "
+            "two different plugins able to write the same identity",
+        )
+    upstream = plugin.get("upstream")
+    if isinstance(upstream, str):
+        report.check(
+            upstream.startswith("https://"), f"{where}.upstream",
+            f"{upstream!r} is not an https address; it is how an operator judges the thing being "
+            "installed rather than the wrapper around it",
+        )
+    forms = plugin.get("forms")
+    if isinstance(forms, list):
+        report.check(
+            bool(forms), f"{where}.forms",
+            "names no form, so the service it installs would join nothing and start with nothing",
+        )
+
+
+def validate_service(service: dict, report: Report) -> None:
+    """What runs, and whether what runs is fixed.
+
+    A tag is not a pin: it is a name its publisher can repoint, so the thing
+    somebody read in a diff and the thing running on an operator's machine can
+    differ with nothing in the manifest changing. A digest can always be
+    obtained, which is why its absence is a fault in the manifest rather than a
+    limitation of a registry.
+    """
+    where = "[[service]]"
+    digest = service.get("digest")
+    if isinstance(digest, str):
+        after = digest[len(DIGEST_PREFIX):] if digest.startswith(DIGEST_PREFIX) else None
+        report.check(
+            after is not None and len(after) == DIGEST_LENGTH
+            and all(letter in string.hexdigits for letter in after),
+            f"{where}.digest",
+            f"{digest!r} is not a {DIGEST_PREFIX} digest of {DIGEST_LENGTH} hexadecimal "
+            "characters, so what actually runs is not fixed by this manifest",
+        )
+    image = service.get("image")
+    if isinstance(image, str):
+        # Read after the last `/` on purpose: a registry host may carry a port,
+        # and `:5000` in `localhost:5000/komga` is where that host answers rather
+        # than which version runs.
+        report.check(
+            "@" not in image and ":" not in image.rsplit("/", 1)[-1],
+            f"{where}.image",
+            f"{image!r} carries its own tag or digest; what runs is declared once, in `digest`, "
+            "so a second pin here could disagree with it",
+        )
+    tag = service.get("tag")
+    if isinstance(tag, str):
+        report.check(
+            tag.strip() != "", f"{where}.tag",
+            "is blank; the digest says what runs and the tag is the readable name beside it, "
+            "without which a diff shows sixty-four characters and no version",
+        )
+    report.check(
+        service.get("port") is None or service.get("bind") is not None,
+        f"{where}.bind",
+        "is not declared and a port is; the tier is what decides whether the service is "
+        "reachable by name, and lemonfiber assigns the address from it",
+    )
+    validate_config_path(service, report)
 
 
 def validate_config_path(service: dict, report: Report) -> None:
-    """Where the one configuration directory lands inside the container (ARCH-R100).
+    """Where the service's one configuration directory lands inside its container.
 
-    The mount set is lemonfiber's and unchanged. What is checked here is that the
-    target names one place, is a place, and is not the library — a path beneath
-    the data root would be a second mount over somebody's media wearing a
-    different name.
+    The number of mounts and their sources are lemonfiber's, and that is what
+    makes what a plugin can reach answerable from the format. Only the target is
+    the plugin's: one inside the library would be a second mount over the
+    operator's media wearing a different name.
     """
+    path = service.get("config_path")
+    if not isinstance(path, str):
+        return
     where = "[[service]].config_path"
-    declared = service.get("config_path")
-    if declared is None:
+    if not path.startswith("/") or path == "/" or ".." in path or "$" in path:
+        report.fail(
+            where,
+            f"{path!r} is not one plain absolute directory; what is permitted is a single "
+            "absolute path that is not the root, with no `..` and nothing interpolated",
+        )
         return
-    if not report.check(isinstance(declared, str) and declared, where, "must be a non-empty string"):
-        return
-    report.check(declared.startswith("/"), where, f"{declared!r} is not an absolute path")
-    report.check(declared != "/", where, "the container root is not a configuration directory")
-    report.check(".." not in declared.split("/"), where, f"{declared!r} walks out of itself")
-    report.check("$" not in declared, where, f"{declared!r} interpolates; the path is data, not a template")
     report.check(
-        declared != "/data" and not declared.startswith("/data/"),
+        path != DATA and not path.startswith(f"{DATA}/"),
         where,
-        f"{declared!r} is inside the data root, which would be a second mount over the library",
+        f"{path!r} is inside {DATA}, which is the library mount; a configuration directory there "
+        "would be a second mount over the operator's media under another name",
     )
 
 
-def validate_provides(service: dict, published: Published, report: Report) -> None:
-    """Capabilities claimed (F4-R1, ARCH-R102).
+def its_own(name: object, plugin_id: str) -> bool:
+    """Whether a capability name is this plugin's own rather than lemonfiber's.
+
+    Its id, a colon, and something after it. A name that is not this is held to
+    the published vocabulary, which is the only thing that can say whether it
+    names anything.
+    """
+    if not isinstance(name, str):
+        return False
+    prefix, _, rest = name.partition(":")
+    return prefix == plugin_id and bool(rest)
+
+
+def core_claims(service: dict, plugin_id: str) -> list[str]:
+    """Every capability a service claims that is not its own to define."""
+    return [
+        name for name in listed(service.get("provides"))
+        if isinstance(name, str) and not its_own(name, plugin_id)
+    ]
+
+
+def validate_provides(service: dict, plugin_id: str, published: Published, report: Report) -> None:
+    """Capabilities claimed (`F4-R1`, `ARCH-R102`).
 
     Two shapes and no third. A core name is lemonfiber's, comes from the
     published vocabulary, and has to be demonstrated by a `[[claim]]`; a
     namespaced one is this plugin's, is inert until something asks for it, and
-    has no published contract to satisfy.
+    has no published contract to satisfy. Which of the two a name is, is read off
+    the name; whether the first kind names anything is the vocabulary's to say.
     """
     where = "[[service]].provides"
-    claims = service.get("provides")
-    if claims is None:
-        return
-    if not report.check(isinstance(claims, list), where, "must be an array of capability names"):
-        return
-    prefix = f"{service.get('id', '')}:"
-    for claim in claims:
-        if not report.check(isinstance(claim, str) and claim, where, f"{claim!r} is not a capability name"):
-            continue
-        if claim.startswith(prefix) and NAMESPACED.match(claim):
-            continue
-        if CORE_CAPABILITY.match(claim):
-            continue
-        report.fail(
-            where,
-            f"{claim!r} is neither a core name — `area.verb`, lowercase, one dot — nor namespaced "
-            f"with this plugin's id ({prefix}…)",
-        )
-
+    claimed = core_claims(service, plugin_id)
     if not published.asked:
-        if any(isinstance(c, str) and CORE_CAPABILITY.match(c) for c in claims):
-            report.skipped("whether each core name is one the published vocabulary carries")
+        if claimed:
+            report.skipped("whether each capability claimed is one the published vocabulary carries")
         return
 
-    for claim in claims:
-        if not (isinstance(claim, str) and CORE_CAPABILITY.match(claim)):
+    for name in claimed:
+        if published.capability(name) is not None:
             continue
-        if published.capability(claim) is not None:
-            continue
-        gone = published.removed(claim)
+        gone = published.removed(name)
         if gone is not None:
             report.fail(
                 where,
-                f"{claim!r} was removed in vocabulary generation {gone.get('removed_in')!r}; "
+                f"{name!r} was removed in vocabulary generation {gone.get('removed_in')!r}; "
                 f"{gone.get('replaced_by') or 'nothing'} took it over",
             )
         else:
             report.fail(
                 where,
-                f"{claim!r} names no capability the published vocabulary carries; "
-                f"available: {', '.join(sorted(published.names()))}",
+                f"{name!r} names no capability the published vocabulary carries, and is not "
+                f"namespaced with this plugin's id ({plugin_id}:…); available: "
+                f"{', '.join(sorted(published.names()))}",
             )
 
 
-def core_claims(service: dict) -> list[str]:
-    return [
-        name for name in service.get("provides", [])
-        if isinstance(name, str) and CORE_CAPABILITY.match(name)
-    ]
-
-
-def validate_claims(claims: list, service: dict, published: Published, report: Report) -> None:
-    """The probes a core capability is demonstrated by (F4-R24, ARCH-R109, ARCH-R116).
+def validate_claims(claims: list, service: dict, plugin_id: str,
+                    published: Published, report: Report) -> None:
+    """The probes a core capability is demonstrated by (`F4-R24`, `ARCH-R109`, `ARCH-R116`).
 
     `provides` and this are a declaration and its evidence rather than two lists,
     so each half is held to the other: a core name with no claim asserts, and a
     claim for a name nothing declares demonstrates something the service never
-    said it could do.
+    said it could do. Neither half is readable from the other's schema.
     """
     where = "[[claim]]"
-    if not report.check(isinstance(claims, list), where, "must be an array of claims"):
-        return
-
-    declared = core_claims(service)
+    declared = core_claims(service, plugin_id)
     seen: list[str] = []
 
     for index, claim in enumerate(claims):
-        name = claim.get("capability") if isinstance(claim, dict) else None
-        at = f"{where} {name or f'#{index + 1}'}"
-        if not report.check(isinstance(claim, dict), at, "must be a table"):
+        if not isinstance(claim, dict):
             continue
-        for field in CLAIM_REQUIRED:
-            report.check(field in claim, at, f"missing required field {field!r}")
-        for field in sorted(set(claim) - set(CLAIM_REQUIRED)):
-            report.fail(f"{at}.{field}", f"{field!r} is outside the permitted set")
+        name = claim.get("capability")
+        at = f"{where} {name or f'#{index + 1}'}"
         if not isinstance(name, str):
             continue
         report.check(name not in seen, at, f"{name!r} is claimed twice")
@@ -417,26 +508,21 @@ def validate_claims(claims: list, service: dict, published: Published, report: R
 
 
 def validate_claim_probes(claim: dict, at: str, published: Published, report: Report) -> None:
-    probes = claim.get("probe")
-    if not report.check(isinstance(probes, list) and probes, at,
-                        "a claim binds at least one probe"):
-        return
+    """One claim's bindings, against the probes its capability declares.
+
+    Every one of them, exactly once, and no others. The vocabulary owns what must
+    be shown and the claimant owns where to ask it, so a binding that is missing
+    is a contract half-satisfied and one that is invented is evidence for nothing.
+    """
+    probes = [one for one in listed(claim.get("probe")) if isinstance(one, dict)]
 
     bound: list[str] = []
-    for index, probe in enumerate(probes):
-        name = probe.get("id") if isinstance(probe, dict) else None
-        where = f"{at}.probe {name or f'#{index + 1}'}"
-        if not report.check(isinstance(probe, dict), where, "must be a table"):
-            continue
-        for field in PROBE_REQUIRED:
-            report.check(field in probe, where, f"missing required field {field!r}")
-        for field in sorted(set(probe) - set(PROBE_REQUIRED)):
-            report.fail(f"{where}.{field}", f"{field!r} is outside the permitted set")
+    for probe in probes:
+        name = probe.get("id")
+        where = f"{at}.probe {name}"
         if isinstance(name, str):
             report.check(name not in bound, where, f"{name!r} is bound twice")
             bound.append(name)
-        validate_request(probe.get("request"), where, report)
-        validate_expect(probe.get("expect"), where, report)
         validate_fixture(probe.get("fixture"), where, report)
         validate_probe_asks_nothing_of_the_library(probe.get("expect"), where, report)
 
@@ -449,49 +535,83 @@ def validate_claim_probes(claim: dict, at: str, published: Published, report: Re
     if entry is None:
         return
 
-    declared = {one.get("id"): one for one in entry.get("probes", [])}
-    for name in declared:
+    declares = {one.get("id"): one for one in listed(entry.get("probes")) if isinstance(one, dict)}
+    for name in declares:
         report.check(
             name in bound,
             at,
             f"binds no probe {name!r}, which {capability!r} declares; "
-            f"it declares: {', '.join(sorted(declared))}",
+            f"it declares: {', '.join(sorted(str(one) for one in declares))}",
         )
     for probe in probes:
-        if not isinstance(probe, dict):
-            continue
         name = probe.get("id")
-        wanted = declared.get(name)
+        wanted = declares.get(name)
         where = f"{at}.probe {name}"
         if wanted is None:
             report.fail(
                 where,
                 f"{name!r} is not a probe {capability!r} declares; "
-                f"it declares: {', '.join(sorted(declared))}",
+                f"it declares: {', '.join(sorted(str(one) for one in declares))}",
             )
             continue
-        requires = wanted.get("requires", {})
-        expect = probe.get("expect")
-        if not isinstance(expect, dict):
-            continue
-        statuses = requires.get("status", [])
+        validate_binding(probe.get("expect"), wanted, where, published, report)
+
+
+def carries(expect: dict, constraint: str, published: Published) -> bool:
+    """Whether an expectation says the thing a constraint is.
+
+    A key that is present and asserts nothing does not count. `json_is_absent =
+    false` reads as a constraint and no runner evaluates it, and every empty
+    collection is the same shape of nothing — a claim could satisfy a body
+    requirement by writing a word, and then the runner would report a capability
+    demonstrated because something answered `200`. A port proxy answers `200`.
+
+    `json_array_min = 0` stays a constraint: the check behind it still requires
+    the body to parse as an array, which is what *reads as a list* means.
+    """
+    if constraint not in published.body_constraints():
+        return False
+    held = expect.get(constraint)
+    if constraint == "json_is_absent":
+        return held is True
+    if constraint == "json_array_min":
+        return isinstance(held, int)
+    if isinstance(held, (dict, list, str)):
+        return bool(held)
+    return held is not None
+
+
+def validate_binding(expect: object, probe: dict, where: str,
+                     published: Published, report: Report) -> None:
+    """One binding's expectation, against what its probe permits.
+
+    A claim demonstrated by the wrong evidence is an undemonstrated claim, and
+    the two ways that happens are a status the probe does not accept as an answer
+    and a body nothing is said about.
+    """
+    if not isinstance(expect, dict):
+        return
+    requires = table(probe.get("requires"))
+    statuses = listed(requires.get("status"))
+    report.check(
+        expect.get("status") in statuses,
+        where,
+        f"expects status {expect.get('status')!r}, and the probe permits "
+        f"{', '.join(str(one) for one in statuses)}",
+    )
+
+    wants_body = listed(requires.get("body"))
+    if wants_body:
         report.check(
-            expect.get("status") in statuses,
+            any(carries(expect, str(one), published) for one in wants_body),
             where,
-            f"expects status {expect.get('status')!r}, and the probe permits "
-            f"{', '.join(str(one) for one in statuses)}",
+            f"constrains no body, and the probe requires one of: "
+            f"{', '.join(sorted(str(one) for one in wants_body))}",
         )
-        wants_body = requires.get("body", [])
-        if wants_body:
-            report.check(
-                bool(set(expect) & set(wants_body)),
-                where,
-                f"constrains no body, and the probe requires one of: {', '.join(sorted(wants_body))}",
-            )
 
 
 def validate_probe_asks_nothing_of_the_library(expect: object, where: str, report: Report) -> None:
-    """A probe gates an install, so it asks what the service does (F4-R25, ARCH-R119).
+    """A probe gates an install, so it asks what the service does (`F4-R25`, `ARCH-R119`).
 
     A count above zero is the only way an expectation can say something about how
     much the operator has; everything else it can say is about shape. So that is
@@ -513,7 +633,7 @@ def validate_probe_asks_nothing_of_the_library(expect: object, where: str, repor
             f"{least!r} asserts the operator has put something there, and a probe gates an "
             "install — `0` says the answer reads as a list without saying how long it is",
         )
-    for key, minimum in (expect.get("json_at_least") or {}).items():
+    for key, minimum in table(expect.get("json_at_least")).items():
         if isinstance(minimum, (int, float)) and minimum > 0:
             report.fail(
                 f"{where}.expect.json_at_least",
@@ -522,74 +642,14 @@ def validate_probe_asks_nothing_of_the_library(expect: object, where: str, repor
             )
 
 
-def validate_wiring(wiring: dict, service: dict, report: Report) -> None:
-    """How the stack's own proxy and dashboard reach it (F3-R31, ARCH-R103, ARCH-R104)."""
-    where = "[wiring]"
-    for field in sorted(set(wiring) - set(WIRING_PERMITTED)):
-        report.fail(
-            f"{where}.{field}",
-            f"{field!r} is outside the permitted set; permitted: {', '.join(WIRING_PERMITTED)}. "
-            "A plugin declares which label and which group, never a stanza or an entry.",
-        )
-
-    hostname = wiring.get("hostname")
-    if hostname is not None:
-        report.check(
-            isinstance(hostname, str) and DNS_LABEL.match(hostname) is not None,
-            f"{where}.hostname",
-            f"{hostname!r} is not a single DNS label; it goes in front of the operator's own "
-            "domain and may not be a name, an address or a port",
-        )
-        report.check(
-            service.get("bind") == "lan",
-            f"{where}.hostname",
-            f"this service binds {service.get('bind')!r}, and only a lan service is proxied — "
-            "the tier decides whether it is reachable by name, not the plugin",
-        )
-
-    group = wiring.get("dashboard_group")
-    if group is not None:
-        report.check(
-            group in DASHBOARD_GROUPS,
-            f"{where}.dashboard_group",
-            f"{group!r} is not one of {', '.join(DASHBOARD_GROUPS)}",
-        )
-
-
-def validate_request(request: object, where: str, report: Report) -> None:
-    if not isinstance(request, dict):
-        return
-    report.check("method" in request and "path" in request, f"{where}.request",
-                 "names the method and the path it asks for")
-    report.check(
-        str(request.get("path", "")).startswith("/"),
-        f"{where}.request.path",
-        f"{request.get('path')!r} is not a path on the service",
-    )
-
-
-def validate_expect(expect: object, where: str, report: Report) -> None:
-    if not isinstance(expect, dict):
-        return
-    report.check(bool(expect), f"{where}.expect", "declares nothing, so nothing can be decided")
-    for field in sorted(set(expect) - set(EXPECT_PERMITTED)):
-        report.fail(
-            f"{where}.expect.{field}",
-            f"{field!r} is not something this can check; permitted: {', '.join(EXPECT_PERMITTED)}",
-        )
-
-
 def validate_fixture(named: object, where: str, report: Report) -> None:
-    """The recorded response (F10-R4, F10-R5).
+    """The recorded response (`F10-R4`, `F10-R5`).
 
-    Named and present, because a recording nobody can read is a place for
-    something to hide and a recording that is not there is a proof that cannot be
-    run at all.
+    That it names one is the schema's to say. That the source carries it is not
+    readable from the manifest at all, and a proof that cannot be run is a proof
+    that establishes nothing.
     """
-    if named is None:
-        return
-    if not report.check(isinstance(named, str) and named, f"{where}.fixture",
-                        "must name a recorded response"):
+    if not isinstance(named, str) or not named:
         return
     report.check(
         (ROOT / named).is_file(),
@@ -598,80 +658,33 @@ def validate_fixture(named: object, where: str, report: Report) -> None:
     )
 
 
-def validate_proofs(proofs: list, report: Report) -> None:
-    """What must hold before it is installed (F3-R1, ARCH-R105)."""
-    if not report.check(isinstance(proofs, list) and proofs, "[[proof]]", "a plugin declares at least one proof"):
-        return
-
-    seen: set[str] = set()
-    constrains_a_body = False
-
-    for index, proof in enumerate(proofs):
-        name = proof.get("id") or f"#{index + 1}"
-        where = f"[[proof]] {name}"
-        for field in PROOF_REQUIRED:
-            report.check(field in proof, where, f"missing required field {field!r}")
-        for field in sorted(set(proof) - set(PROOF_REQUIRED) - set(PROOF_OPTIONAL)):
-            report.fail(f"{where}.{field}", f"{field!r} is outside the permitted set")
-
-        if isinstance(proof.get("id"), str):
-            report.check(proof["id"] not in seen, where, f"{proof['id']!r} is declared twice")
-            seen.add(proof["id"])
-
-        validate_request(proof.get("request"), where, report)
-        validate_expect(proof.get("expect"), where, report)
-        validate_fixture(proof.get("fixture"), where, report)
-
-        expect = proof.get("expect")
-        if isinstance(expect, dict) and set(expect) & BODY_CONSTRAINTS:
-            constrains_a_body = True
-
-        if isinstance(proof.get("why"), str):
-            report.check(proof["why"].strip() != "", f"{where}.why",
-                         "says nothing; a proof nobody can justify is one nobody will maintain")
-
-    report.check(
-        constrains_a_body,
-        "[[proof]]",
-        "every proof constrains only a response status. Docker publishes a port by putting a "
-        "proxy in front of it, and that proxy accepts before knowing whether anything inside is "
-        "listening — so none of these would fail against a container that had been emptied",
-    )
-
-
 def validate_contributions(entries: list, plugin_id: str, requires: dict,
                            published: Published, report: Report) -> None:
-    """Rows in registers lemonfiber already runs (F3-R33, F4-R21, F4-R22, ARCH-R113).
+    """Rows in registers lemonfiber already runs (`F3-R33`, `F4-R21`, `F4-R22`, `ARCH-R113`).
 
     Which points exist, and what a row at one carries, are lemonfiber's to say
-    and are published. What is checked without them is what this manifest can be
-    held to on its own: that every identity is namespaced, that a remedy names a
-    check declared here, and that no check is left without one.
+    and are published — a manifest's `[[contribution]]` is the union of every row
+    shape, so the schema cannot narrow one to the point it is made at. What is
+    checked without the points is what this manifest can be held to on its own:
+    that every identity is namespaced, that a remedy names a check declared here,
+    and that no check is left without one.
     """
     where = "[[contribution]]"
-    if not report.check(isinstance(entries, list) and entries, where,
-                        "must be a non-empty array of contributions"):
-        return
-
     prefix = f"{plugin_id}:"
     identities: set[str] = set()
     checks: set[str] = set()
     remedied: set[str] = set()
 
     for index, entry in enumerate(entries):
-        name = entry.get("id") if isinstance(entry, dict) else None
-        at = f"{where} {name or f'#{index + 1}'}"
-        if not report.check(isinstance(entry, dict), at, "must be a table"):
+        if not isinstance(entry, dict):
             continue
+        name = entry.get("id")
         point = entry.get("at")
-        if not report.check(isinstance(point, str) and point, f"{at}.at",
-                            "names the extension point this is made at"):
-            continue
-        if not report.check(isinstance(name, str) and name, f"{at}.id",
-                            "names the identity this row holds"):
+        at = f"{where} {name or f'#{index + 1}'}"
+        if not isinstance(point, str) or not isinstance(name, str):
             continue
         report.check(
-            name.startswith(prefix) and NAMESPACED.match(name) is not None,
+            name.startswith(prefix) and len(name) > len(prefix),
             f"{at}.id",
             f"{name!r} is not namespaced with this plugin's id ({prefix}…); a contribution is the "
             "plugin's and is attributed to it wherever it appears",
@@ -681,8 +694,6 @@ def validate_contributions(entries: list, plugin_id: str, requires: dict,
 
         if point == "doctor.check":
             checks.add(name)
-            validate_request(entry.get("request"), at, report)
-            validate_expect(entry.get("expect"), at, report)
             validate_fixture(entry.get("fixture"), at, report)
         if point == "doctor.remedy":
             for_check = entry.get("for")
@@ -694,7 +705,7 @@ def validate_contributions(entries: list, plugin_id: str, requires: dict,
             needs = (published.point(point) or {}).get("requires")
             if needs is not None:
                 report.check(
-                    needs in requires.get("capabilities", []),
+                    needs in listed(requires.get("capabilities")),
                     "[requires].capabilities",
                     f"a manifest contributing at {point!r} asks for {needs!r} by name, so a "
                     "lemonfiber that does not take contributions there refuses this manifest "
@@ -725,7 +736,8 @@ def validate_contributions(entries: list, plugin_id: str, requires: dict,
         report.skipped("whether each contribution's point exists and its row carries what that point declares")
 
 
-def validate_contribution_row(entry: dict, at: str, point: str, published: Published, report: Report) -> None:
+def validate_contribution_row(entry: dict, at: str, point: str,
+                              published: Published, report: Report) -> None:
     published_point = published.point(point)
     if published_point is None:
         report.fail(
@@ -750,8 +762,8 @@ def validate_contribution_row(entry: dict, at: str, point: str, published: Publi
     if not isinstance(row, dict):
         report.fail(f"{at}.at", f"{point!r} publishes no row shape this can read")
         return
-    required = row.get("required", [])
-    optional = row.get("optional", [])
+    required = listed(row.get("required"))
+    optional = listed(row.get("optional"))
     for field in required:
         report.check(field in entry, at, f"missing {field!r}, which {point!r} requires")
     for field in sorted(set(entry) - {"at"} - set(required) - set(optional)):
@@ -788,62 +800,57 @@ def validate_contribution_row(entry: dict, at: str, point: str, published: Publi
         )
 
 
-def validate_recipes(recipes: list, requires: dict, service_id: str, report: Report) -> None:
-    """The ordered calls that configure what it installed (F3-R35, ARCH-R117).
+def validate_recipes(recipes: list, requires: dict, report: Report) -> None:
+    """The ordered calls that configure what it installed (`F3-R35`, `ARCH-R117`).
 
     Nothing here runs one. What is checked is what F8 requires to be decidable
-    without running it: every destination is a name rather than an address, every
-    substitution refers to something captured earlier, and every value that could
-    reach a destination has a declared pair behind it.
+    without running it, and none of it is decidable from one field: every
+    substitution refers to something an earlier step captured, every value that
+    could reach a destination has a declared pair behind it, and the whole
+    manifest asks for the capability that would run any of it.
     """
-    where = "[[recipe]]"
-    if not report.check(isinstance(recipes, list) and recipes, where,
-                        "must be a non-empty array of recipes"):
-        return
-
     report.check(
-        RECIPE_CAPABILITY in requires.get("capabilities", []),
+        RECIPE_CAPABILITY in listed(requires.get("capabilities")),
         "[requires].capabilities",
         f"a manifest declaring a recipe asks for {RECIPE_CAPABILITY!r} by name, so a lemonfiber "
         "that cannot run one refuses this manifest rather than parsing the block and skipping it",
     )
 
+    named: set[str] = set()
     for index, recipe in enumerate(recipes):
-        name = recipe.get("id") if isinstance(recipe, dict) else None
-        at = f"{where} {name or f'#{index + 1}'}"
-        if not report.check(isinstance(recipe, dict), at, "must be a table"):
+        if not isinstance(recipe, dict):
             continue
-        for field in ("id", "title", "why", "step"):
-            report.check(field in recipe, at, f"missing required field {field!r}")
-        for field in sorted(set(recipe) - {"id", "title", "why", "step", "pair"}):
-            report.fail(f"{at}.{field}", f"{field!r} is outside the permitted set")
-        validate_recipe_steps(recipe, at, service_id, report)
+        name = recipe.get("id")
+        at = f"{'[[recipe]]'} {name or f'#{index + 1}'}"
+        if isinstance(name, str):
+            report.check(name not in named, at, f"{name!r} is declared twice, so naming one names both")
+            named.add(name)
+        validate_recipe_steps(recipe, at, report)
 
 
-def validate_recipe_steps(recipe: dict, at: str, service_id: str, report: Report) -> None:
-    steps = recipe.get("step")
-    if not report.check(isinstance(steps, list) and steps, at, "a recipe is an ordered list of calls"):
-        return
-
+def validate_recipe_steps(recipe: dict, at: str, report: Report) -> None:
     pairs = {
         (pair.get("value"), pair.get("to"))
-        for pair in recipe.get("pair", [])
+        for pair in listed(recipe.get("pair"))
         if isinstance(pair, dict)
     }
     captured: set[str] = set()
 
-    for index, step in enumerate(steps):
-        name = step.get("id") if isinstance(step, dict) else None
-        where = f"{at}.step {name or f'#{index + 1}'}"
-        if not report.check(isinstance(step, dict), where, "must be a table"):
+    for index, step in enumerate(listed(recipe.get("step"))):
+        if not isinstance(step, dict):
             continue
         call = step.get("call")
-        if not report.check(isinstance(call, dict), f"{where}.call", "names the call it makes"):
+        where = f"{at}.step {step.get('id') or f'#{index + 1}'}"
+        if not isinstance(call, dict):
             continue
         destination = call.get("to")
         validate_destination(destination, f"{where}.call.to", report)
+        report.check(
+            call.get("method") in METHODS, f"{where}.call.method",
+            f"{call.get('method')!r} is not one of: {', '.join(METHODS)}",
+        )
 
-        for reference in re.findall(r"\{\{\s*([a-z0-9_-]+)\s*\}\}", json.dumps(call)):
+        for reference in substitutions(call):
             report.check(
                 reference in captured,
                 f"{where}.call",
@@ -855,216 +862,121 @@ def validate_recipe_steps(recipe: dict, at: str, service_id: str, report: Report
                 f"would carry {reference!r} to {destination!r}, and no [[recipe.pair]] permits it",
             )
 
-        for capture in step.get("capture", []):
-            if not isinstance(capture, dict):
-                continue
-            report.check(
-                capture.get("origin") in ("stack-service", "credential-store", "operator", "external"),
-                f"{where}.capture",
-                f"{capture.get('origin')!r} is not an origin a captured value may carry",
-            )
-            if isinstance(capture.get("name"), str):
+        for capture in listed(step.get("capture")):
+            if isinstance(capture, dict) and isinstance(capture.get("name"), str):
                 captured.add(capture["name"])
 
-    for value, destination in sorted(pairs, key=lambda one: (str(one[0]), str(one[1]))):
-        if destination == service_id:
-            continue
-        report.check(
-            isinstance(destination, str) and bool(destination),
-            f"{at}.pair",
-            f"{value!r} is declared as carried to {destination!r}, which names nothing",
-        )
+
+def substitutions(call: dict) -> list[str]:
+    """Every name a call substitutes into what it carries.
+
+    The body and the headers, which is where lemonfiber looks: a substitution in
+    the path is not a value carried to the destination, and reading one as though
+    it were would refuse a flow the runner permits.
+    """
+    carried = [call.get("body"), *table(call.get("headers")).values()]
+    return [
+        piece.split("}}", 1)[0].strip()
+        for text in carried if isinstance(text, str)
+        for piece in text.split("{{")[1:]
+        if "}}" in piece
+    ]
 
 
 def validate_destination(destination: object, where: str, report: Report) -> None:
-    if not report.check(isinstance(destination, str) and destination, where,
-                        "names a service in this stack or a host outside it"):
+    """Whether a call names something rather than somewhere.
+
+    A destination is a service in this stack or a DNS name outside it, never an
+    address. An address is a machine on the operator's network that the manifest
+    chose, which is a reach nothing in the declaration bounds — and every part
+    between the dots being a number is what an address is and what no DNS name
+    can be, because the last label of a name is never all digits.
+    """
+    if not isinstance(destination, str):
         return
+    parts = destination.split(".")
+    numeric = len(parts) > 1 and all(part.isdigit() for part in parts)
     report.check(
-        ":" not in destination,
+        ":" not in destination and not numeric,
         where,
-        f"{destination!r} carries a port; a recipe names a service or a host and lemonfiber "
-        "resolves the address",
+        f"{destination!r} is an address rather than a name; a call names a service in this stack "
+        "or a DNS name outside it, so that where it goes is a thing the operator can read",
     )
-    report.check(
-        IP_LITERAL.match(destination) is None,
-        where,
-        f"{destination!r} is an address; a recipe names and never addresses, because a declared "
-        "address is a declared address wherever it points",
-    )
-    report.check(
-        "/" not in destination,
-        where,
-        f"{destination!r} is not a name",
-    )
-    if "." in destination:
-        report.check(
-            DNS_NAME.match(destination) is not None,
-            where,
-            f"{destination!r} is not a DNS name",
-        )
-
-
-def validate_service(service: dict, published: Published, report: Report) -> None:
-    where = "[[service]]"
-    for field in SERVICE_REQUIRED:
-        report.check(field in service, where, f"missing required field {field!r}")
-
-    permitted = set(SERVICE_REQUIRED) | set(SERVICE_OPTIONAL)
-    for field in sorted(set(service) - permitted):
-        if field in FORBIDDEN_SERVICE_FIELDS:
-            report.fail(
-                f"{where}.{field}",
-                f"{field!r} is a stack.toml field a plugin may not declare; "
-                "lemonfiber fixes what a plugin's service may reach of the machine",
-            )
-        else:
-            report.fail(
-                f"{where}.{field}",
-                f"{field!r} is outside the permitted set; permitted: {', '.join(sorted(permitted))}",
-            )
-
-    digest = service.get("digest")
-    if digest is not None:
-        report.check(
-            isinstance(digest, str) and DIGEST.match(digest) is not None,
-            f"{where}.digest",
-            f"{digest!r} is not a well-formed sha256 digest",
-        )
-
-    image = service.get("image")
-    if isinstance(image, str):
-        report.check(
-            "@" not in image and ":" not in image.rsplit("/", 1)[-1],
-            f"{where}.image",
-            f"{image!r} carries a tag or digest; the registry path is named on its own",
-        )
-
-    criticality = service.get("criticality")
-    if criticality == FORBIDDEN_CRITICALITY:
-        report.fail(
-            f"{where}.criticality",
-            f"a plugin may not declare {FORBIDDEN_CRITICALITY!r}; available: {', '.join(CRITICALITIES)}",
-        )
-    elif criticality is not None:
-        report.check(
-            criticality in CRITICALITIES,
-            f"{where}.criticality",
-            f"{criticality!r} is not one of {', '.join(CRITICALITIES)}",
-        )
-
-    if "port" in service:
-        port = service["port"]
-        report.check(isinstance(port, int) and 1 <= port <= 65535, f"{where}.port", f"invalid port {port!r}")
-        report.check("bind" in service, f"{where}.bind",
-                     "a declared port needs the tier it is published on")
-    if "bind" in service:
-        report.check(service["bind"] in BINDS, f"{where}.bind",
-                     f"{service['bind']!r} is not one of {', '.join(BINDS)}")
-
-    if "takes_data" in service:
-        report.check(isinstance(service["takes_data"], bool), f"{where}.takes_data", "must be a boolean")
-
-    for media_type in service.get("media_types", []):
-        report.check(
-            media_type in MEDIA_TYPES,
-            f"{where}.media_types",
-            f"{media_type!r} is not one of {', '.join(MEDIA_TYPES)}",
-        )
-
-    validate_config_path(service, report)
-    validate_provides(service, published, report)
-
-    health = service.get("health")
-    if health is not None:
-        validate_health(health, report)
 
 
 def validate(manifest: dict, report: Report, published: Published | None = None) -> None:
-    published = published or Published(None, None)
+    published = published or Published(None, None, None)
+    against_the_schema(manifest, published, report)
+    readable_expectations(published, report)
 
-    version = manifest.get("schema_version")
-    report.check(
-        version in SUPPORTED_SCHEMA_VERSIONS,
-        MANIFEST,
-        f"schema_version {version!r} is not one of {sorted(SUPPORTED_SCHEMA_VERSIONS)}",
-    )
-
-    for field in sorted(set(manifest) - set(TOP_LEVEL)):
-        report.fail(f"{MANIFEST}.{field}", f"{field!r} is not a top-level table this contract defines")
-
-    plugin = manifest.get("plugin")
-    if report.check(isinstance(plugin, dict), MANIFEST, "no [plugin] table"):
+    plugin = table(manifest.get("plugin"))
+    plugin_id = plugin.get("id", "")
+    if plugin:
         validate_plugin(plugin, report)
-    plugin_id = plugin.get("id", "") if isinstance(plugin, dict) else ""
 
     services = manifest.get("service")
     first: dict = {}
-    if report.check(isinstance(services, list) and services, MANIFEST, "no [[service]] entry"):
-        report.check(len(services) == 1, MANIFEST,
-                     f"{len(services)} services declared; this schema version permits exactly one")
+    if isinstance(services, list):
+        # One service, because this generation of the format describes one
+        # addition to a stack that already exists. Two would make "which one did
+        # I install" a question with no good answer, and none would make the rest
+        # of the manifest describe nothing.
+        report.check(
+            len(services) == 1, "[[service]]",
+            f"this generation of the format describes exactly one service and {len(services)} "
+            "are declared",
+        )
         for service in services:
-            validate_service(service, published, report)
-        first = services[0]
+            if isinstance(service, dict):
+                validate_service(service, report)
+        if services and isinstance(services[0], dict):
+            first = services[0]
+            validate_provides(first, plugin_id, published, report)
 
-    requires = manifest.get("requires")
-    if requires is not None:
-        report.check(isinstance(requires, dict), "[requires]", "must be a table")
-        capabilities = requires.get("capabilities", [])
-        report.check(
-            isinstance(capabilities, list) and all(isinstance(c, str) and c for c in capabilities),
-            "[requires].capabilities",
-            "must be an array of capability names",
-        )
-        report.check(
-            "min_lemonfiber_version" not in requires and "version" not in requires,
-            "[requires]",
-            "a manifest carries no minimum lemonfiber version; an unmet requirement "
-            "is refused by naming the capability",
-        )
+    requires = table(manifest.get("requires"))
 
     claims = manifest.get("claim")
-    if claims is not None or core_claims(first):
-        validate_claims(claims or [], first, published, report)
+    if claims is not None or core_claims(first, plugin_id):
+        validate_claims(
+            [one for one in listed(claims) if isinstance(one, dict)],
+            first, plugin_id, published, report,
+        )
 
-    wiring = manifest.get("wiring")
-    if wiring is not None and report.check(isinstance(wiring, dict), "[wiring]", "must be a table"):
-        validate_wiring(wiring, first, report)
+    for proof in listed(manifest.get("proof")):
+        if isinstance(proof, dict):
+            validate_fixture(proof.get("fixture"), f"[[proof]] {proof.get('id')}", report)
 
-    proofs = manifest.get("proof")
-    if proofs is None:
-        report.fail("[[proof]]", "no proof is declared, and a plugin whose proofs do not pass is not installed")
-    else:
-        validate_proofs(proofs, report)
+    contributions = listed(manifest.get("contribution"))
+    if contributions:
+        validate_contributions(contributions, plugin_id, requires, published, report)
 
-    contributions = manifest.get("contribution")
-    if contributions is not None:
-        validate_contributions(contributions, plugin_id, requires or {}, published, report)
-
-    recipes = manifest.get("recipe")
-    if recipes is not None:
-        validate_recipes(recipes, requires or {}, first.get("id", ""), report)
+    recipes = listed(manifest.get("recipe"))
+    if recipes:
+        validate_recipes(recipes, requires, report)
 
 
-# Each case is a manifest broken one way, and the words its refusal must carry.
-# A gate nobody has seen fail is a gate nobody knows the shape of.
-BROKEN = (
-    ("an image named by tag alone", "digest", None, "missing required field 'digest'"),
-    ("a digest that is not one", "digest", "sha256:nope", "well-formed sha256 digest"),
-    ("a criticality a plugin may not assign itself", "criticality", "critical", "may not declare"),
-    ("a kernel capability", "grants", ["NET_ADMIN"], "a plugin may not declare"),
-    ("an environment variable", "environment", {"ND_X": "1"}, "a plugin may not declare"),
-    ("a port with no tier", "bind", None, "needs the tier"),
-    ("a configuration directory inside the library", "config_path", "/data/x", "inside the data root"),
-    ("a configuration directory that is the container root", "config_path", "/", "not a configuration directory"),
-    ("a relative configuration directory", "config_path", "config", "not an absolute path"),
-    ("a media type outside the vocabulary", "media_types", ["manga"], "is not one of"),
-    ("a capability that is neither shape", "provides", ["Not A Name"], "neither a core name"),
-)
+# A schema, a vocabulary and a set of points small enough to read and shaped
+# exactly as the published ones are. Held here rather than fetched: a self-test
+# that needs the network is one that reports nothing about the run that could not
+# reach it. None of the three describes the manifest format — each is a fixture
+# the rules below are driven against, and the run that decides this repository's
+# manifest fetches the real ones.
+SAMPLE_SCHEMA = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["schema_version", "plugin"],
+    "properties": {"schema_version": {"type": "integer"}},
+    "$defs": {
+        "Expect": {
+            "properties": {
+                "status": {}, "json": {}, "json_has_keys": {}, "json_types": {},
+                "json_at_least": {}, "json_array_min": {}, "json_is_absent": {},
+                "content_type": {}, "body_starts_with": {},
+            },
+        },
+    },
+}
 
-# A vocabulary and a set of points, small enough to read and shaped exactly as
-# the published ones are. Held here rather than fetched: a self-test that needs
-# the network is one that reports nothing about the run that could not reach it.
 SAMPLE_VOCABULARY = {
     "vocabulary": "service-capabilities",
     "vocabulary_version": 1,
@@ -1157,6 +1069,14 @@ def synthetic() -> dict:
     }
 
 
+def a_recipe(steps: list, pairs: list | None = None) -> list:
+    """One recipe carrying the steps a case is about, and nothing else."""
+    recipe: dict = {"id": "seed", "title": "Seed it", "why": "Because", "step": steps}
+    if pairs is not None:
+        recipe["pair"] = pairs
+    return [recipe]
+
+
 def refuses(label: str, manifest: dict, expected: str, published: Published) -> bool:
     report = Report()
     validate(manifest, report, published)
@@ -1168,19 +1088,173 @@ def refuses(label: str, manifest: dict, expected: str, published: Published) -> 
     return True
 
 
+# Each case is a manifest broken one way, and the words its refusal must carry.
+# A gate nobody has seen fail is a gate nobody knows the shape of.
+#
+# Every one of them is a rule no schema can state: it spans two places in the
+# document, or it is decided by an artefact lemonfiber publishes separately, or
+# it needs the source on disk. A case a schema would catch belongs to the schema,
+# and the first case here is the whole of that arm — it proves the manifest
+# reaches a reader, not what the reader says, because what it says is generated
+# somewhere else and is not this file's to assert.
+BROKEN = (
+    ("a manifest the published schema refuses",
+     lambda m: m.pop("schema_version"), "'schema_version' is a required property"),
+    ("a licence nobody declared",
+     lambda m: m["plugin"].__setitem__("license", "  "), "is blank"),
+    ("an id a second plugin could write over",
+     lambda m: m["plugin"].__setitem__("id", "Sample:One"), "is not a plain lowercase name"),
+    ("an upstream an operator cannot go and read",
+     lambda m: m["plugin"].__setitem__("upstream", "http://example.invalid"),
+     "is not an https address"),
+    ("a plugin joining no form at all",
+     lambda m: m["plugin"].__setitem__("forms", []), "names no form"),
+    ("two services in one plugin",
+     lambda m: m["service"].append(dict(m["service"][0])), "exactly one service"),
+    ("a digest that is not one",
+     lambda m: m["service"][0].__setitem__("digest", "sha256:nope"), "hexadecimal characters"),
+    ("an image carrying a second pin",
+     lambda m: m["service"][0].__setitem__("image", "example.invalid/sample:1.0.0"),
+     "carries its own tag or digest"),
+    ("a tag that says nothing",
+     lambda m: m["service"][0].__setitem__("tag", " "), "is blank"),
+    ("a port with no tier",
+     lambda m: m["service"][0].__setitem__("port", 8080), "is not declared and a port is"),
+    ("a configuration directory inside the library",
+     lambda m: m["service"][0].__setitem__("config_path", "/data/sample"),
+     "is inside /data"),
+    ("a configuration directory that is the container root",
+     lambda m: m["service"][0].__setitem__("config_path", "/"),
+     "is not one plain absolute directory"),
+    ("a configuration directory that walks out of itself",
+     lambda m: m["service"][0].__setitem__("config_path", "/config/../data"),
+     "is not one plain absolute directory"),
+    ("a configuration directory that interpolates",
+     lambda m: m["service"][0].__setitem__("config_path", "/config/$HOME"),
+     "is not one plain absolute directory"),
+    ("a core capability with no claim behind it",
+     lambda m: m.pop("claim"), "is demonstrated, not asserted"),
+    ("a claim for something the service never said it could do",
+     lambda m: m["service"][0]["provides"].remove("media.serve"), "has not said it can do it"),
+    ("one capability claimed twice",
+     lambda m: m["claim"].append(dict(m["claim"][0])), "is claimed twice"),
+    ("a claim leaving one of its capability's probes unbound",
+     lambda m: m["claim"][0]["probe"].pop(), "binds no probe"),
+    ("a probe the capability does not declare",
+     lambda m: m["claim"][0]["probe"][0].__setitem__("id", "vibes"), "is not a probe"),
+    ("one probe bound twice",
+     lambda m: m["claim"][0]["probe"].append(dict(m["claim"][0]["probe"][0])), "is bound twice"),
+    ("a binding with a status the probe does not permit",
+     lambda m: m["claim"][0]["probe"][0]["expect"].__setitem__("status", 200),
+     "and the probe permits"),
+    ("a binding constraining no body where the probe requires one",
+     lambda m: m["claim"][0]["probe"][1].__setitem__("expect", {"status": 200}),
+     "constrains no body"),
+    ("a binding whose body constraint asserts nothing",
+     lambda m: m["claim"][0]["probe"][1]["expect"].__setitem__("json_has_keys", []),
+     "constrains no body"),
+    ("a probe asserting the operator has put something there",
+     lambda m: m["claim"][0]["probe"][1]["expect"].__setitem__("json_array_min", 1),
+     "asserts the operator has put something there"),
+    ("a probe asserting a count of something the operator holds",
+     lambda m: m["claim"][0]["probe"][1]["expect"].__setitem__("json_at_least", {"total": 1}),
+     "asserts the operator has put something there"),
+    ("a binding naming a recording that is not here",
+     lambda m: m["claim"][0]["probe"][0].__setitem__("fixture", "fixtures/nowhere.json"),
+     "is not in this source"),
+    ("a proof naming a recording that is not here",
+     lambda m: m["proof"][0].__setitem__("fixture", "fixtures/nowhere.json"),
+     "is not in this source"),
+    ("a capability the vocabulary no longer carries",
+     lambda m: (m["service"][0]["provides"].__setitem__(0, "media.stream"),
+                m["claim"][0].__setitem__("capability", "media.stream")),
+     "was removed in vocabulary generation"),
+    ("a capability the vocabulary never carried",
+     lambda m: (m["service"][0]["provides"].__setitem__(0, "media.beam"),
+                m["claim"][0].__setitem__("capability", "media.beam")),
+     "names no capability the published vocabulary carries"),
+    ("a capability namespaced with somebody else's id",
+     lambda m: (m["service"][0]["provides"].__setitem__(0, "other:extra"),
+                m["claim"][0].__setitem__("capability", "other:extra")),
+     "names no capability the published vocabulary carries"),
+    ("a contribution at a point lemonfiber does not publish",
+     lambda m: m["contribution"][0].__setitem__("at", "dashboard.panel"),
+     "names no extension point this lemonfiber publishes"),
+    ("a contribution that is not namespaced",
+     lambda m: m["contribution"][0].__setitem__("id", "guarded"), "is not namespaced"),
+    ("a contribution taking a bundled identity",
+     lambda m: (m["contribution"][0].__setitem__("id", "storage.space"),
+                m["contribution"][1].__setitem__("for", "storage.space")),
+     "the identity a bundled row already holds"),
+    ("two contributions sharing an identity",
+     lambda m: m["contribution"][1].__setitem__("id", m["contribution"][0]["id"]),
+     "is declared twice"),
+    ("a contributed check missing what its point requires",
+     lambda m: m["contribution"][0].pop("category"), "which 'doctor.check' requires"),
+    ("a contributed check carrying a field the point does not declare",
+     lambda m: m["contribution"][0].__setitem__("detail", "extra"),
+     "is outside what 'doctor.check' declares"),
+    ("a contributed check in a category the doctor has not got",
+     lambda m: m["contribution"][0].__setitem__("category", "vibes"), "is not one of"),
+    ("a contributed check outside the bounds its point sets",
+     lambda m: m["contribution"][0].__setitem__("timeout_s", 600), "is outside the bounds"),
+    ("a contributed check with no remedy",
+     lambda m: m["contribution"].pop(), "carries no remedy"),
+    ("a remedy for a check this manifest did not declare",
+     lambda m: m["contribution"][1].__setitem__("for", "vibes.check"),
+     "names no check this manifest declares"),
+    ("contributions on a manifest that never asked to make one",
+     lambda m: m["requires"]["capabilities"].remove("doctor.contribute"),
+     "asks for 'doctor.contribute' by name"),
+    ("a recipe on a manifest that never asked to run one",
+     lambda m: m.__setitem__("recipe", a_recipe(
+         [{"id": "one", "call": {"method": "POST", "to": "sample", "path": "/x"}}])),
+     "asks for 'recipe.run' by name"),
+    ("two recipes sharing an id",
+     lambda m: (m["requires"]["capabilities"].append("recipe.run"),
+                m.__setitem__("recipe", a_recipe([]) + a_recipe([]))),
+     "is declared twice, so naming one names both"),
+    ("a recipe addressing a machine rather than naming one",
+     lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", a_recipe(
+         [{"id": "one", "call": {"method": "POST", "to": "192.168.1.1", "path": "/x"}}]))),
+     "is an address rather than a name"),
+    ("a recipe reaching a bare host port",
+     lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", a_recipe(
+         [{"id": "one", "call": {"method": "POST", "to": "sample:8080", "path": "/x"}}]))),
+     "is an address rather than a name"),
+    ("a recipe substituting something nothing captured",
+     lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", a_recipe(
+         [{"id": "one", "call": {"method": "POST", "to": "sample", "path": "/x",
+                                 "body": "{{token}}"}}]))),
+     "which no earlier step captured"),
+    ("a recipe calling with a verb no runner could make",
+     lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", a_recipe(
+         [{"id": "one", "call": {"method": "FETCH", "to": "sample", "path": "/x"}}]))),
+     "is not one of: GET, POST"),
+    ("a recipe carrying a value to a destination no pair permits",
+     lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", a_recipe(
+         [
+             {"id": "one", "call": {"method": "POST", "to": "sample", "path": "/a"},
+              "capture": [{"name": "token", "from": "json.token", "origin": "stack-service"}]},
+             {"id": "two", "call": {"method": "POST", "to": "elsewhere.example",
+                                    "path": "/b", "body": "{{token}}"}},
+         ]))),
+     "no [[recipe.pair]] permits it"),
+)
+
+
 def self_test() -> int:
     """Every rule above refuses the shape it exists to refuse."""
-    sound = tomllib.loads((ROOT / MANIFEST).read_text(encoding="utf-8"))
-    published = Published(SAMPLE_VOCABULARY, SAMPLE_POINTS)
+    published = Published(SAMPLE_SCHEMA, SAMPLE_VOCABULARY, SAMPLE_POINTS)
 
     report = Report()
-    validate(sound, report)
+    validate(tomllib.loads((ROOT / MANIFEST).read_text(encoding="utf-8")), report)
     if report.faults:
         print("::error::self-test: the manifest in this repository was refused")
         for fault in report.faults:
             print(f"  {fault}")
         return 1
-    print("  ok   the sound manifest is accepted")
+    print("  ok   the manifest in this repository is accepted")
 
     report = Report()
     validate(synthetic(), report, published)
@@ -1191,139 +1265,7 @@ def self_test() -> int:
         return 1
     print("  ok   the synthetic manifest is accepted against a published set")
 
-    for label, field, value, expected in BROKEN:
-        broken = tomllib.loads((ROOT / MANIFEST).read_text(encoding="utf-8"))
-        if value is None:
-            broken["service"][0].pop(field, None)
-        else:
-            broken["service"][0][field] = value
-        if not refuses(label, broken, expected, Published(None, None)):
-            return 1
-
-    # The blocks that are not the service, each broken its own way.
-    shaped = (
-        ("a hostname for a loopback service", lambda m: (
-            m["service"][0].__setitem__("bind", "loopback"),
-            m.setdefault("wiring", {}).__setitem__("hostname", "admin"),
-        ), "only a lan service is proxied"),
-        ("a hostname that is not a label", lambda m: m.setdefault("wiring", {}).__setitem__(
-            "hostname", "http://x:80"), "not a single DNS label"),
-        ("a dashboard group the dashboard has not got", lambda m: m.setdefault(
-            "wiring", {}).__setitem__("dashboard_group", "Misc"), "is not one of"),
-        ("a proxy stanza supplied by the plugin", lambda m: m.setdefault(
-            "wiring", {}).__setitem__("reverse_proxy", "x:1"), "outside the permitted set"),
-        ("a plugin declaring no proofs at all", lambda m: m.pop("proof"),
-         "a plugin whose proofs do not pass is not installed"),
-        ("a proof with nothing to decide", lambda m: m["proof"][0].__setitem__("expect", {}),
-         "declares nothing"),
-        ("a proof asserting something unknown", lambda m: m["proof"][0]["expect"].__setitem__(
-            "vibes", "good"), "not something this can check"),
-        ("a proof naming a recording that is not here", lambda m: m["proof"][0].__setitem__(
-            "fixture", "fixtures/nowhere.json"), "is not in this source"),
-        ("two proofs sharing an id", lambda m: m["proof"][1].__setitem__("id", m["proof"][0]["id"]),
-         "declared twice"),
-        ("proofs that only ever read a status", lambda m: [
-            p.__setitem__("expect", {"status": 200}) for p in m["proof"]
-        ], "constrains only a response status"),
-    )
-    for label, break_it, expected in shaped:
-        broken = tomllib.loads((ROOT / MANIFEST).read_text(encoding="utf-8"))
-        break_it(broken)
-        if not refuses(label, broken, expected, Published(None, None)):
-            return 1
-
-    # The blocks a real manifest here may not carry at all, against a published
-    # set small enough to read.
-    against_published = (
-        ("a core capability with no claim behind it",
-         lambda m: m.pop("claim"), "is demonstrated, not asserted"),
-        ("a claim for something the service never said it could do",
-         lambda m: m["service"][0]["provides"].remove("media.serve"), "has not said it can do it"),
-        ("a claim leaving one of its capability's probes unbound",
-         lambda m: m["claim"][0]["probe"].pop(), "binds no probe"),
-        ("a probe the capability does not declare",
-         lambda m: m["claim"][0]["probe"][0].__setitem__("id", "vibes"), "is not a probe"),
-        ("a binding with a status the probe does not permit",
-         lambda m: m["claim"][0]["probe"][0]["expect"].__setitem__("status", 200),
-         "and the probe permits"),
-        ("a probe asserting the operator has put something there",
-         lambda m: m["claim"][0]["probe"][1]["expect"].__setitem__("json_array_min", 1),
-         "asserts the operator has put something there"),
-        ("a probe asserting a count of something the operator holds",
-         lambda m: m["claim"][0]["probe"][1]["expect"].__setitem__("json_at_least", {"total": 1}),
-         "asserts the operator has put something there"),
-        ("a binding constraining no body where the probe requires one",
-         lambda m: m["claim"][0]["probe"][1].__setitem__("expect", {"status": 200}),
-         "constrains no body"),
-        ("a capability the vocabulary no longer carries",
-         lambda m: (m["service"][0]["provides"].__setitem__(0, "media.stream"),
-                    m["claim"][0].__setitem__("capability", "media.stream")),
-         "was removed in vocabulary generation"),
-        ("a capability the vocabulary never carried",
-         lambda m: (m["service"][0]["provides"].__setitem__(0, "media.beam"),
-                    m["claim"][0].__setitem__("capability", "media.beam")),
-         "names no capability the published vocabulary carries"),
-        ("a contribution at a point lemonfiber does not publish",
-         lambda m: m["contribution"][0].__setitem__("at", "dashboard.panel"),
-         "names no extension point this lemonfiber publishes"),
-        ("a contribution that is not namespaced",
-         lambda m: m["contribution"][0].__setitem__("id", "guarded"), "is not namespaced"),
-        ("a contribution taking a bundled identity",
-         lambda m: (m["contribution"][0].__setitem__("id", "storage.space"),
-                    m["contribution"][1].__setitem__("for", "storage.space")),
-         "the identity a bundled row already holds"),
-        ("a contributed check missing what its point requires",
-         lambda m: m["contribution"][0].pop("category"), "which 'doctor.check' requires"),
-        ("a contributed check carrying a field the point does not declare",
-         lambda m: m["contribution"][0].__setitem__("host", "example.invalid"),
-         "is outside what 'doctor.check' declares"),
-        ("a contributed check in a category the doctor has not got",
-         lambda m: m["contribution"][0].__setitem__("category", "vibes"), "is not one of"),
-        ("a contributed check outside the bounds its point sets",
-         lambda m: m["contribution"][0].__setitem__("timeout_s", 600), "is outside the bounds"),
-        ("a contributed check with no remedy",
-         lambda m: m["contribution"].pop(), "carries no remedy"),
-        ("a remedy for a check this manifest did not declare",
-         lambda m: m["contribution"][1].__setitem__("for", "vibes.check"),
-         "names no check this manifest declares"),
-        ("a remedy attached to a bundled check",
-         lambda m: m["contribution"][1].__setitem__("for", "storage.space"),
-         "the identity a bundled row already holds"),
-        ("contributions on a manifest that never asked to make one",
-         lambda m: m["requires"]["capabilities"].remove("doctor.contribute"),
-         "asks for 'doctor.contribute' by name"),
-        ("a recipe on a manifest that never asked to run one",
-         lambda m: m.__setitem__("recipe", [{
-             "id": "seed", "title": "Seed it", "why": "Because",
-             "step": [{"id": "one", "call": {"method": "POST", "to": "sample", "path": "/x"}}],
-         }]), "asks for 'recipe.run' by name"),
-        ("a recipe addressing a machine rather than naming one",
-         lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", [{
-             "id": "seed", "title": "Seed it", "why": "Because",
-             "step": [{"id": "one", "call": {"method": "POST", "to": "192.168.1.1", "path": "/x"}}],
-         }])), "is an address"),
-        ("a recipe reaching a bare host port",
-         lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", [{
-             "id": "seed", "title": "Seed it", "why": "Because",
-             "step": [{"id": "one", "call": {"method": "POST", "to": "sample:8080", "path": "/x"}}],
-         }])), "carries a port"),
-        ("a recipe substituting something nothing captured",
-         lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", [{
-             "id": "seed", "title": "Seed it", "why": "Because",
-             "step": [{"id": "one", "call": {"method": "POST", "to": "sample", "path": "/{{token}}"}}],
-         }])), "which no earlier step captured"),
-        ("a recipe carrying a value to a destination no pair permits",
-         lambda m: (m["requires"]["capabilities"].append("recipe.run"), m.__setitem__("recipe", [{
-             "id": "seed", "title": "Seed it", "why": "Because",
-             "step": [
-                 {"id": "one", "call": {"method": "POST", "to": "sample", "path": "/a"},
-                  "capture": [{"name": "token", "from": "json.token", "origin": "stack-service"}]},
-                 {"id": "two", "call": {"method": "POST", "to": "elsewhere.example",
-                                        "path": "/b", "body": "{{token}}"}},
-             ],
-         }])), "no [[recipe.pair]] permits it"),
-    )
-    for label, break_it, expected in against_published:
+    for label, break_it, expected in BROKEN:
         broken = synthetic()
         break_it(broken)
         if not refuses(label, broken, expected, published):
@@ -1332,13 +1274,37 @@ def self_test() -> int:
     # An artefact in a shape this cannot read is a refusal naming the artefact,
     # never a stack trace: a gate that crashes is one nobody can tell apart from a
     # manifest that is wrong.
-    listed = json.loads(json.dumps(SAMPLE_POINTS))
-    listed["points"][0]["row"]["enums"] = [{"field": "category", "values": ["services"]}]
+    reshaped = json.loads(json.dumps(SAMPLE_POINTS))
+    reshaped["points"][0]["row"]["enums"] = [{"field": "category", "values": ["services"]}]
     if not refuses(
         "an extension point publishing its closed sets in a shape this cannot read",
-        synthetic(), "in a shape this cannot read", Published(SAMPLE_VOCABULARY, listed),
+        synthetic(), "in a shape this cannot read",
+        Published(SAMPLE_SCHEMA, SAMPLE_VOCABULARY, reshaped),
     ):
         return 1
+
+    unreadable = json.loads(json.dumps(SAMPLE_SCHEMA))
+    unreadable["$defs"].pop("Expect")
+    if not refuses(
+        "a schema this cannot read what an expectation may constrain out of",
+        synthetic(), "declares no `Expect` this can read",
+        Published(unreadable, SAMPLE_VOCABULARY, SAMPLE_POINTS),
+    ):
+        return 1
+
+    # Every block the wrong kind at once. The schema refuses all of it and this
+    # walks it anyway, because a manifest is reported whole — so what must not
+    # happen is a traceback where a list of violations belongs.
+    report = Report()
+    validate(
+        {"schema_version": "one", "plugin": 1, "service": 2, "claim": 3, "proof": 4,
+         "contribution": 5, "recipe": 6, "requires": 7},
+        report, published,
+    )
+    if not report.faults:
+        print("::error::self-test: a manifest of the wrong kinds throughout was not refused")
+        return 1
+    print("  ok   a manifest of the wrong kinds throughout is refused, not crashed into")
 
     if read_published("/nowhere-at-all").asked:
         print("::error::self-test: a directory that is not there read as published")
@@ -1346,12 +1312,12 @@ def self_test() -> int:
     print("  ok   a directory that is not there is not a published set")
 
     # One pass, every violation: three faults at once, and all three named.
-    broken = tomllib.loads((ROOT / MANIFEST).read_text(encoding="utf-8"))
-    broken["service"][0].pop("digest")
-    broken["service"][0]["criticality"] = "critical"
-    broken["plugin"]["forms"] = ["nonesuch"]
+    broken = synthetic()
+    broken["claim"][0]["probe"][0]["expect"]["status"] = 200
+    broken["contribution"][0]["category"] = "vibes"
+    broken["contribution"][0]["timeout_s"] = 600
     report = Report()
-    validate(broken, report)
+    validate(broken, report, published)
     if len(report.faults) < 3:
         print(f"::error::self-test: three violations reported as {len(report.faults)}; "
               "every one is named in one pass")
@@ -1376,7 +1342,7 @@ def main() -> int:
     parser.add_argument("--self-test", action="store_true",
                         help="prove each rule refuses the shape it exists to refuse")
     parser.add_argument("--published", metavar="DIR",
-                        help="a directory holding lemonfiber's published "
+                        help=f"a directory holding lemonfiber's published {SCHEMA}, "
                              f"{VOCABULARY} and {EXTENSION_POINTS}")
     args = parser.parse_args()
 
@@ -1398,20 +1364,19 @@ def main() -> int:
     published = read_published(args.published)
     if args.published is not None and not published.asked:
         missing = [
-            name for name, found in ((VOCABULARY, published.vocabulary),
+            name for name, found in ((SCHEMA, published.schema),
+                                     (VOCABULARY, published.vocabulary),
                                      (EXTENSION_POINTS, published.points))
             if found is None
         ]
         print(f"::error::{args.published} does not carry {' or '.join(missing)}")
         return 1
 
-    validate(manifest, report, published)
-
-    print(
-        "Checked against 20-architecture/contracts/plugin-manifest.md, not against a\n"
-        "published schema — none exists yet (ARCH-R92 is owed by 0.16.0, which is\n"
-        "planned). This is a stand-in and the weaker answer of the two.\n"
-    )
+    try:
+        validate(manifest, report, published)
+    except Unreadable as unread:
+        print(f"::error::{unread}")
+        return 1
 
     if report.faults:
         for fault in report.faults:
@@ -1420,13 +1385,17 @@ def main() -> int:
         return 1
 
     if report.unasked:
-        print(f"{MANIFEST} conforms on every rule this run could decide. Not asked, for want of\n"
+        print(f"{MANIFEST} holds on every rule this run could decide. Not asked, for want of\n"
               "lemonfiber's published artefacts — run again with --published:")
         for one in report.unasked:
             print(f"    {one}")
         return 0
 
-    print(f"{MANIFEST} conforms to the contract, on every rule this stand-in can check.")
+    print(
+        f"{MANIFEST} conforms to the published schema and holds against the published "
+        "vocabulary\nand the published extension points. What lemonfiber refuses beyond that "
+        "is answered by\nlemonfiber; this is a stand-in and the weaker of the two."
+    )
     return 0
 
 
