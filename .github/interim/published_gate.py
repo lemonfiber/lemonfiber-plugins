@@ -38,11 +38,9 @@ import pathlib
 import subprocess
 import sys
 import tempfile
-import tomllib
 
 import validate
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
 UPSTREAM = "lemonfiber/lemonfiber"
 REF = "main"
 
@@ -104,7 +102,11 @@ def main() -> int:
                   f"{', '.join(PUBLISHED)}")
             return 1
 
-        manifest = tomllib.loads((ROOT / validate.MANIFEST).read_text(encoding="utf-8"))
+        manifest, why = validate.manifest_here()
+        if manifest is None:
+            print(f"::error file={validate.MANIFEST}::{why}")
+            return 1
+
         report = validate.Report()
         try:
             validate.validate(manifest, report, published)
