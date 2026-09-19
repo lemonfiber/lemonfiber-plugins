@@ -37,7 +37,7 @@ hooks:
 #                                              a registration
 #
 # Every gate CI runs over this repository's contents — not the whole of CI.
-ci: hooks entries plugins typos links
+ci: hooks entries plugins template typos links
 
 # The rules refuse what they exist to refuse, then every entry against them. The
 # self-test runs first: a gate nobody has seen fail is a gate nobody knows the
@@ -63,6 +63,17 @@ entries:
 # Every registration, fetched at the revision it names. Needs a token.
 plugins:
     uv run --no-project --quiet --with jsonschema==4.25.1 python3 registry/check.py
+
+# The template an author starts from, against these same commands. It is not
+# registered — it is the thing somebody copies rather than a thing to install —
+# and it is held to the format all the same, because a release that breaks it has
+# broken what every author begins with.
+#
+# Needs a token, like `plugins` above.
+#
+# The template an author starts from, against these same commands. Needs a token.
+template:
+    uv run --no-project --quiet --with jsonschema==4.25.1 python3 registry/check.py --template
 
 # Spell check.
 typos:

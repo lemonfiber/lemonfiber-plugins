@@ -44,7 +44,10 @@ spec's `70-operations/plugins.toml` and answers a different question. Spec page:
   this organisation.
 - **An entry for `plugin-template`.** The README says why: it is the thing an
   author copies rather than a thing an operator installs, and the release train
-  already gates on it where that question belongs.
+  already gates on it where that question belongs. It is still *checked* here —
+  `check.py --template` holds it to these same commands, at `main` rather than
+  at a reviewed revision — because an author's CI is a copy of them. A check is
+  not an entry, and adding one to `plugins/` is still refused.
 
 ## Before you push
 

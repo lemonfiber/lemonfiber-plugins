@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hold every registered plugin to what it declares, before a person spends attention.
+"""Hold every registered plugin, and the template they all start from, to what it declares.
 
 `REPO-R61`: fetch the registered revision and, out of the data in that revision alone,
 validate the manifest against the schema lemonfiber publishes, run every declared proof
@@ -18,10 +18,16 @@ The proofs run against recordings rather than against a live service (`F10-R4`),
 reported as what they are (`F10-R6`): a claim about what this plugin declares, which is
 weaker than a claim about a service that answered.
 
+`--template` asks the same of the template an author starts from (`F10-R7`). It is not
+registered and must not be — the README says why — but *does it still validate and prove
+unmodified against the commands this catalogue runs* is a question about the format
+rather than about one plugin, and it has to be asked somewhere.
+
 Run:  python3 registry/check.py
       python3 registry/check.py --only komga
+      python3 registry/check.py --template
 Needs: git, a token in the environment, and `jsonschema`.
-Exit 0 = every registration holds, 1 = one does not, 2 = this could not be asked.
+Exit 0 = every subject holds, 1 = one does not, 2 = this could not be asked.
 """
 
 from __future__ import annotations
@@ -58,6 +64,34 @@ CARRIED = ("plugin.toml", "targets.toml")
 CARRIED_DIRS = ("fixtures",)
 
 HARNESS = ROOT / ".github" / "interim"
+
+# The template an author starts from. Not an entry and never one: it is the thing
+# somebody copies rather than a thing an operator installs, and the README says why
+# that distinction is worth keeping. `main` rather than a commit is the other half of
+# it — a registration is a revision somebody reviewed, and this is whatever an author
+# would copy today.
+#
+# It is asked here because nothing else asks it. The two gates either side each answer
+# about a *change*: the byte-diff in `registry.yml` fails when this repository's harness
+# and the template's differ, and the template's own CI fails when a commit there breaks
+# it. Neither fires when the template stops holding for a reason that is a commit in
+# neither repository — the schema, the capability vocabulary or the extension points
+# moving under it, all three of which are read off lemonfiber's default branch on every
+# run of this.
+TEMPLATE = {
+    "id": "plugin-template",
+    "origin": "https://github.com/lemonfiber/plugin-template",
+    "revision": "main",
+}
+
+# What failing these checks means, which is not the same thing for the two subjects. A
+# registration this catalogue cannot stand behind is one plugin's problem; a template
+# that no longer holds is every author's, because it is what they all start from.
+UNHELD_REGISTRATION = "is not a registration this catalogue can stand behind"
+UNHELD_TEMPLATE = (
+    "no longer validates and proves unmodified against the commands this catalogue "
+    "runs, and it is what every author starts from"
+)
 
 
 def ran(*argv: str, at: pathlib.Path | None = None) -> subprocess.CompletedProcess:
@@ -130,12 +164,12 @@ def assembled(source: pathlib.Path, into: pathlib.Path) -> str | None:
     for name in CARRIED:
         found = source / name
         if not found.is_file():
-            return f"the registered revision has no {name} at its root"
+            return f"the revision read has no {name} at its root"
         shutil.copy2(found, into / name)
     for name in CARRIED_DIRS:
         found = source / name
         if not found.is_dir():
-            return f"the registered revision has no {name}/ at its root"
+            return f"the revision read has no {name}/ at its root"
         shutil.copytree(found, into / name)
     return None
 
@@ -207,7 +241,7 @@ def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
 
         why = fetched(plugin["origin"], plugin["revision"], source)
         if why is not None:
-            return False, [f"the registered revision could not be fetched: {why}"]
+            return False, [f"the revision named could not be fetched: {why}"]
 
         why = assembled(source, work)
         if why is not None:
@@ -242,21 +276,33 @@ def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--only", metavar="ID", help="one registration rather than all of them")
+    parser.add_argument(
+        "--template",
+        action="store_true",
+        help="the template an author starts from, rather than the registrations",
+    )
     args = parser.parse_args()
 
-    try:
-        found = entries_module.entries()
-    except entries_module.Refusal as refused:
-        print(f"::error::{refused}")
-        return 1
-    if args.only:
-        found = [plugin for plugin in found if plugin["id"] == args.only]
+    if args.template and args.only:
+        print("::error::--template and --only name different subjects, so ask one of them")
+        return 2
+
+    if args.template:
+        found = [TEMPLATE]
+    else:
+        try:
+            found = entries_module.entries()
+        except entries_module.Refusal as refused:
+            print(f"::error::{refused}")
+            return 1
+        if args.only:
+            found = [plugin for plugin in found if plugin["id"] == args.only]
+            if not found:
+                print(f"::error::nothing registered is called {args.only!r}")
+                return 2
         if not found:
-            print(f"::error::nothing registered is called {args.only!r}")
-            return 2
-    if not found:
-        print("No plugins are registered yet, so there is nothing to hold to anything.")
-        return 0
+            print("No plugins are registered yet, so there is nothing to hold to anything.")
+            return 0
 
     with tempfile.TemporaryDirectory() as box:
         artefacts = pathlib.Path(box) / "published"
@@ -264,9 +310,9 @@ def main() -> int:
         if why is not None:
             print(f"::error::{why}")
             print(
-                "\nWhat a registration is checked against is what lemonfiber publishes. "
+                "\nWhat a manifest is checked against is what lemonfiber publishes. "
                 "Their absence is a regression there rather than a fault in anything "
-                "registered here, and until it is back nothing can decide whether these "
+                "checked here, and until it is back nothing can decide whether these "
                 "manifests declare anything."
             )
             return 2
@@ -285,11 +331,12 @@ def main() -> int:
                 print(f"         {line}")
             if not held:
                 refused += 1
-                print(f"::error::{plugin['id']} is not a registration this catalogue can stand behind")
+                unheld = UNHELD_TEMPLATE if args.template else UNHELD_REGISTRATION
+                print(f"::error::{plugin['id']} {unheld}")
 
     print(
-        f"\n{len(found) - refused} of {len(found)} hold. Proofs ran against each plugin's "
-        "recorded responses, which is a claim about what it declares rather than about a "
+        f"\n{len(found) - refused} of {len(found)} hold. Proofs ran against recorded "
+        "responses, which is a claim about what a plugin declares rather than about a "
         "service that answered."
     )
     return 1 if refused else 0
