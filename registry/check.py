@@ -6,6 +6,14 @@ validate the manifest against the schema lemonfiber publishes, run every declare
 against that plugin's own recordings, and check its declared reach statically. A
 registration failing any of it is refused here rather than in review.
 
+The first half of that is `F3-R9`, and it is named here because nothing else names it:
+*the manifest schema must be validated in the catalogue's CI so malformed contributions
+are caught before merge*. This program is where that happens and `registry.yml` is what
+runs it on every pull request, so a malformed manifest is refused before a reviewer sees
+it rather than after. The requirement was kept here from the day this file validated
+against the published schema and was cited nowhere, which is how a requirement comes to
+be met and read as unbuilt.
+
 The schema is the only description of the manifest format anything here reads, and the
 harness carries none of its own (`F10-R2`). What the harness decides is what a schema
 cannot state: a claimed capability the published vocabulary does not carry, a probe left
