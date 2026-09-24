@@ -1,0 +1,160 @@
+# Registering a plugin, and how this repository is checked
+
+For plugin authors and the people who maintain this list. What the list is for
+the people who run a stack is in the [README](../README.md).
+
+This repository is the registry: where a plugin is registered to be found.
+
+**It is not a dependency.** Publishing a plugin needs nothing beyond a git
+repository ([`F10-R9`](https://github.com/lemonfiber/spec/blob/main/10-functional/features/f-extensibility/f10-authoring.md)).
+lemonfiber installs a plugin from a path the operator names, reads nothing from
+this repository to do it, and validates a plugin the same way wherever it came
+from ([`F5-R4`, `F5-R6`, `F5-R10`](https://github.com/lemonfiber/spec/blob/main/10-functional/features/f-extensibility/f5-plugin-catalogue.md)).
+An author who never registers still has a working, installable plugin. What
+registering adds is that somebody read it, and that an operator can find it
+without being told the URL.
+
+**It is not a mirror.** An entry records *where* a plugin is and the revision of
+it that was read — never a copy. The plugin's own repository owns its manifest,
+its recordings and its proofs, and a second copy here would be a second answer to
+*what does this plugin declare*, with nothing to say which of the two an operator
+installed. `F5-R12` refuses two plugins of the same name from different origins;
+a registry of copies would manufacture that case rather than refuse it.
+
+## What is in it
+
+```
+plugins/
+└── <id>.toml      where it is, and the revision somebody read
+```
+
+An entry is a pointer and nothing else:
+
+```toml
+schema = 1
+
+[plugin]
+id       = "komga"
+origin   = "https://github.com/lemonfiber/plugin-komga"
+revision = "4c28c6216bc9063e174161bba7ea40409502a56f"
+note     = "Read comics, manga and digital magazines in a browser, and on the reading apps you already use."
+```
+
+`note` is what the plugin gives the person who runs it, in one sentence. The
+README's table of plugins says the same thing, and moves with it.
+
+`revision` is a full commit and never a tag or a branch, because review is of a
+tree rather than of a name: a name can be repointed after it was read, which is
+the whole of what registering it was for. Moving a plugin forward is a pull
+request moving that one line, and that is the same person reading again.
+
+## How to register
+
+1. **Have a plugin that passes its own CI.** Copy
+   [`plugin-template`](https://github.com/lemonfiber/plugin-template), replace
+   the service, record your fixtures, and get your own repository green. Nothing
+   here can be registered that would not pass there.
+2. **Fork this repository and add one file**, `plugins/<your-id>.toml`, carrying
+   the fields above — `note` is the only optional one. The id is your plugin's
+   `[plugin].id`, and the file is named for it.
+3. **Point `revision` at the commit you want read.** Not `main` — the exact
+   commit.
+4. **Add a row for it to the table in the README**, saying what it gives the
+   person who runs it.
+5. **Open a pull request.** CI runs before anybody looks (below). If it is red,
+   the message names what is wrong and where; fix it and push.
+6. **A person reads the diff and the revision it points at**, and merges. That is
+   the whole of what being in this list means, and
+   [F5](https://github.com/lemonfiber/spec/blob/main/10-functional/features/f-extensibility/f5-plugin-catalogue.md)
+   is careful about what it does and does not buy: a schema that was checked,
+   proofs that ran, and a person who read it. It is not a reading of the image —
+   a manifest is forty lines and a container image is not reviewable by anybody,
+   which is why the image is pinned by digest rather than vouched for.
+
+Updating is the same thing with one line changed. Removing a plugin is deleting
+its file; nothing installed stops working, because nothing installed resolves
+anything here.
+
+## What CI checks on a registration
+
+Four jobs, and the order is deliberate — the cheap answer about your *entry*
+comes before anything is fetched, so a reviewer is never left wondering whether
+the problem is the registration or the plugin.
+
+| Job | What it decides |
+| --- | --- |
+| `entries` | Every entry says what an entry may say: a plugin id that matches its filename, an `https` origin with no credentials, a full commit, no field this registry does not read, and no origin registered twice under two names. Its own rules are self-tested first, so a green run is a run whose gate still refuses things. |
+| `harness` | The programs under `.github/interim/` are byte-identical to `plugin-template`'s. A registry holding its own fork of the validator would be a second opinion about what a manifest means, and plugin repositories would go green against a rule this one had dropped. |
+| `template` | The template an author starts from, held to those same commands: it validates and proves unmodified, or this repository says so. The byte-diff above answers whether the two harnesses agree; this answers whether the template still passes them. Neither of the other gates asks it — a byte-diff fires on a change to the harness and the template's own CI fires on a commit there, and what these checks read is lemonfiber's and moves on its default branch. |
+| `plugins` | Each registered revision is fetched, and out of the data in it: the manifest is validated against the schema lemonfiber publishes, every claim and contribution is held to the published capability vocabulary and extension points, every declared reach is checked statically, and every declared proof is run against that plugin's own recorded responses. |
+
+Those checks are `REPO-R61`. They read the schema, the capability vocabulary and
+the extension points off `lemonfiber/lemonfiber@main`, and compare the release
+each plugin's own `targets.toml` names with the one this repository's
+[`targets.toml`](../targets.toml) names (`REPO-R56`), reporting a difference rather
+than refusing on it.
+
+**Nothing from a registered repository is executed** (`REPO-R62`). The manifest,
+the recordings and `targets.toml` are copied out of the fetched tree and
+everything else is left where it lies; the programs that read them are this
+repository's own. That is the same line
+[`F3-R6`](https://github.com/lemonfiber/spec/blob/main/10-functional/features/f-extensibility/f3-stack-manifests.md)
+draws on an operator's machine, for the same reason: a catalogue that ran a
+stranger's script in order to decide whether the stranger's data was acceptable
+would be answering the question by doing the thing the question is about.
+
+The proofs run against recordings rather than against a live service
+(`F10-R4`) and are reported as what they are (`F10-R6`) — a claim about what a
+plugin declares, which is weaker than a claim about a service that answered.
+
+Run any of it yourself:
+
+```sh
+python3 registry/entry.py --self-test   # the gate refuses what it should
+python3 registry/entry.py               # every entry, read
+python3 registry/check.py               # every registration, held to everything
+python3 registry/check.py --only komga  # one of them
+python3 registry/check.py --template    # the template, held to the same
+```
+
+`check.py` needs `git`, a GitHub token in the environment, and `jsonschema`.
+
+## Why `plugin-template` is not registered here
+
+It is the repository an author copies, and what it installs — Kavita — is there
+so that its proofs are proofs rather than because anybody should run it. Putting
+it in a list an operator browses for something to install would be offering a
+teaching artefact as a thing to use.
+
+It is held to the format all the same, in two places and for two different
+reasons. The spec's [`70-operations/plugins.toml`](https://github.com/lemonfiber/spec/blob/main/70-operations/plugins.toml)
+registers it for the release train, so a release that breaks what every author
+starts from stops the train. And the `template` job above runs *these* checks
+over it on every change here, because an author's own CI is a copy of these
+commands and the template is what they copy: it has to validate and prove
+unmodified against them, or the first thing somebody meets is a starting point
+that does not pass.
+
+Neither of those is a registration. *Is this good to install* and *does the
+thing every author begins with still hold* are different questions, and only the
+first of them is what the list in `plugins/` answers.
+
+## What this never becomes
+
+**Not a runtime dependency** (`REPO-R58`). Nothing published here is resolved by
+an installed plugin while it runs. The moment it were, every operator's stack
+would depend on this repository being reachable.
+
+**Not a service** (`REPO-R59`). No backend, no database, no state beyond the
+repository. A catalogue that needed operating would be a second product, and it
+would be one this project has said it does not build.
+
+**Not a walled garden.** The curated lane is not the only road: an operator's
+own source is held to the same technical terms (`F5-R4`, `F5-R6`). The honest
+limit of this list is that the reviewer is one person.
+
+## Licence
+
+`license` in a plugin's manifest is a fact about the upstream service it
+configures rather than about anything here. The licence of this repository is in
+the [README](../README.md#licence).
