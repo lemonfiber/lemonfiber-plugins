@@ -1,5 +1,5 @@
-# Komga — comics, manga and digital magazines, read in a browser and served over
-# OPDS and Kobo sync to the readers a household already uses.
+# Komga: comics, manga and digital magazines, read in a browser and served over
+# OPDS and Kobo sync to the reading apps a household already uses.
 #
 # Registered at the revision somebody read. Moving it forward is a pull request
 # moving `revision`, which is that reading happening again.
@@ -10,4 +10,4 @@ schema = 1
 id       = "komga"
 origin   = "https://github.com/lemonfiber/plugin-komga"
 revision = "8fa05ba718f70624f2c122f8c0371d47e6c90d0e"
-note     = "Comics are the one medium the bundled stack acquires nothing for."
+note     = "Read comics, manga and digital magazines in a browser, and on the reading apps you already use."
