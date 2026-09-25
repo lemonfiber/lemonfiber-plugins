@@ -23,7 +23,7 @@ hooks:
 #   commitlint, dco, attribution, spec-check   `.githooks/commit-msg` refuses all
 #                                              four of these before the push, and
 #                                              `hooks` above is what turns it on
-#   harness                                    `.github/interim/` here is compared
+#   harness                                    `.github/reader/` here is compared
 #                                              byte for byte against
 #                                              plugin-template's, which needs
 #                                              both trees
@@ -48,32 +48,22 @@ entries:
     python3 registry/entry.py --self-test
     python3 registry/entry.py
 
-# Every registration, fetched at the revision it names and held to what
-# lemonfiber publishes.
+# Every registration, fetched at the revision it names and asked of the release
+# `targets.toml` names, which `.github/reader/reader.py` fetches once into
+# `.lemonfiber/`.
 #
-# `uv run --with` rather than `pip install`, for the same reason `uvx ruff@…` is
-# used elsewhere: the one dependency this repository has is pinned to the version
-# CI installs and is gone when the command ends, rather than put in whatever
-# interpreter happened to be on the path.
-#
-# It reads the forge, so give it a token — `GH_TOKEN=$(gh auth token) just
-# plugins`. Without one it says which of its questions went unasked rather than
-# passing them.
-#
-# Every registration, fetched at the revision it names. Needs a token.
+# Every registration, fetched at the revision it names.
 plugins:
-    uv run --no-project --quiet --with jsonschema==4.25.1 python3 registry/check.py
+    python3 registry/check.py
 
 # The template an author starts from, against these same commands. It is not
 # registered — it is the thing somebody copies rather than a thing to install —
 # and it is held to the format all the same, because a release that breaks it has
 # broken what every author begins with.
 #
-# Needs a token, like `plugins` above.
-#
-# The template an author starts from, against these same commands. Needs a token.
+# The template an author starts from, against these same commands.
 template:
-    uv run --no-project --quiet --with jsonschema==4.25.1 python3 registry/check.py --template
+    python3 registry/check.py --template
 
 # Spell check.
 typos:

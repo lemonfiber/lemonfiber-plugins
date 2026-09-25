@@ -11,9 +11,8 @@
 # checks ran. Where they disagree, the disagreement is the interesting part and is
 # reported rather than resolved.
 #
-# `0.16.0` is the release that publishes the manifest schema and the capability
-# vocabulary, and it is `planned`. Until it ships, `registry/check.py` reads those
-# artefacts from `lemonfiber/lemonfiber@main`, where they are committed when the
-# change lands rather than when a release is cut, and says which it read.
+# `registry/check.py` fetches this release through `.github/reader/reader.py` and
+# asks it about every registration, so every verdict it reports is this release's
+# own.
 
 lemonfiber = "0.16.0"

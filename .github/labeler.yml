@@ -4,7 +4,7 @@ documentation:
 
 ci:
   - changed-files:
-      - any-glob-to-any-file: ['.github/workflows/**', '.github/interim/**']
+      - any-glob-to-any-file: ['.github/workflows/**', '.github/reader/**']
 
 dependencies:
   - changed-files:

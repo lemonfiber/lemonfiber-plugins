@@ -84,15 +84,17 @@ the problem is the registration or the plugin.
 | Job | What it decides |
 | --- | --- |
 | `entries` | Every entry says what an entry may say: a plugin id that matches its filename, an `https` origin with no credentials, a full commit, no field this registry does not read, and no origin registered twice under two names. Its own rules are self-tested first, so a green run is a run whose gate still refuses things. |
-| `harness` | The programs under `.github/interim/` are byte-identical to `plugin-template`'s. A registry holding its own fork of the validator would be a second opinion about what a manifest means, and plugin repositories would go green against a rule this one had dropped. |
-| `template` | The template an author starts from, held to those same commands: it validates and proves unmodified, or this repository says so. The byte-diff above answers whether the two harnesses agree; this answers whether the template still passes them. Neither of the other gates asks it — a byte-diff fires on a change to the harness and the template's own CI fires on a commit there, and what these checks read is lemonfiber's and moves on its default branch. |
-| `plugins` | Each registered revision is fetched, and out of the data in it: the manifest is validated against the schema lemonfiber publishes, every claim and contribution is held to the published capability vocabulary and extension points, every declared reach is checked statically, and every declared proof is run against that plugin's own recorded responses. |
+| `harness` | `.github/reader/` is byte-identical to `plugin-template`'s. A registry holding its own fork of the harness would be a second opinion about what a manifest means, and plugin repositories would go green against a rule this one had dropped. |
+| `template` | The template an author starts from, held to those same commands: it validates and proves unmodified, or this repository says so. The byte-diff above answers whether the two harnesses agree; this answers whether the template still passes them. Neither of the other gates asks it — a byte-diff fires on a change to the harness and the template's own CI fires on a commit there, and neither fires when this repository moves to a release that reads the template differently. |
+| `plugins` | Each registered revision is fetched, and out of the data in it the release this repository targets is asked `lemonfiber plugin claims`: the manifest against the schema, capability vocabulary and extension points that release publishes, every declared reach checked statically, and every probe, proof and contributed check against that plugin's own recorded responses. |
 
-Those checks are `REPO-R61`. They read the schema, the capability vocabulary and
-the extension points off `lemonfiber/lemonfiber@main`, and compare the release
-each plugin's own `targets.toml` names with the one this repository's
-[`targets.toml`](../targets.toml) names (`REPO-R56`), reporting a difference rather
-than refusing on it.
+Those checks are `REPO-R61`. They are asked of the lemonfiber release this
+repository's [`targets.toml`](../targets.toml) names, fetched by
+`.github/reader/reader.py` and checked against its published digest, and they
+compare that release with the one each plugin's own `targets.toml` names
+(`REPO-R56`), reporting a difference rather than refusing on it. A capability in
+`[requires]` that release does not offer a plugin is reported by it and not
+refused here, as in every plugin repository.
 
 **Nothing from a registered repository is executed** (`REPO-R62`). The manifest,
 the recordings and `targets.toml` are copied out of the fetched tree and
@@ -117,7 +119,8 @@ python3 registry/check.py --only komga  # one of them
 python3 registry/check.py --template    # the template, held to the same
 ```
 
-`check.py` needs `git`, a GitHub token in the environment, and `jsonschema`.
+`check.py` needs `git` and the network, to fetch the release and the registered
+revisions.
 
 ## Why `plugin-template` is not registered here
 
