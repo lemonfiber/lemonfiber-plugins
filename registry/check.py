@@ -10,16 +10,15 @@ The first half of that is `F3-R9`, and it is named here because nothing else nam
 *the manifest schema must be validated in the catalogue's CI so malformed contributions
 are caught before merge*. This program is where that happens and `registry.yml` is what
 runs it on every pull request, so a malformed manifest is refused before a reviewer sees
-it rather than after. The requirement was kept here from the day this file validated
-against the published schema and was cited nowhere, which is how a requirement comes to
-be met and read as unbuilt.
+it rather than after.
 
-The schema is the only description of the manifest format anything here reads, and the
-harness carries none of its own (`F10-R2`). What the harness decides is what a schema
-cannot state: a claimed capability the published vocabulary does not carry, a probe left
-unbound, a contribution at a point that does not exist or carrying what that point does
-not declare, a recording that is not in the revision, and a recipe reaching an address
-or carrying a value no pair permits.
+Every verdict is lemonfiber's own. `.github/reader/reader.py`, the template's harness
+byte for byte, fetches the release this catalogue's `targets.toml` names and asks it
+`lemonfiber plugin claims`: the schema, the capability vocabulary and the extension
+points that release publishes, the rules that read a manifest whole — a probe left
+unbound, a recording not in the revision, a recipe reaching an address or carrying a
+value no pair permits — and every probe, proof and contributed check against its
+recording. Nothing here describes the format (`F10-R2`).
 
 **Nothing from a registered repository is executed** (`REPO-R62`). Four paths are copied
 out of the fetched tree and the rest of it is left where it lies: the manifest, the
@@ -41,15 +40,13 @@ rather than about one plugin, and it has to be asked somewhere.
 Run:  python3 registry/check.py
       python3 registry/check.py --only komga
       python3 registry/check.py --template
-Needs: git, a token in the environment, and `jsonschema`.
+Needs: git, and the network to fetch the release and the registered revisions.
 Exit 0 = every subject holds, 1 = one does not, 2 = this could not be asked.
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
-import json
 import pathlib
 import shutil
 import subprocess
@@ -61,24 +58,18 @@ ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 import entry as entries_module  # noqa: E402
 
-UPSTREAM = "lemonfiber/lemonfiber"
-REF = "main"
-
-# The three lemonfiber publishes, read from its tree rather than from a release: they
-# are committed when the change lands and attached when a release is cut, and a
-# catalogue should refuse a name the day it is withdrawn rather than one release later.
-SCHEMA = "plugin-manifest.schema.json"
-VOCABULARY = "capability-vocabulary.json"
-POINTS = "extension-points.json"
-PUBLISHED = (SCHEMA, VOCABULARY, POINTS)
-
 # What is copied out of a fetched revision. Data, and the whole of the data — a plugin
 # is `plugin.toml` and its recordings, and `targets.toml` is the author's claim about
 # which release they proved against.
 CARRIED = ("plugin.toml", "targets.toml")
 CARRIED_DIRS = ("fixtures",)
 
-HARNESS = ROOT / ".github" / "interim"
+# Where the author's `targets.toml` is kept beside the catalogue's own.
+THEIRS = "targets.theirs.toml"
+
+HARNESS = ROOT / ".github" / "reader"
+sys.path.insert(0, str(HARNESS))
+import reader  # noqa: E402
 
 # The template an author starts from. Not an entry and never one: it is the thing
 # somebody copies rather than a thing an operator installs, and the README says why
@@ -90,9 +81,7 @@ HARNESS = ROOT / ".github" / "interim"
 # about a *change*: the byte-diff in `registry.yml` fails when this repository's harness
 # and the template's differ, and the template's own CI fails when a commit there breaks
 # it. Neither fires when the template stops holding for a reason that is a commit in
-# neither repository — the schema, the capability vocabulary or the extension points
-# moving under it, all three of which are read off lemonfiber's default branch on every
-# run of this.
+# neither repository — this catalogue moving to a release that reads it differently.
 TEMPLATE = {
     "id": "plugin-template",
     "origin": "https://github.com/lemonfiber/plugin-template",
@@ -114,35 +103,6 @@ def ran(*argv: str, at: pathlib.Path | None = None) -> subprocess.CompletedProce
     return subprocess.run(
         argv, cwd=at, capture_output=True, text=True, check=False, timeout=600
     )
-
-
-def published(into: pathlib.Path) -> str | None:
-    """lemonfiber's generated artefacts, or why they could not be read.
-
-    Their absence is a regression in lemonfiber rather than a fault in any plugin, and
-    saying which is the difference between a catalogue that is broken and one that is
-    reporting something broken. Which is also why a failed request is not reported as
-    an absent artefact until the forge has been asked whether it would answer at all:
-    the workflow passes a token in the environment and a contributor running this at a
-    shell has one stored by `gh`, and telling the second that lemonfiber has dropped a
-    file would send them to the wrong repository.
-    """
-    into.mkdir(parents=True, exist_ok=True)
-    for name in PUBLISHED:
-        asked = ran("gh", "api", f"repos/{UPSTREAM}/contents/contract/{name}?ref={REF}")
-        if asked.returncode != 0:
-            if ran("gh", "auth", "status").returncode != 0:
-                return (
-                    "the forge would not answer: `gh` is not authenticated here and no "
-                    "GH_TOKEN is set, so nothing was asked about anything"
-                )
-            return f"{UPSTREAM}@{REF} carries no contract/{name}"
-        try:
-            body = json.loads(asked.stdout)["content"]
-        except (json.JSONDecodeError, KeyError, TypeError):
-            return f"the forge's answer about contract/{name} was not readable"
-        (into / name).write_bytes(base64.b64decode(body))
-    return None
 
 
 def fetched(origin: str, revision: str, into: pathlib.Path) -> str | None:
@@ -171,16 +131,20 @@ def fetched(origin: str, revision: str, into: pathlib.Path) -> str | None:
 def assembled(source: pathlib.Path, into: pathlib.Path) -> str | None:
     """This catalogue's programs, and that plugin's data, in one tree.
 
-    The direction is the point. The harness is copied *in* from here; the manifest and
-    the recordings are copied *in* from there; nothing crosses the other way and nothing
-    executable crosses at all.
+    The direction is the point. The harness, the release it fetched and the release this
+    catalogue targets are copied *in* from here; the manifest, the recordings and the
+    author's own `targets.toml` are copied *in* from there, the last under another name so
+    that the release asked is this catalogue's; nothing crosses the other way and nothing
+    executable crosses from there at all.
     """
-    shutil.copytree(HARNESS, into / ".github" / "interim")
+    shutil.copytree(HARNESS, into / ".github" / "reader")
+    shutil.copytree(reader.CACHE, into / reader.CACHE.name)
+    shutil.copy2(ROOT / "targets.toml", into / "targets.toml")
     for name in CARRIED:
         found = source / name
         if not found.is_file():
             return f"the revision read has no {name} at its root"
-        shutil.copy2(found, into / name)
+        shutil.copy2(found, into / (THEIRS if name == "targets.toml" else name))
     for name in CARRIED_DIRS:
         found = source / name
         if not found.is_dir():
@@ -193,19 +157,17 @@ class Unaskable(Exception):
     """Something this run needed was not there, which is not a fault in a plugin."""
 
 
-def a_reader_is_here() -> None:
-    """That something in this environment can read a JSON Schema at all.
+def a_reader_is_here() -> str:
+    """The release this catalogue targets, fetched and verified, before anything is judged.
 
-    Asked once, before any registration is judged, and raised rather than returned: a
-    registration that could not be held to the schema is unproven, and the harness
+    Raised rather than returned: a registration nothing could ask about is unproven, and
     reporting no faults would read as clear.
     """
     try:
-        import jsonschema  # noqa: F401
-    except ImportError as absent:  # pragma: no cover - the workflow installs it
-        raise Unaskable(
-            "jsonschema is not installed, so no manifest was held to the published schema"
-        ) from absent
+        reader.binary()
+        return reader.targeted()
+    except (reader.Unasked, OSError) as absent:
+        raise Unaskable(f"the release this catalogue targets could not be fetched: {absent}") from absent
 
 
 def release(where: pathlib.Path) -> str | None:
@@ -235,7 +197,7 @@ def targeted(theirs: pathlib.Path) -> str:
     return f"proved by its author against {said}; these checks ran {ours}"
 
 
-def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
+def one(plugin: dict) -> tuple[bool, list[str]]:
     """One registration, and everything that has to hold for it."""
     said: list[str] = []
     with tempfile.TemporaryDirectory() as box:
@@ -251,27 +213,21 @@ def one(plugin: dict, artefacts: pathlib.Path) -> tuple[bool, list[str]]:
         if why is not None:
             return False, [why]
 
-        # One pass, against all three artefacts. The manifest goes through an
-        # off-the-shelf reader holding it to the published schema, and then through the
-        # rules that schema cannot state: that a claimed capability is one the vocabulary
-        # carries, that every probe it declares is bound, that a contribution sits at a
-        # point that exists and carries what that point declares, and that no recipe
-        # reaches an address or carries a value no pair permits. The last of those is the
-        # static reach REPO-R61 asks for.
-        held = ran(sys.executable, str(work / ".github/interim/validate.py"),
-                   "--published", str(artefacts), at=work)
+        # One pass by the release: the manifest against what it publishes and the rules
+        # that read a manifest whole, the static reach REPO-R61 asks for among them. A
+        # capability in `[requires]` the release does not offer a plugin is reported by
+        # the release and not refused here, as in every plugin repository.
+        held = ran(sys.executable, str(work / ".github/reader/reader.py"), "manifest", at=work)
         if held.returncode != 0:
             return False, [held.stdout.strip() or held.stderr.strip()]
-        said.append("the published schema accepts this manifest, and every claim, "
-                    "contribution and declared reach holds")
+        said.append("the release refuses nothing about this manifest")
 
-        proved = ran(sys.executable, str(work / ".github/interim/prove.py"),
-                     "--against", "fixtures", at=work)
+        proved = ran(sys.executable, str(work / ".github/reader/reader.py"), "proofs", at=work)
         if proved.returncode != 0:
             return False, [proved.stdout.strip() or proved.stderr.strip()]
         said.append(proved.stdout.strip().splitlines()[-1])
 
-        said.append(targeted(work / "targets.toml"))
+        said.append(targeted(work / THEIRS))
     return True, said
 
 
@@ -307,36 +263,23 @@ def main() -> int:
             return 0
 
     try:
-        a_reader_is_here()
+        version = a_reader_is_here()
     except Unaskable as unasked:
         print(f"::error::{unasked}")
         return 2
+    print(f"Asked of lemonfiber {version}, the release this catalogue targets.\n")
 
-    with tempfile.TemporaryDirectory() as box:
-        artefacts = pathlib.Path(box) / "published"
-        why = published(artefacts)
-        if why is not None:
-            print(f"::error::{why}")
-            print(
-                "\nWhat a manifest is checked against is what lemonfiber publishes. "
-                "Their absence is a regression there rather than a fault in anything "
-                "checked here, and until it is back nothing can decide whether these "
-                "manifests declare anything."
-            )
-            return 2
-        print(f"Against {UPSTREAM}@{REF}: {', '.join(PUBLISHED)}.\n")
-
-        refused = 0
-        for plugin in found:
-            held, said = one(plugin, artefacts)
-            mark = "ok  " if held else "FAIL"
-            print(f"  {mark} {plugin['id']} @ {plugin['revision'][:12]}")
-            for line in said:
-                print(f"         {line}")
-            if not held:
-                refused += 1
-                unheld = UNHELD_TEMPLATE if args.template else UNHELD_REGISTRATION
-                print(f"::error::{plugin['id']} {unheld}")
+    refused = 0
+    for plugin in found:
+        held, said = one(plugin)
+        mark = "ok  " if held else "FAIL"
+        print(f"  {mark} {plugin['id']} @ {plugin['revision'][:12]}")
+        for line in said:
+            print(f"         {line}")
+        if not held:
+            refused += 1
+            unheld = UNHELD_TEMPLATE if args.template else UNHELD_REGISTRATION
+            print(f"::error::{plugin['id']} {unheld}")
 
     print(
         f"\n{len(found) - refused} of {len(found)} hold. Proofs ran against recorded "

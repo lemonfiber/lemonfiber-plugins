@@ -46,17 +46,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh repo clone lemonfiber/plugin-template "$RUNNER_TEMP/template" -- --depth 1
-          diff -ru "$RUNNER_TEMP/template/.github/interim" .github/interim
+          diff -ru "$RUNNER_TEMP/template/.github/reader" .github/reader
 
   # The template every author starts from, against the commands this catalogue runs.
   # The job above holds the two copies of the harness to each other; this holds the
   # template to what they decide, which is the half a byte-diff cannot answer.
   #
   # It is here because nowhere else asks it. The byte-diff fires on a change to the
-  # harness and the template's own CI fires on a commit there, and the template can
-  # stop holding with no commit in either repository: what these checks read — the
-  # schema, the capability vocabulary and the extension points — is lemonfiber's and
-  # moves on its default branch.
+  # harness and the template's own CI fires on a commit there, and neither fires when
+  # this repository moves to a release that reads the template differently.
   template:
     runs-on: ubuntu-latest
     steps:
@@ -66,12 +64,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - name: The one dependency this repository has, and it is a schema reader
-        run: |
-          pip install --disable-pip-version-check --only-binary :all: jsonschema==4.25.1
       - name: The template validates and proves unmodified
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: python3 registry/check.py --template
 
   # The registrations themselves.
@@ -84,10 +77,5 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - name: The one dependency this repository has, and it is a schema reader
-        run: |
-          pip install --disable-pip-version-check --only-binary :all: jsonschema==4.25.1
-      - name: Every registration, against what lemonfiber publishes and its own recordings
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Every registration, as the release this catalogue targets reads it
         run: python3 registry/check.py

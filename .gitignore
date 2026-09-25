@@ -2,3 +2,4 @@
 .planning/
 __pycache__/
 *.py[cod]
+.lemonfiber/
