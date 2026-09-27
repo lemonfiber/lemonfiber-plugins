@@ -4,7 +4,7 @@
 # data in that revision alone, validate the manifest against the schema lemonfiber
 # publishes, run every declared proof against that plugin's own recordings, and check
 # its declared reach statically. A registration failing any of it is refused here
-# rather than in review, which is what `F5-R2` asks the catalogue's CI to be.
+# rather than in review, which is what `F5-R13` asks the catalogue's CI to be.
 #
 # Nothing from a registered repository runs (`REPO-R62`). The programs are this
 # repository's own copies and the registered revision supplies data — see the comment

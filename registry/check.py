@@ -32,6 +32,12 @@ The proofs run against recordings rather than against a live service (`F10-R4`),
 reported as what they are (`F10-R6`): a claim about what this plugin declares, which is
 weaker than a claim about a service that answered.
 
+A registration is refused where any of its proofs is neither passed nor failing as
+declared (`F5-R13`). One failing as declared fails on a recording its manifest says it
+fails on, on the constraint it names, and the release is what says so. It does not
+refuse the registration, and it is not a pass: each is named under the plugin, with the
+recording, the constraint, what the answer held there and the reason.
+
 `--template` asks the same of the template an author starts from (`F10-R7`). It is not
 registered and must not be — the README says why — but *does it still validate and prove
 unmodified against the commands this catalogue runs* is a question about the format
@@ -47,6 +53,7 @@ Exit 0 = every subject holds, 1 = one does not, 2 = this could not be asked.
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import shutil
 import subprocess
@@ -197,6 +204,20 @@ def targeted(theirs: pathlib.Path) -> str:
     return f"proved by its author against {said}; these checks ran {ours}"
 
 
+def declared_in(report: pathlib.Path) -> list[str]:
+    """Every assertion the report the proofs left says fails as declared, each named.
+
+    Read from the report rather than from what was printed, because the report is the
+    record: what it says fails as declared is what a reviewer is told fails as declared.
+    """
+    written = json.loads(report.read_text(encoding="utf-8"))
+    return [
+        f"{entry['kind']} {entry['id']}, not counted as passed, {reader.as_declared(one)}"
+        for entry in written["proofs"]
+        for one in entry.get("declared", [])
+    ]
+
+
 def one(plugin: dict) -> tuple[bool, list[str]]:
     """One registration, and everything that has to hold for it."""
     said: list[str] = []
@@ -226,6 +247,10 @@ def one(plugin: dict) -> tuple[bool, list[str]]:
         if proved.returncode != 0:
             return False, [proved.stdout.strip() or proved.stderr.strip()]
         said.append(proved.stdout.strip().splitlines()[-1])
+        try:
+            said.extend(declared_in(work / reader.REPORT.name))
+        except (OSError, ValueError, KeyError) as unread:
+            return False, [f"the proofs ran and left no report that can be read: {unread}"]
 
         said.append(targeted(work / THEIRS))
     return True, said

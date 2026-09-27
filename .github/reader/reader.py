@@ -13,8 +13,15 @@ asks it, and writes down what it said; it decides nothing a manifest means.
 
     python3 .github/reader/reader.py reader     the release is out, verified, and reads this plugin
     python3 .github/reader/reader.py manifest   nothing about the manifest is refused
-    python3 .github/reader/reader.py proofs     every assertion holds on its recording; writes proofs.json
+    python3 .github/reader/reader.py proofs     every assertion holds on its recording, or fails as declared; writes proofs.json
     python3 .github/reader/reader.py image      every pinned digest resolves; what vouches for it
+
+One verdict is reported and not failed on: an assertion failing as declared,
+on a recording its manifest says it fails on, on the constraint it names and no
+other (`F10-R13`). It is written to `proofs.json` apart from passed and failed,
+with the recording, the constraint, what the answer held there and the reason,
+and it is never counted as passed. Whether a failure is the one declared is the
+release's to decide, as every other verdict is.
 
 One refusal is reported and not failed on: a capability in `[requires]` that the
 release does not offer a plugin. That is the release saying the plugin would not
@@ -50,6 +57,11 @@ FETCH_TIMEOUT_S = 120
 
 # The one refusal that is about the release rather than the manifest.
 UNOFFERED = "is not something this build offers a plugin"
+
+# The one verdict besides passed that does not fail a run, and what each
+# declaration behind it has to say for the report to name it (`F10-R13`).
+AS_DECLARED = "failing-as-declared"
+DECLARED = ("fixture", "constraint", "held", "reason")
 
 # What this runs on, and the name the release gives the build for it.
 BUILDS = {
@@ -150,11 +162,47 @@ def manifest() -> int:
     return 1 if held else 0
 
 
+def declarations(verdict: dict) -> list[dict]:
+    """What a verdict failing as declared says failed, where, on what, and why.
+
+    Refused rather than written down without it: a report naming a failure as
+    declared and not the declaration is one nobody can check against the manifest.
+    """
+    found = verdict.get("declared")
+    if not isinstance(found, list) or not found:
+        raise Unasked(f"the release said {AS_DECLARED} and named no declaration")
+    for one in found:
+        lacking = [field for field in DECLARED if not isinstance(one, dict) or one.get(field) in (None, "")]
+        if lacking:
+            raise Unasked(f"the release said {AS_DECLARED} and its declaration names no {', '.join(lacking)}")
+    return found
+
+
+def as_declared(declared: dict) -> str:
+    """One declaration an assertion failed as, as one line."""
+    place = f" at {declared['place']}" if declared.get("place") else ""
+    return (
+        f"fails as declared on {declared['fixture']}: {declared['constraint']}{place} "
+        f"held {declared['held']}. {declared['reason']}"
+    )
+
+
 def said(verdict: dict) -> str:
     """A verdict's reasons, as one line."""
+    if verdict["outcome"] == AS_DECLARED:
+        return "; ".join(as_declared(one) for one in declarations(verdict))
     reasons = [value for key, value in verdict.items() if key != "outcome"]
     flat = [str(each) for value in reasons for each in (value if isinstance(value, list) else [value])]
     return "; ".join(flat)
+
+
+def written(one: dict) -> dict:
+    """One assertion as the report keeps it; one failing as declared keeps its declarations."""
+    verdict = one["verdict"]
+    entry = {"id": one["id"], "kind": one["kind"], "outcome": verdict["outcome"], "detail": said(verdict)}
+    if verdict["outcome"] == AS_DECLARED:
+        entry["declared"] = declarations(verdict)
+    return entry
 
 
 def verdicts(read: dict) -> list[dict]:
@@ -173,26 +221,31 @@ def proofs() -> int:
     """Every probe, proof and check on its recording, written down as `proofs.json`.
 
     The report is the record the release train reads (`OPS-R67`): which release
-    decided it, and whether each assertion passed. Anything but passed fails,
-    and a report naming nothing fails too (`F3-R5`).
+    decided it, and what each assertion came to. Failing as declared is named and
+    written down apart, and fails nothing (`F10-R13`). Anything else that did not
+    pass fails, and a report naming nothing fails too (`F3-R5`).
     """
     read = claimed()
     found = verdicts(read)
     report = {
         "lemonfiber": targeted(),
         "against": read["against"],
-        "proofs": [
-            {"id": one["id"], "kind": one["kind"], "outcome": one["verdict"]["outcome"],
-             "detail": said(one["verdict"])}
-            for one in found
-        ],
+        "proofs": [written(one) for one in found],
     }
     REPORT.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     for entry in report["proofs"]:
-        mark = "  ok  " if entry["outcome"] == "passed" else "  " + entry["outcome"].upper()[:4]
+        mark = {"passed": "  ok  ", AS_DECLARED: "  decl"}.get(entry["outcome"], "  " + entry["outcome"].upper()[:4])
         print(f"{mark} {entry['kind']:6} {entry['id']:<36} {entry['detail']}")
-    failing = [entry for entry in report["proofs"] if entry["outcome"] != "passed"]
-    print(f"\n{len(found) - len(failing)} passed, {len(failing)} not, against the {read['against']}.")
+    for entry in report["proofs"]:
+        for declared in entry.get("declared", []):
+            print(f"::notice::{entry['kind']} {entry['id']} {as_declared(declared)}")
+    passed = [entry for entry in report["proofs"] if entry["outcome"] == "passed"]
+    excused = [entry for entry in report["proofs"] if entry["outcome"] == AS_DECLARED]
+    failing = len(found) - len(passed) - len(excused)
+    print(
+        f"\n{len(passed)} passed, {len(excused)} failing as declared, {failing} not, "
+        f"against the {read['against']}."
+    )
     return 1 if failing or not found else 0
 
 
