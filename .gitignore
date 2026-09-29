@@ -3,3 +3,8 @@
 __pycache__/
 *.py[cod]
 .lemonfiber/
+
+# What a release publishes, written by registry/index.py and the release workflow and
+# never committed (REPO-R60).
+/index.json
+/index.json.sig
