@@ -14,10 +14,10 @@ The digest is taken from the revision fetched as data, exactly as `check.py` fet
 one commit, no hooks, nothing run (`REPO-R62`). Nothing is written into this repository;
 the index is a release asset (`REPO-R60`).
 
-Run:  python3 registry/index.py --out index.json
+Run:  python3 registry/index.py              writes index.json here
       python3 registry/index.py --self-test
 Needs: git, and the network to fetch the registered revisions.
-Exit 0 = written, 1 = an entry or a revision could not be read, 2 = bad arguments.
+Exit 0 = written, 1 = an entry or a revision could not be read.
 """
 
 from __future__ import annotations
@@ -39,6 +39,13 @@ SCHEMA = 1
 
 #: The one file of a revision whose digest the index carries.
 MANIFEST = "plugin.toml"
+
+#: How a digest names the algorithm it was taken with.
+DIGEST = "sha256:"
+
+#: The name the index is written under, in the directory this is run from. Fixed,
+#: because the release publishes exactly this file and nothing else is written.
+INDEX = pathlib.Path("index.json")
 
 
 def indexed(entries: list[dict], digests: dict[str, str]) -> dict:
@@ -74,7 +81,7 @@ def digest_of(plugin: dict, into: pathlib.Path) -> tuple[str | None, str | None]
     manifest = into / MANIFEST
     if not manifest.is_file():
         return None, f"{plugin['id']}: the revision holds no {MANIFEST}"
-    return "sha256:" + hashlib.sha256(manifest.read_bytes()).hexdigest(), None
+    return DIGEST + hashlib.sha256(manifest.read_bytes()).hexdigest(), None
 
 
 def self_test() -> int:
@@ -84,7 +91,7 @@ def self_test() -> int:
         {"id": "uptime-kuma", "origin": "https://example.invalid/b", "revision": "b" * 40},
         {"id": "komga", "origin": "https://example.invalid/a", "revision": "a" * 40},
     ]
-    digests = {"komga": "sha256:" + "1" * 64, "uptime-kuma": "sha256:" + "2" * 64}
+    digests = {"komga": DIGEST + "1" * 64, "uptime-kuma": DIGEST + "2" * 64}
     index = indexed(entries, digests)
     if [one["id"] for one in index["plugins"]] != ["komga", "uptime-kuma"]:
         broken.append("the index is not ordered by id")
@@ -92,7 +99,7 @@ def self_test() -> int:
         "id": "komga",
         "origin": "https://example.invalid/a",
         "revision": "a" * 40,
-        "manifest": "sha256:" + "1" * 64,
+        "manifest": DIGEST + "1" * 64,
     }:
         broken.append("an entry carries something other than its id, origin, revision and digest")
     if written(index) != written(indexed(list(reversed(entries)), digests)):
@@ -109,14 +116,10 @@ def self_test() -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--out", type=pathlib.Path, help="where to write the index")
     ap.add_argument("--self-test", action="store_true", help="prove the index's shape")
     args = ap.parse_args()
     if args.self_test:
         return self_test()
-    if args.out is None:
-        print("::error::--out is required unless --self-test")
-        return 2
 
     try:
         entries = entries_module.entries()
@@ -139,8 +142,8 @@ def main() -> int:
         print("::error::no index was written: a release signs every registration or none")
         return 1
 
-    args.out.write_bytes(written(indexed(entries, digests)))
-    print(f"wrote {args.out} for {len(entries)} plugin(s)")
+    INDEX.write_bytes(written(indexed(entries, digests)))
+    print(f"wrote {INDEX} for {len(entries)} plugin(s)")
     return 0
 
 
