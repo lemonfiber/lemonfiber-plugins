@@ -18,22 +18,48 @@ what it sends anywhere, and how to install, update and remove it.
 ## Installing one
 
 You need a lemonfiber with the `lemonfiber plugin` commands; lemonfiber 0.15.0
-and earlier do not have them. lemonfiber installs a plugin from a directory on
-your machine, so get a copy of the plugin's repository at the revision listed
-here, then install it:
+and earlier do not have them. `--dry-run` says everything an install would do
+and writes nothing, whichever way the plugin is named.
+
+**From a directory.** lemonfiber 0.16.0 installs a plugin from a directory on
+your machine and from nowhere else. Get a copy of the plugin's repository at the
+revision listed here, then install it:
 
 ```sh
 git clone https://github.com/lemonfiber/plugin-komga.git
 git -C plugin-komga checkout <revision from plugins/komga.toml>
-lemonfiber plugin install plugin-komga --dry-run
-lemonfiber plugin install plugin-komga
+lemonfiber plugin install ./plugin-komga --dry-run
+lemonfiber plugin install ./plugin-komga
 ```
 
-`--dry-run` says everything the install would do and writes nothing.
+A directory whose name is a bare word, as `plugin-komga` is, is written with
+`./` in front of it, because lemonfiber's `main` reads a bare word as a
+plugin's name.
 
-lemonfiber does not read this repository. Nothing here is fetched when you
-install, update or run a plugin, and a plugin you install from anywhere else is
-checked the same way.
+**From a git repository.** A build of lemonfiber's `main` also installs from a
+git repository, at the branch, tag or commit named after its last `@`. The
+commit is fetched as data and nothing of it is run:
+
+```sh
+lemonfiber plugin install https://github.com/lemonfiber/plugin-komga@<revision from plugins/komga.toml>
+```
+
+A plugin installed from a directory or a git repository is recorded as
+unreviewed, at the revision listed here as much as at any other, and
+`lemonfiber plugin installed` says so for as long as it is installed.
+
+**By name.** A build of lemonfiber's `main` also takes a plugin's name, such as
+`lemonfiber plugin install komga`. It resolves the name through the index
+attached to this repository's newest release, and only once that index's
+signature verifies against the key lemonfiber carries; the plugin is installed
+from the origin the index names, at the revision that release lists, and
+recorded as reviewed. This repository has published no release and lemonfiber
+carries no key, so an install by name is refused.
+
+An install from a directory or a git repository reads nothing here, and an
+install by name reads the signed index and nothing else. Nothing here is read
+when a plugin is updated or runs, and every plugin is checked the same way
+wherever it came from.
 
 ## What "reviewed" means
 

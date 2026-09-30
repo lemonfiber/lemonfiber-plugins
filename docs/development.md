@@ -7,12 +7,14 @@ This repository is the registry: where a plugin is registered to be found.
 
 **It is not a dependency.** Publishing a plugin needs nothing beyond a git
 repository ([`F10-R9`](https://github.com/lemonfiber/spec/blob/main/10-functional/features/f-extensibility/f10-authoring.md)).
-lemonfiber installs a plugin from a path the operator names, reads nothing from
-this repository to do it, and validates a plugin the same way wherever it came
-from ([`F5-R4`, `F5-R6`, `F5-R10`](https://github.com/lemonfiber/spec/blob/main/10-functional/features/f-extensibility/f5-plugin-catalogue.md)).
+lemonfiber installs a plugin from a directory or a git repository the operator
+names, reads nothing from this repository to do it, and validates a plugin the
+same way wherever it came from ([`F5-R4`, `F5-R6`, `F5-R10`](https://github.com/lemonfiber/spec/blob/main/10-functional/features/f-extensibility/f5-plugin-catalogue.md)).
 An author who never registers still has a working, installable plugin. What
 registering adds is that somebody read it, and that an operator can find it
-without being told the URL.
+without being told the URL: an install by name resolves the name through the
+signed index each release of this repository publishes, and installs the
+revision it names ([`F5-R14`](https://github.com/lemonfiber/spec/blob/main/10-functional/features/f-extensibility/f5-plugin-catalogue.md)).
 
 **It is not a mirror.** An entry records *where* a plugin is and the revision of
 it that was read — never a copy. The plugin's own repository owns its manifest,
