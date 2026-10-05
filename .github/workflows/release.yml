@@ -53,6 +53,29 @@ jobs:
           set -euo pipefail
           python3 registry/index.py --self-test
           python3 registry/index.py
+      # lemonfiber refuses an index older than one it has verified, so a serial that is
+      # not above the last release's would be a release nobody who installed from the
+      # last one could use, and one a replaced release could stand in for.
+      - name: The serial is above every earlier release's
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          now=$(jq -e '.serial | numbers' index.json)
+          latest=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName --jq '.[0].tagName // ""')
+          if [ -z "$latest" ]; then
+            echo "the first release, as serial ${now}"
+            exit 0
+          fi
+          gh release download "$latest" --repo "$GITHUB_REPOSITORY" --pattern index.json \
+            --output "$RUNNER_TEMP/previous.json"
+          was=$(jq -e '.serial | numbers' "$RUNNER_TEMP/previous.json") \
+            || { echo "::error::${latest} names no serial, so nothing can say this one is newer."; exit 1; }
+          if [ "$now" -le "$was" ]; then
+            echo "::error::serial ${now} is not above ${was}, which ${latest} carries."
+            exit 1
+          fi
+          echo "serial ${now}, above ${was} from ${latest}"
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
           cosign-release: v3.1.3
