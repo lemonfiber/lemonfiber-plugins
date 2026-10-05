@@ -53,6 +53,8 @@ TARGETS = ROOT / "targets.toml"
 REPORT = ROOT / "proofs.json"
 CACHE = ROOT / ".lemonfiber"
 RELEASES = "https://github.com/lemonfiber/lemonfiber/releases/download"
+SCHEMA = "plugin-manifest.schema.json"
+DIRECTIVE = "#:schema "
 FETCH_TIMEOUT_S = 120
 
 # The one refusal that is about the release rather than the manifest.
@@ -149,12 +151,42 @@ def reader() -> int:
     return 0
 
 
+def schema_for(version: str) -> str:
+    """The manifest schema published with a release (`F10-R1`)."""
+    return f"{RELEASES}/v{version}/{SCHEMA}"
+
+
+def named_schema() -> str | None:
+    """The schema the manifest's first line points an editor at, if it names one."""
+    first = MANIFEST.read_text(encoding="utf-8").split("\n", 1)[0].strip()
+    return first.removeprefix(DIRECTIVE).strip() if first.startswith(DIRECTIVE) else None
+
+
+def schema_disagreement(version: str) -> str | None:
+    """Why the schema line and `targets.toml` disagree, where they do (`F10-R17`).
+
+    A manifest naming no schema is told which line would let an editor check it,
+    and is not refused for it: a plugin may be written without one.
+    """
+    wanted, named = schema_for(version), named_schema()
+    if named is None:
+        print(f"::notice file=plugin.toml::an editor checks this manifest as it is typed once its first line is `{DIRECTIVE}{wanted}`")
+        return None
+    if named == wanted:
+        return None
+    return f"the first line names the schema {named}, and targets.toml names {version}, whose schema is {wanted}"
+
+
 def manifest() -> int:
     """Every refusal the release makes of the manifest, bar what it does not offer."""
     read = claimed()
     held = [one for one in read["refusals"] if UNOFFERED not in one["message"]]
     for refusal in held:
         print(f"::error file=plugin.toml::{refusal['location']}: {refusal['message']}")
+    disagreement = schema_disagreement(targeted())
+    if disagreement is not None:
+        print(f"::error file=plugin.toml,line=1::{disagreement}")
+        held.append({"location": "1", "message": disagreement})
     print(
         f"{len(held)} refusal(s) of the manifest, held to capability vocabulary generation "
         f"{read['vocabulary_version']} and extension points generation {read['extension_points_version']}."

@@ -173,5 +173,62 @@ class Proofs(unittest.TestCase):
         )
 
 
+class Schema(unittest.TestCase):
+    """`reader.py manifest` holds the manifest's schema line to `targets.toml` (`F10-R17`)."""
+
+    WANTED = "https://github.com/lemonfiber/lemonfiber/releases/download/v0.17.0/plugin-manifest.schema.json"
+
+    def setUp(self) -> None:
+        box = tempfile.TemporaryDirectory()
+        self.addCleanup(box.cleanup)
+        self.manifest = pathlib.Path(box.name) / "plugin.toml"
+
+    def read(self, first_line: str | None) -> tuple[int, str]:
+        """`reader.py manifest` on a manifest opening with `first_line`, the release refusing nothing."""
+        body = "schema_version = 1\n"
+        self.manifest.write_text(body if first_line is None else f"{first_line}\n{body}", encoding="utf-8")
+        said = answer()
+        said["vocabulary_version"], said["extension_points_version"] = 1, 1
+        out = io.StringIO()
+        with (
+            mock.patch.object(reader, "claimed", return_value=said),
+            mock.patch.object(reader, "targeted", return_value="0.17.0"),
+            mock.patch.object(reader, "MANIFEST", self.manifest),
+            mock.patch.object(sys, "argv", ["reader.py", "manifest"]),
+            contextlib.redirect_stdout(out),
+        ):
+            code = reader.main()
+        return code, out.getvalue()
+
+    def test_the_schema_of_the_targeted_release_passes(self):
+        code, out = self.read(f"#:schema {self.WANTED}")
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("::error", out)
+
+    def test_the_schema_of_another_release_is_refused_naming_both(self):
+        other = self.WANTED.replace("v0.17.0", "v0.16.0")
+        code, out = self.read(f"#:schema {other}")
+        self.assertEqual(code, 1, out)
+        self.assertIn("::error file=plugin.toml,line=1::", out)
+        self.assertIn(other, out)
+        self.assertIn(self.WANTED, out)
+        self.assertIn("1 refusal(s)", out)
+
+    def test_a_schema_on_main_is_refused(self):
+        code, out = self.read("#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/main/contract/plugin-manifest.schema.json")
+        self.assertEqual(code, 1, out)
+
+    def test_a_schema_line_below_the_first_is_not_one_an_editor_reads(self):
+        code, out = self.read(f"# a comment\n#:schema {self.WANTED}")
+        self.assertEqual(code, 0, out)
+        self.assertIn("::notice file=plugin.toml::", out)
+
+    def test_naming_no_schema_says_which_line_would_and_refuses_nothing(self):
+        code, out = self.read(None)
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"::notice file=plugin.toml::an editor checks this manifest as it is typed once its first line is `#:schema {self.WANTED}`", out)
+        self.assertIn("0 refusal(s)", out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
