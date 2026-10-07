@@ -1,0 +1,20 @@
+# What this repository implements, one row per requirement (OPS-R74).
+#
+# `done` means the requirement is met in full by what is here, `partial` that this
+# repository holds its part and the rest lives elsewhere, `open` that nothing here
+# meets it yet. The release gate and the no-stubs gate read this file; a pull
+# request that changes whether a requirement is met changes its row.
+#
+# This is the catalogue's side. Installing, verifying an index's signature,
+# refusing two plugins of one name and judging a proof are lemonfiber's, whose
+# verdicts the reader here asks for; the template's own CI is plugin-template's.
+
+requirement = [
+  { id = "F3-R9", state = "done", evidence = ["registry/check.py", ".github/reader/test_reader.py::test_the_schema_of_the_targeted_release_passes"] },
+  { id = "F5-R1", state = "done", evidence = ["registry/check.py", "plugins/komga.toml", "plugins/uptime-kuma.toml", ".github/reader/test_reader.py"] },
+  { id = "F5-R3", state = "partial", evidence = ["registry/index.py", ".github/workflows/release.yml"] },
+  { id = "F5-R13", state = "done", evidence = ["registry/check.py", ".github/reader/reader.py", ".github/reader/test_reader.py::test_failing_as_declared_is_never_counted_as_passed", ".github/reader/test_reader.py::test_a_failure_beside_one_failing_as_declared_fails_the_run"] },
+  { id = "F10-R7", state = "partial", evidence = ["registry/check.py", "justfile"] },
+  { id = "F10-R13", state = "partial", evidence = [".github/reader/reader.py", ".github/reader/test_reader.py::test_every_declaration_an_assertion_failed_as_is_named"] },
+  { id = "F10-R17", state = "partial", evidence = [".github/reader/reader.py", ".github/reader/test_reader.py::test_the_schema_of_another_release_is_refused_naming_both"] },
+]
