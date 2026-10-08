@@ -1,10 +1,11 @@
 # AGENTS.md — lemonfiber-plugins
 
-Guidance for any AI agent working in this repo.
-
-> **Common rules for every lemonfiber repo are canonical in the spec:**
-> [50-governance/ai-contributors.md](https://github.com/lemonfiber/spec/blob/main/50-governance/ai-contributors.md).
-> Read them. This file is the `lemonfiber-plugins`-specific header only.
+> **Start at the roadmap and board on [lemonfiber.app](https://lemonfiber.app),
+> rendered from the report of where every unreleased version stands. Then the
+> rules** every repository shares:
+> [working in the repositories](https://github.com/lemonfiber/spec/blob/main/50-governance/working-in-the-repositories.md)
+> and [the rules for agents](https://github.com/lemonfiber/spec/blob/main/50-governance/ai-contributors.md).
+> This file holds only what is true of this repository.
 
 ## What this repo is
 
@@ -63,10 +64,4 @@ Every gate CI runs over the contents of this repository, in CI's order. The jobs
 it leaves out are named in the `justfile` beside the recipe, with what covers
 each. `just` lists the recipes it is made of.
 
-`just ci` turns this clone's git hooks on as its first step, and
-`.githooks/commit-msg` then refuses a commit that CI would refuse — a
-non-conventional subject, a missing sign-off, a missing `Spec:` citation, or a
-trailer crediting an assistant. All four rules are in
-[50-governance/contributing.md](https://github.com/lemonfiber/spec/blob/main/50-governance/contributing.md).
-
-Stage paths explicitly; never `git add -A`.
+`just ci` turns this clone's git hooks on as its first step.
