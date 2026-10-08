@@ -65,4 +65,3 @@ it leaves out are named in the `justfile` beside the recipe, with what covers
 each. `just` lists the recipes it is made of.
 
 `just ci` turns this clone's git hooks on as its first step.
-
