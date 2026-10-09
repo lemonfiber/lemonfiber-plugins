@@ -25,11 +25,11 @@ updates:
       include: scope
     cooldown:
       default-days: 3
-      exclude: ["lemonfiber/spec*"]
+    # lemonfiber/spec's workflows are moved by the release train's one rolling
+    # bump pull request (OPS-R85), never by this updater.
+    ignore:
+      - dependency-name: "lemonfiber/spec*"
     groups:
-      shared-workflows:
-        patterns: ["lemonfiber/spec*"]
       actions:
         patterns: ["*"]
-        exclude-patterns: ["lemonfiber/spec*"]
         update-types: ["minor", "patch"]
