@@ -7,6 +7,13 @@
 # adapter service's tag and the digest from the manifest, and copies the manifest in;
 # this puts the change on one rolling branch, signed, and opens or updates its pull
 # request. Its checks are the ones every change to the bundle meets (REPO-R92).
+#
+# No move is lost. Runs for one plugin queue behind each other, and a newer one
+# waiting replaces an older one waiting, because the newer merge supersedes it. Runs
+# for different plugins run side by side: each builds its commit on the rolling
+# branch's head, carrying the moves already there, and moves the branch only as a
+# fast-forward from that head, so a run that lost the race builds again on the head
+# that won.
 name: bundle-bump
 
 on:
@@ -26,12 +33,12 @@ permissions:
   contents: read
 
 concurrency:
-  # One move at a time: every move rewrites the one rolling branch.
-  group: bundle-bump
+  group: bundle-bump-${{ inputs.id }}
   cancel-in-progress: false
 
 env:
   BRANCH: release/bundle-pins
+  ATTEMPTS: 5
 
 jobs:
   bump:
@@ -59,24 +66,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      # The rolling pull request is the one on this repository's own branch that
-      # the release App opened. A pull request from a fork can carry a branch of
-      # the same name, so it is looked up by owner and its head and author held.
-      - name: Find the rolling pull request
-        id: rolling
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          REPO: ${{ github.repository }}
-          OWNER: ${{ github.repository_owner }}
-          BOT: ${{ steps.token.outputs.app-slug }}[bot]
-        run: |
-          set -euo pipefail
-          gh api "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=open" \
-            --jq "map(select(.head.repo.full_name == \"${REPO}\" and .user.login == \"${BOT}\"))
-                  | .[0] // {} | \"number=\(.number // \"\")\nhead=\(.head.sha // \"\")\"" \
-            >> "$GITHUB_OUTPUT"
-
-      - name: Move the pin
+      - name: Move the pin onto the rolling branch, signed
         id: move
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
@@ -84,7 +74,6 @@ jobs:
           PLUGIN: ${{ inputs.id }}
           REVISION: ${{ inputs.revision }}
           ORIGIN: ${{ inputs.origin }}
-          OPEN_HEAD: ${{ steps.rolling.outputs.head }}
         run: |
           set -euo pipefail
           # Held to their shapes before they reach a command line; `bundle.py`
@@ -96,63 +85,36 @@ jobs:
           [[ "$ORIGIN" =~ ^https://[A-Za-z0-9.-]+/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] \
             || { echo "::error::'${ORIGIN}' is not a repository address"; exit 1; }
           python3 registry/bundle.py --self-test
+          main="$(git rev-parse HEAD)"
+          staging="${BRANCH}-${PLUGIN}-staging"
 
-          # The moves the open rolling pull request already carries are kept.
-          carry=()
-          if [ -n "$OPEN_HEAD" ]; then
-            [[ "$OPEN_HEAD" =~ ^[0-9a-f]{40}$ ]] \
-              || { echo "::error::the rolling pull request's head '${OPEN_HEAD}' is not a commit"; exit 1; }
-            gh api "repos/${REPO}/contents/bundle/bundle.toml?ref=${OPEN_HEAD}" --jq .content \
-              | base64 -d > "$RUNNER_TEMP/carried.toml"
-            carry=(--carry "$RUNNER_TEMP/carried.toml")
-          fi
-          # Outside the checkout, so the commit below cannot carry it.
-          python3 registry/bundle.py --apply "$PLUGIN" "$REVISION" --origin "$ORIGIN" "${carry[@]}" \
-            > "$RUNNER_TEMP/applied.json"
-          cat "$RUNNER_TEMP/applied.json"
-          git add bundle
-          if git diff --cached --quiet; then
-            echo "moved=no" >> "$GITHUB_OUTPUT"
-            echo "::notice::the bundle already pins ${PLUGIN} at ${REVISION}."
-            exit 0
-          fi
-          echo "moved=yes" >> "$GITHUB_OUTPUT"
+          for attempt in $(seq "$ATTEMPTS"); do
+            git reset --quiet -- bundle
+            git checkout --quiet -- bundle
+            git clean -fdq -- bundle
 
-      # The same gate the pull request will meet.
-      - name: Every copy is its origin's manifest at the pinned revision
-        if: steps.move.outputs.moved == 'yes'
-        run: python3 registry/bundle.py
-
-      - name: Put the change on the branch, signed, and open or update its pull request
-        if: steps.move.outputs.moved == 'yes'
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-          REPO: ${{ github.repository }}
-          EXISTING: ${{ steps.rolling.outputs.number }}
-        run: |
-          set -euo pipefail
-          staging="${BRANCH}-staging"
-          # The commit the files were read from: the change carries whole files,
-          # and laid onto a later `main` they would undo what landed between.
-          base="$(git rev-parse HEAD)"
-
-          # Built on a scratch ref and moved across in one step, so the pull
-          # request's branch never holds no commits, which would close it.
-          if gh api "repos/${REPO}/git/ref/heads/${staging}" >/dev/null 2>&1; then
-            gh api --method PATCH "repos/${REPO}/git/refs/heads/${staging}" \
-              -F sha="${base}" -F force=true >/dev/null
-          else
-            gh api --method POST "repos/${REPO}/git/refs" \
-              -f ref="refs/heads/${staging}" -f sha="${base}" >/dev/null
-          fi
-
-          python3 - "$REPO" "$staging" "$base" "$RUNNER_TEMP" <<'PY' > "$RUNNER_TEMP/request.json"
-          import base64
+            # The rolling branch's head, if it has one: what this run carries and
+            # builds on. Absent, the run builds on main.
+            head=""
+            if listed="$(git ls-remote --exit-code origin "refs/heads/${BRANCH}")"; then
+              head="${listed%%[[:space:]]*}"
+              [[ "$head" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::the rolling branch named '${head}'"; exit 1; }
+              git fetch --quiet --depth 1 origin "$head"
+              git show "${head}:bundle/bundle.toml" > "$RUNNER_TEMP/carried.toml"
+              python3 registry/bundle.py --apply "$PLUGIN" "$REVISION" --origin "$ORIGIN" --carry \
+                < "$RUNNER_TEMP/carried.toml" > "$RUNNER_TEMP/applied.json"
+            else
+              python3 registry/bundle.py --apply "$PLUGIN" "$REVISION" --origin "$ORIGIN" \
+                > "$RUNNER_TEMP/applied.json"
+            fi
+            cat "$RUNNER_TEMP/applied.json"
+            git add -- bundle
+            parent="${head:-$main}"
+            python3 - "$RUNNER_TEMP" <<'PY'
           import json
-          import subprocess
           import sys
 
-          repo, branch, base, scratch = sys.argv[1:5]
+          scratch = sys.argv[1]
           moves = json.load(open(f"{scratch}/applied.json"))["moves"]
           headline = "chore(bundle): pin " + ", ".join(f"{move['id']} {move['to']['release']}" for move in moves)
           said = [
@@ -169,9 +131,44 @@ jobs:
               "Spec: OPS-R86, REPO-R91",
               "Signed-off-by: lemonfiber release <release@lemonfiber.app>",
           ])
-          changed = subprocess.run(
-              ["git", "diff", "--cached", "--name-only"], capture_output=True, text=True, check=True
-          ).stdout.split()
+          with open(f"{scratch}/headline.txt", "w") as handle:
+              handle.write(headline)
+          with open(f"{scratch}/body.md", "w") as handle:
+              handle.write(body + "\n")
+          PY
+
+            if git diff --cached --quiet "$main" -- bundle; then
+              echo "::notice::main already pins ${PLUGIN} at ${REVISION}, so there is nothing to move."
+              echo "built=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ -n "$head" ] && git diff --cached --quiet "$head" -- bundle; then
+              echo "::notice::the rolling branch already carries this move."
+              echo "built=${head}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # The same gate the pull request will meet.
+            python3 registry/bundle.py
+
+            if gh api "repos/${REPO}/git/ref/heads/${staging}" >/dev/null 2>&1; then
+              gh api --method PATCH "repos/${REPO}/git/refs/heads/${staging}" \
+                -F sha="${parent}" -F force=true >/dev/null
+            else
+              gh api --method POST "repos/${REPO}/git/refs" \
+                -f ref="refs/heads/${staging}" -f sha="${parent}" >/dev/null
+            fi
+
+            git diff --cached --name-status "$parent" -- bundle > "$RUNNER_TEMP/changed.txt"
+            python3 - "$REPO" "$staging" "$parent" "$RUNNER_TEMP" <<'PY' > "$RUNNER_TEMP/request.json"
+          import base64
+          import json
+          import sys
+
+          repo, branch, parent, scratch = sys.argv[1:5]
+          headline = open(f"{scratch}/headline.txt").read()
+          body = open(f"{scratch}/body.md").read().rstrip("\n")
+          changes = [line.split("\t", 1) for line in open(f"{scratch}/changed.txt").read().splitlines()]
           print(json.dumps({
               "query": (
                   "mutation($input: CreateCommitOnBranchInput!) "
@@ -179,60 +176,83 @@ jobs:
               ),
               "variables": {"input": {
                   "branch": {"repositoryNameWithOwner": repo, "branchName": branch},
-                  "expectedHeadOid": base,
+                  "expectedHeadOid": parent,
                   "message": {"headline": headline, "body": body},
-                  "fileChanges": {"additions": [
-                      {"path": name, "contents": base64.b64encode(open(name, "rb").read()).decode()}
-                      for name in changed
-                  ]},
+                  "fileChanges": {
+                      "additions": [
+                          {"path": path, "contents": base64.b64encode(open(path, "rb").read()).decode()}
+                          for status, path in changes if status != "D"
+                      ],
+                      "deletions": [{"path": path} for status, path in changes if status == "D"],
+                  },
               }},
           }))
-          with open(f"{scratch}/headline.txt", "w") as handle:
-              handle.write(headline)
-          with open(f"{scratch}/body.md", "w") as handle:
-              handle.write(body + "\n")
           PY
 
-          built="$(gh api graphql --input "$RUNNER_TEMP/request.json" --jq '.data.createCommitOnBranch.commit.oid')"
-          [[ "$built" =~ ^[0-9a-f]{40}$ ]] \
-            || { echo "::error::the commit was not created; got '${built}'"; exit 1; }
+            built="$(gh api graphql --input "$RUNNER_TEMP/request.json" --jq '.data.createCommitOnBranch.commit.oid')"
+            [[ "$built" =~ ^[0-9a-f]{40}$ ]] \
+              || { echo "::error::the commit was not created; got '${built}'"; exit 1; }
+            gh api --method DELETE "repos/${REPO}/git/refs/heads/${staging}" >/dev/null 2>&1 || true
 
-          if gh api "repos/${REPO}/git/ref/heads/${BRANCH}" >/dev/null 2>&1; then
-            gh api --method PATCH "repos/${REPO}/git/refs/heads/${BRANCH}" \
-              -F sha="${built}" -F force=true >/dev/null
-          else
-            gh api --method POST "repos/${REPO}/git/refs" \
-              -f ref="refs/heads/${BRANCH}" -f sha="${built}" >/dev/null
-          fi
-          gh api --method DELETE "repos/${REPO}/git/refs/heads/${staging}" >/dev/null 2>&1 || true
+            # A fast-forward from the head this run built on, or a branch created
+            # where there was none. Either fails where another run moved first.
+            if [ -n "$head" ]; then
+              moved="$(gh api --method PATCH "repos/${REPO}/git/refs/heads/${BRANCH}" \
+                -F sha="${built}" -F force=false >/dev/null 2>&1 && echo yes || echo no)"
+            else
+              moved="$(gh api --method POST "repos/${REPO}/git/refs" \
+                -f ref="refs/heads/${BRANCH}" -f sha="${built}" >/dev/null 2>&1 && echo yes || echo no)"
+            fi
+            if [ "$moved" = "yes" ]; then
+              echo "built=${built}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::notice::attempt ${attempt}: another run moved the rolling branch first; building again on its head."
+          done
+          echo "::error::the rolling branch moved under every one of ${ATTEMPTS} attempts"
+          exit 1
 
+      # The rolling pull request is the one on this repository's own branch that
+      # the release App opened. A pull request from a fork can carry a branch of
+      # the same name, so it is looked up by owner and its head and author held.
+      - name: Open or update the rolling pull request, and arm it
+        if: steps.move.outputs.built != ''
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          BOT: ${{ steps.token.outputs.app-slug }}[bot]
+          BUILT: ${{ steps.move.outputs.built }}
+        run: |
+          set -euo pipefail
+          rolling() {
+            gh api "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=open" \
+              --jq "map(select(.head.repo.full_name == \"${REPO}\" and .user.login == \"${BOT}\")) | .[0].number // empty"
+          }
+          existing="$(rolling)"
           headline="$(cat "$RUNNER_TEMP/headline.txt")"
-          existing="$EXISTING"
           if [ -z "$existing" ]; then
-            created="$(gh pr create --repo "${REPO}" --head "${BRANCH}" --base main \
-              --title "${headline}" --body-file "$RUNNER_TEMP/body.md" --label dependencies)"
-            existing="${created##*/}"
-            echo "::notice::opened #${existing}"
+            gh pr create --repo "${REPO}" --head "${BRANCH}" --base main \
+              --title "${headline}" --body-file "$RUNNER_TEMP/body.md" --label dependencies >/dev/null \
+              || echo "::notice::another run opened the pull request first."
+            existing="$(rolling)"
           fi
-          [[ "$existing" =~ ^[0-9]+$ ]] || { echo "::error::'${existing}' is not a pull request number"; exit 1; }
+          [[ "$existing" =~ ^[0-9]+$ ]] || { echo "::error::no rolling pull request carries ${BRANCH}"; exit 1; }
 
           # Nothing is edited or armed on a pull request whose head is not the
-          # commit made above. The head follows the branch moments after it moves.
+          # commit this run made. A later run builds on that commit, carrying its
+          # move, and edits and arms the pull request itself.
           head=""
           for _ in 1 2 3 4 5 6; do
             head="$(gh api "repos/${REPO}/pulls/${existing}" --jq .head.sha)"
-            [ "$head" = "$built" ] && break
+            [ "$head" = "$BUILT" ] && break
             sleep 5
           done
-          if [ "$head" != "$built" ]; then
-            echo "::error::#${existing}'s head is ${head}, not ${built}, so it is neither edited nor armed"
-            exit 1
+          if [ "$head" != "$BUILT" ]; then
+            echo "::notice::#${existing}'s head is ${head}, a later run's, which carries this move and arms it."
+            exit 0
           fi
-
-          if [ -n "$EXISTING" ]; then
-            gh pr edit "${existing}" --repo "${REPO}" --title "${headline}" --body-file "$RUNNER_TEMP/body.md" >/dev/null
-            echo "::notice::#${existing} updated"
-          fi
-          gh pr merge "${existing}" --repo "${REPO}" --auto --squash --match-head-commit "${built}" \
+          gh pr edit "${existing}" --repo "${REPO}" --title "${headline}" --body-file "$RUNNER_TEMP/body.md" >/dev/null
+          gh pr merge "${existing}" --repo "${REPO}" --auto --squash --match-head-commit "${BUILT}" \
             && echo "auto-merge armed on #${existing}" \
             || echo "::warning::could not arm auto-merge on #${existing}; it waits for a maintainer."

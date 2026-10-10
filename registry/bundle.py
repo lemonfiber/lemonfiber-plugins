@@ -26,13 +26,13 @@ plugin to the revision its pin pull request merged, taking the release from the 
 service's tag there and the digest from its manifest, and copies that manifest in. The
 origin is the repository asking, and has to be the one the bundle pins for that id.
 Only a plugin the bundle already pins is moved; a plugin enters the bundle through a
-person's pull request, because what it fills is a person's choice. `--carry FILE` first moves every
-pin that the bundle at FILE holds at another revision than this one, which is how the
-one rolling pull request keeps the moves it already carries. It prints the moves as
-JSON.
+person's pull request, because what it fills is a person's choice. `--carry` first
+moves every pin that the bundle on stdin holds at another revision than this one, which
+is how the one rolling pull request keeps the moves it already carries. It prints the
+moves as JSON.
 
 Run:  python3 registry/bundle.py
-      python3 registry/bundle.py --apply jellyfin <commit> --origin <url> [--carry <bundle.toml>]
+      python3 registry/bundle.py --apply jellyfin <commit> --origin <url> [--carry < bundle.toml]
       python3 registry/bundle.py --self-test
 Needs: git, and the network to fetch the release and the pinned revisions.
 Exit 0 = the bundle holds or was moved, 1 = it does not or could not be, 2 = this
@@ -56,7 +56,9 @@ import check  # noqa: E402
 import entry as entries_module  # noqa: E402
 import index  # noqa: E402
 
-BUNDLE = ROOT / "bundle" / "bundle.toml"
+#: The bundle's file, and where it and the copies sit.
+BUNDLE_FILE = "bundle.toml"
+BUNDLE = ROOT / "bundle" / BUNDLE_FILE
 COPIES = ROOT / "bundle" / "plugins"
 
 SCHEMA = 1
@@ -71,7 +73,7 @@ FIELDS = ("id", "origin", "release", "revision", "manifest", "fills")
 PLACEHOLDER = ".gitkeep"
 
 #: A release as the train tags it, without the `v`.
-RELEASE = re.compile(r"\A[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?\Z")
+RELEASE = re.compile(r"\A\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?\Z")
 MANIFEST_DIGEST = re.compile(rf"\A{re.escape(index.DIGEST)}[0-9a-f]{{64}}\Z")
 
 #: Where the pins begin: everything above is the file's own commentary and `schema`.
@@ -107,7 +109,7 @@ def rendered(pins: list[dict]) -> str:
     return "\n".join(tables)
 
 
-def read(text: str, file: str = "bundle.toml") -> list[dict]:
+def read(text: str, file: str = BUNDLE_FILE) -> list[dict]:
     """The pins a bundle names, or a refusal naming the first thing wrong with it."""
     try:
         held = tomllib.loads(text)
@@ -120,7 +122,21 @@ def read(text: str, file: str = "bundle.toml") -> list[dict]:
     pins = held.get(TABLE)
     if not isinstance(pins, list):
         raise Refusal(f"{file}: names no [[{TABLE}]] list, not even an empty one")
+    distinct(pins, file)
 
+    found = PINS_START.search(text)
+    expected = rendered(pins)
+    if found is None or found.start() != len(text) - len(expected) or not text.endswith(expected):
+        raise Refusal(
+            f"{file}: the pins are not written as the bundle writes them — one [[{TABLE}]] "
+            f"per plugin, ordered by id, fields in the order {', '.join(FIELDS)} — "
+            "so a move would rewrite lines nobody changed"
+        )
+    return pins
+
+
+def distinct(pins: list, file: str) -> None:
+    """Every pin well formed, and no plugin or origin pinned twice."""
     seen: set[str] = set()
     for pin in pins:
         one(pin, file)
@@ -129,15 +145,6 @@ def read(text: str, file: str = "bundle.toml") -> list[dict]:
         seen.add(pin["id"])
     for clash in entries_module.collisions(pins):
         raise Refusal(f"{file}: {clash}")
-
-    found = PINS_START.search(text)
-    if found is None or text[found.start():] != rendered(pins):
-        raise Refusal(
-            f"{file}: the pins are not written as the bundle writes them — one [[{TABLE}]] "
-            f"per plugin, ordered by id, fields in the order {', '.join(FIELDS)} — "
-            "so a move would rewrite lines nobody changed"
-        )
-    return pins
 
 
 def one(pin: object, file: str) -> None:
@@ -356,7 +363,7 @@ def bound(pins: list[dict], name: str, origin: str) -> None:
 def applied(
     asked: tuple[str, str],
     origin: str,
-    carry: pathlib.Path | None,
+    carry: str | None,
     bundle: pathlib.Path = BUNDLE,
     held: pathlib.Path = COPIES,
 ) -> list[dict]:
@@ -365,7 +372,7 @@ def applied(
     text = bundle.read_text(encoding="utf-8")
     pins = read(text)
     bound(pins, asked[0], origin)
-    carried = read(carry.read_text(encoding="utf-8"), str(carry)) if carry else []
+    carried = read(carry, "the rolling branch's bundle") if carry is not None else []
     by_id = {pin["id"]: pin for pin in pins}
     moves = []
     for name, revision in wanted(asked, carried, pins):
@@ -382,31 +389,35 @@ def applied(
     return moves
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true",
-                        help="prove each rule refuses the shape it exists to refuse")
-    parser.add_argument("--apply", nargs=2, metavar=("ID", "REVISION"),
-                        help="move a pinned plugin to the revision its pin pull request merged")
-    parser.add_argument("--origin", metavar="URL",
-                        help="with --apply: the repository asking, which the bundle pins for ID")
-    parser.add_argument("--carry", type=pathlib.Path, metavar="FILE",
-                        help="with --apply: first move each pin the bundle at FILE holds elsewhere")
-    args = parser.parse_args()
-    if args.self_test:
-        return self_test()
-    if bool(args.apply) != bool(args.origin) or (args.carry and not args.apply):
-        print("::error::--apply takes --origin, and --origin and --carry are part of --apply")
-        return 2
-    if args.apply:
-        try:
-            moves = applied(tuple(args.apply), args.origin, args.carry)
-        except (Refusal, entries_module.Refusal, OSError) as refused:
-            print(f"::error::{refused}")
-            return 1
-        print(json.dumps({"moves": moves}, indent=2))
-        return 0
+def apply(asked: tuple[str, str], origin: str, carry: bool) -> int:
+    """The train's move, printed as JSON, with the rolling branch's bundle on stdin where carried.
 
+    A refusal goes to stderr, so the JSON a caller keeps is never a refusal."""
+    try:
+        moves = applied(asked, origin, sys.stdin.read() if carry else None)
+    except (Refusal, entries_module.Refusal, OSError) as refused:
+        print(f"::error::{refused}", file=sys.stderr)
+        return 1
+    print(json.dumps({"moves": moves}, indent=2))
+    return 0
+
+
+def holds(pin: dict, copy: bytes) -> bool:
+    """One pin and its copy, held to everything, and said."""
+    said = held_to_pin(pin, copy)
+    held = not said
+    if held:
+        held, said = held_to_origin(pin, copy)
+    print(f"  {'ok  ' if held else 'FAIL'} {pin['id']} {pin['release']} @ {pin['revision'][:12]}")
+    for line in said:
+        print(f"         {line}")
+    if not held:
+        print(f"::error::{pin['id']} is not a pin the bundle can carry")
+    return held
+
+
+def checked() -> int:
+    """The bundle in this checkout, held to its origins."""
     try:
         pins = read(BUNDLE.read_text(encoding="utf-8"))
         held = copies(COPIES)
@@ -421,30 +432,36 @@ def main() -> int:
     if not pins:
         print("The bundle pins no first-party plugin yet, so there is no copy to hold to an origin.")
         return 0
-
     try:
         version = check.a_reader_is_here()
     except check.Unaskable as unasked:
         print(f"::error::{unasked}")
         return 2
     print(f"Asked of lemonfiber {version}, the release this catalogue targets.\n")
-
-    refused = 0
-    for pin in pins:
-        copy = held[pin["id"]].read_bytes()
-        said = held_to_pin(pin, copy)
-        holds = not said
-        if holds:
-            holds, said = held_to_origin(pin, copy)
-        print(f"  {'ok  ' if holds else 'FAIL'} {pin['id']} {pin['release']} @ {pin['revision'][:12]}")
-        for line in said:
-            print(f"         {line}")
-        if not holds:
-            refused += 1
-            print(f"::error::{pin['id']} is not a pin the bundle can carry")
-
+    refused = sum(not holds(pin, held[pin["id"]].read_bytes()) for pin in pins)
     print(f"\n{len(pins) - refused} of {len(pins)} pinned plugins hold.")
     return 1 if refused else 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--self-test", action="store_true",
+                        help="prove each rule refuses the shape it exists to refuse")
+    parser.add_argument("--apply", nargs=2, metavar=("ID", "REVISION"),
+                        help="move a pinned plugin to the revision its pin pull request merged")
+    parser.add_argument("--origin", metavar="URL",
+                        help="with --apply: the repository asking, which the bundle pins for ID")
+    parser.add_argument("--carry", action="store_true",
+                        help="with --apply: first move each pin the bundle on stdin holds elsewhere")
+    args = parser.parse_args()
+    if args.self_test:
+        return self_test()
+    if bool(args.apply) != bool(args.origin) or (args.carry and not args.apply):
+        print("::error::--apply takes --origin, and --origin and --carry are part of --apply")
+        return 2
+    if args.apply:
+        return apply(tuple(args.apply), args.origin, args.carry)
+    return checked()
 
 
 EMPTY = """# commentary
@@ -498,144 +515,151 @@ def ancestry() -> tuple[str | None, str | None]:
         return on_main(str(origin), held), on_main(str(origin), forked)
 
 
+#: What every bundle the self-test writes opens with.
+OPENING = f"schema = {SCHEMA}\n\n"
+
+OTHER = {**PIN, "id": "komga", "origin": "https://github.com/lemonfiber/plugin-komga"}
+
+#: One self-test case: what it shows, what it should come to, and what it came to.
+Case = tuple[str, bool, bool]
+
+
 def bundle_of(*pins: dict) -> str:
-    return "schema = 1\n\n" + rendered(list(pins))
+    return OPENING + rendered(list(pins))
 
 
-def self_test() -> int:
-    """Each rule, against the shape it exists to refuse."""
-    other = {**PIN, "id": "komga", "origin": "https://github.com/lemonfiber/plugin-komga"}
+def refuses(call, *refusals: type[Exception]) -> bool:
+    """Whether `call` refuses, with one of `refusals` or a bundle `Refusal`."""
+    try:
+        call()
+    except (Refusal, *refusals):
+        return True
+    return False
+
+
+def shapes() -> list[Case]:
+    """`read`, against each shape of bundle it exists to refuse."""
     good = bundle_of(PIN)
-    cases: list[tuple[str, str, bool]] = [
-        ("an empty bundle is read", EMPTY, True),
-        ("a bundle of two pins is read", bundle_of(PIN, other), True),
-        ("a schema this does not read refused", good.replace("schema = 1", "schema = 2"), False),
-        ("a bundle naming no list refused", "schema = 1\n", False),
-        ("a key a bundle does not say refused", "forms = []\n" + good, False),
-        ("a pin missing a field refused", good.replace('fills    = ["media.serve"]\n', ""), False),
-        ("a field a pin does not say refused", good + 'note     = "no"\n', False),
-        ("an id that is not one refused", good.replace('"jellyfin"', '"Jellyfin"'), False),
-        ("an ssh origin refused", good.replace("https://github.com/", "ssh://git@github.com/"), False),
-        ("a branch where a revision belongs refused",
-         good.replace('"0123456789abcdef0123456789abcdef01234567"', '"main"'), False),
-        ("a release carrying its v refused", good.replace('"0.18.0"', '"v0.18.0"'), False),
-        ("a digest without its algorithm refused", good.replace(index.DIGEST, ""), False),
-        ("fills that is not a list refused", good.replace('["media.serve"]', '"media.serve"'), False),
-        ("a capability filled twice refused",
-         good.replace('["media.serve"]', '["media.serve", "media.serve"]'), False),
-        ("one plugin pinned twice refused", "schema = 1\n\n" + rendered([PIN]) + "\n" + rendered([PIN]), False),
-        ("one origin pinned under two ids refused",
-         bundle_of(PIN, {**other, "origin": PIN["origin"]}), False),
-        ("pins out of id order refused", "schema = 1\n\n" + rendered([other]) + "\n" + rendered([PIN]), False),
-        ("a pin written another way refused", good.replace("id       =", "id ="), False),
+    refused = [
+        ("a schema this does not read refused", good.replace("schema = 1", "schema = 2")),
+        ("a bundle naming no list refused", "schema = 1\n"),
+        ("a key a bundle does not say refused", "forms = []\n" + good),
+        ("a pin missing a field refused", good.replace('fills    = ["media.serve"]\n', "")),
+        ("a field a pin does not say refused", good + 'note     = "no"\n'),
+        ("an id that is not one refused", good.replace('"jellyfin"', '"Jellyfin"')),
+        ("an ssh origin refused", good.replace("https://github.com/", "ssh://git@github.com/")),
+        ("a branch where a revision belongs refused", good.replace(f'"{PIN["revision"]}"', '"main"')),
+        ("a release carrying its v refused", good.replace('"0.18.0"', '"v0.18.0"')),
+        ("a digest without its algorithm refused", good.replace(index.DIGEST, "")),
+        ("fills that is not a list refused", good.replace('["media.serve"]', '"media.serve"')),
+        ("a capability filled twice refused", good.replace('["media.serve"]', '["media.serve", "media.serve"]')),
+        ("one plugin pinned twice refused", OPENING + rendered([PIN]) + "\n" + rendered([PIN])),
+        ("one origin pinned under two ids refused", bundle_of(PIN, {**OTHER, "origin": PIN["origin"]})),
+        ("pins out of id order refused", OPENING + rendered([OTHER]) + "\n" + rendered([PIN])),
+        ("a pin written another way refused", good.replace("id       =", "id =")),
+    ]
+    return [
+        ("an empty bundle is read", False, refuses(lambda: read(EMPTY))),
+        ("a bundle of two pins is read", False, refuses(lambda: read(bundle_of(PIN, OTHER)))),
+        ("the bundle writes back what it reads", True, OPENING + rendered(read(good)) == good),
+        *((what, True, refuses(lambda text=text: read(text))) for what, text in refused),
     ]
 
-    failures = 0
 
-    def verdict(what: str, wanted: bool, got: bool) -> None:
-        nonlocal failures
-        print(f"  {'ok  ' if wanted == got else 'FAIL'} {what}")
-        failures += wanted != got
-
-    for what, text, readable in cases:
-        try:
-            read(text)
-            verdict(what, readable, True)
-        except Refusal:
-            verdict(what, readable, False)
-
+def pairs() -> list[Case]:
+    """`copies` and `paired`, over a directory of copies."""
     with tempfile.TemporaryDirectory() as box:
         directory = pathlib.Path(box)
         (directory / PLACEHOLDER).touch()
         (directory / "jellyfin.toml").write_bytes(COPY)
         found = copies(directory)
-        verdict("the placeholder is not a copy", True, set(found) == {"jellyfin"})
-        verdict("a pin and its copy pair", True, not paired([PIN], found))
-        verdict("a copy no pin names refused", True, bool(paired([], found)))
-        verdict("a pin with no copy refused", True, bool(paired([PIN, other], found)))
+        said = [
+            ("the placeholder is not a copy", True, set(found) == {"jellyfin"}),
+            ("a pin and its copy pair", True, not paired([PIN], found)),
+            ("a copy no pin names refused", True, bool(paired([], found))),
+            ("a pin with no copy refused", True, bool(paired([PIN, OTHER], found))),
+        ]
         (directory / "notes.md").write_text("no", encoding="utf-8")
-        try:
-            copies(directory)
-            verdict("a file that is not a copy refused", True, False)
-        except Refusal:
-            verdict("a file that is not a copy refused", True, True)
+        return [*said, ("a file that is not a copy refused", True, refuses(lambda: copies(directory)))]
 
+
+def held_copies() -> list[Case]:
+    """`held_to_pin`, against each way a copy can fail to say what its pin says."""
     pinned = {**PIN, "manifest": index.digest(COPY)}
-    verdict("a copy that says what its pin says holds", True, not held_to_pin(pinned, COPY))
-    verdict("a copy whose digest is not its pin's refused", True, bool(held_to_pin(PIN, COPY)))
-    for what, changed in (
+    changed = [
         ("an adapter tagged at another release refused", COPY.replace(b'"0.18.0"', b'"0.17.0"')),
-        ("a copy with no adapter service refused", COPY.replace(b'speaks = ["media.serve@1", '
-                                                                b'"identity.source@1"]\n', b"")),
-        ("a copy declaring another id refused", COPY.replace(b'id = "jellyfin"\n\n[[service]]',
-                                                             b'id = "emby"\n\n[[service]]', 1)),
+        ("a copy with no adapter service refused",
+         COPY.replace(b'speaks = ["media.serve@1", "identity.source@1"]\n', b"")),
+        ("a copy declaring another id refused",
+         COPY.replace(b'id = "jellyfin"\n\n[[service]]', b'id = "emby"\n\n[[service]]', 1)),
         ("a copy that is not TOML refused", COPY + b"[["),
-    ):
-        verdict(what, True, bool(held_to_pin({**PIN, "manifest": index.digest(changed)}, changed)))
-    verdict("a capability spoken by the adapter may be filled", True,
-            not held_to_pin({**pinned, "fills": ["identity.source"]}, COPY))
-    verdict("a capability the copy neither provides nor speaks refused", True,
-            bool(held_to_pin({**pinned, "fills": ["request.intake"]}, COPY)))
-    verdict("the bundle writes back what it reads", True, rendered(read(good)) == good.split("\n\n", 1)[1])
+    ]
+    return [
+        ("a copy that says what its pin says holds", True, not held_to_pin(pinned, COPY)),
+        ("a copy whose digest is not its pin's refused", True, bool(held_to_pin(PIN, COPY))),
+        *((what, True, bool(held_to_pin({**PIN, "manifest": index.digest(text)}, text))) for what, text in changed),
+        ("a capability spoken by the adapter may be filled", True,
+         not held_to_pin({**pinned, "fills": ["identity.source"]}, COPY)),
+        ("a capability the copy neither provides nor speaks refused", True,
+         bool(held_to_pin({**pinned, "fills": ["request.intake"]}, COPY))),
+    ]
 
-    verdict("the release is the adapter's tag", True, released(COPY) == "0.18.0")
-    for what, changed in (
+
+def moves() -> list[Case]:
+    """`released`, `moved` and `wanted`: what a move takes, keeps and carries."""
+    to = moved(PIN, "f" * 40, COPY)
+    rolling = [{**PIN, "revision": "a" * 40}, {**OTHER, "revision": "b" * 40}]
+    unreleased = [
         ("a manifest with no adapter has no release", COPY.replace(b"speaks", b"listens")),
         ("adapters at two releases have no release",
          COPY + b'\n[[service]]\nid = "second"\ntag = "0.17.0"\nspeaks = ["media.serve@1"]\n'),
         ("an adapter tagged with its v has no release", COPY.replace(b'"0.18.0"', b'"v0.18.0"')),
-    ):
-        try:
-            released(changed)
-            verdict(what, True, False)
-        except Refusal:
-            verdict(what, True, True)
-    to = moved(PIN, "f" * 40, COPY)
-    verdict("a move takes the revision, the release and the digest", True,
-            (to["revision"], to["release"], to["manifest"]) == ("f" * 40, "0.18.0", index.digest(COPY)))
-    verdict("a move keeps what a person chose", True, (to["origin"], to["fills"]) == (PIN["origin"], PIN["fills"]))
-    try:
-        moved(PIN, "main", COPY)
-        verdict("a move to a branch refused", True, False)
-    except entries_module.Refusal:
-        verdict("a move to a branch refused", True, True)
-    try:
-        moved({**PIN, "fills": ["request.intake"]}, "f" * 40, COPY)
-        verdict("a move to a manifest that cannot fill the pin refused", True, False)
-    except Refusal:
-        verdict("a move to a manifest that cannot fill the pin refused", True, True)
-    rolling = [{**PIN, "revision": "a" * 40}, {**other, "revision": "b" * 40}]
-    verdict("the rolling branch's other moves are carried, the one asked last", True,
-            wanted(("komga", "c" * 40), rolling, [PIN, other]) == [("jellyfin", "a" * 40), ("komga", "c" * 40)])
-    verdict("a pin the rolling branch holds where main does is not moved again", True,
-            wanted(("komga", "c" * 40), [PIN], [PIN, other]) == [("komga", "c" * 40)])
-    verdict("a pin main no longer holds is not carried", True,
-            wanted(("jellyfin", "c" * 40), rolling, [PIN]) == [("jellyfin", "c" * 40)])
+    ]
+    return [
+        ("the release is the adapter's tag", True, released(COPY) == "0.18.0"),
+        *((what, True, refuses(lambda text=text: released(text))) for what, text in unreleased),
+        ("a move takes the revision, the release and the digest", True,
+         (to["revision"], to["release"], to["manifest"]) == ("f" * 40, "0.18.0", index.digest(COPY))),
+        ("a move keeps what a person chose", True, (to["origin"], to["fills"]) == (PIN["origin"], PIN["fills"])),
+        ("a move to a branch refused", True, refuses(lambda: moved(PIN, "main", COPY), entries_module.Refusal)),
+        ("a move to a manifest that cannot fill the pin refused", True,
+         refuses(lambda: moved({**PIN, "fills": ["request.intake"]}, "f" * 40, COPY))),
+        ("the rolling branch's other moves are carried, the one asked last", True,
+         wanted(("komga", "c" * 40), rolling, [PIN, OTHER]) == [("jellyfin", "a" * 40), ("komga", "c" * 40)]),
+        ("a pin the rolling branch holds where main does is not moved again", True,
+         wanted(("komga", "c" * 40), [PIN], [PIN, OTHER]) == [("komga", "c" * 40)]),
+        ("a pin main no longer holds is not carried", True,
+         wanted(("jellyfin", "c" * 40), rolling, [PIN]) == [("jellyfin", "c" * 40)]),
+    ]
 
+
+def bindings() -> list[Case]:
+    """`bound`, `applied` and `on_main`: who may move a pin, and to what."""
+    good = bundle_of(PIN)
     with tempfile.TemporaryDirectory() as box:
         directory = pathlib.Path(box)
-        (directory / "bundle.toml").write_text(good, encoding="utf-8")
-        try:
-            applied(("jellyfin", "f" * 40), other["origin"], None, directory / "bundle.toml", directory)
-            verdict("a move asked for by another repository refused", True, False)
-        except Refusal:
-            verdict("a move asked for by another repository refused", True,
-                    (directory / "bundle.toml").read_text(encoding="utf-8") == good)
-    try:
-        bound([PIN], "jellyfin", PIN["origin"] + ".git")
-        verdict("a move asked for by the pinned repository is bound to it", True, True)
-    except Refusal:
-        verdict("a move asked for by the pinned repository is bound to it", True, False)
-    try:
-        bound([PIN], "komga", other["origin"])
-        verdict("a move of a plugin the bundle does not pin refused", True, False)
-    except Refusal:
-        verdict("a move of a plugin the bundle does not pin refused", True, True)
-
+        (directory / BUNDLE_FILE).write_text(good, encoding="utf-8")
+        elsewhere = refuses(lambda: applied(("jellyfin", "f" * 40), OTHER["origin"], None,
+                                            directory / BUNDLE_FILE, directory))
+        untouched = (directory / BUNDLE_FILE).read_text(encoding="utf-8") == good
     on, off = ancestry()
-    verdict("a revision on the origin's default branch is on it", True, on is None)
-    verdict("a revision only on another branch refused", True, off is not None)
+    return [
+        ("a move asked for by another repository refused, the bundle untouched", True, elsewhere and untouched),
+        ("a move asked for by the pinned repository is bound to it", False,
+         refuses(lambda: bound([PIN], "jellyfin", PIN["origin"] + ".git"))),
+        ("a move of a plugin the bundle does not pin refused", True,
+         refuses(lambda: bound([PIN], "komga", OTHER["origin"]))),
+        ("a revision on the origin's default branch is on it", True, on is None),
+        ("a revision only on another branch refused", True, off is not None),
+    ]
 
+
+def self_test() -> int:
+    """Each rule, against the shape it exists to refuse."""
+    failures = 0
+    for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings()):
+        print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")
+        failures += expected != got
     print("\nself-test passed." if not failures else f"\n{failures} rule(s) did not refuse.")
     return 1 if failures else 0
 
