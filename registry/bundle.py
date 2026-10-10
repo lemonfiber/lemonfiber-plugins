@@ -21,6 +21,9 @@ on the same forge can be fetched through the origin's address, so a revision tha
 fetches is not yet one the plugin published; its ancestry from the origin's default
 branch is what says so.
 
+`--offline` holds every copy to its pin with nothing fetched: the digest, the id and the
+adapter's tag. The train runs it on the files it is about to commit.
+
 `--apply ID REVISION --origin URL` is the train's half (OPS-R86): it moves a pinned
 plugin to the revision its pin pull request merged, taking the release from the adapter
 service's tag there and the digest from its manifest, and copies that manifest in. The
@@ -32,6 +35,7 @@ is how the one rolling pull request keeps the moves it already carries. It print
 moves as JSON.
 
 Run:  python3 registry/bundle.py
+      python3 registry/bundle.py --offline
       python3 registry/bundle.py --apply jellyfin <commit> --origin <url> [--carry < bundle.toml]
       python3 registry/bundle.py --self-test
 Needs: git, and the network to fetch the release and the pinned revisions.
@@ -42,6 +46,8 @@ could not be asked.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import pathlib
 import re
@@ -416,8 +422,18 @@ def holds(pin: dict, copy: bytes) -> bool:
     return held
 
 
-def checked() -> int:
-    """The bundle in this checkout, held to its origins."""
+def offline_holds(pins: list[dict], held: dict[str, pathlib.Path]) -> int:
+    """Every copy against its pin, with nothing fetched: its digest, its id, its adapter's tag."""
+    said = [f"{pin['id']}: {line}" for pin in pins for line in held_to_pin(pin, held[pin["id"]].read_bytes())]
+    for line in said:
+        print(f"::error::{line}")
+    if not said:
+        print(f"{len(pins)} pinned plugins' copies are the bytes their pins name.")
+    return 1 if said else 0
+
+
+def checked(offline: bool = False) -> int:
+    """The bundle in this checkout, held to its origins, or offline to what needs no fetch."""
     try:
         pins = read(BUNDLE.read_text(encoding="utf-8"))
         held = copies(COPIES)
@@ -432,6 +448,8 @@ def checked() -> int:
     if not pins:
         print("The bundle pins no first-party plugin yet, so there is no copy to hold to an origin.")
         return 0
+    if offline:
+        return offline_holds(pins, held)
     try:
         version = check.a_reader_is_here()
     except check.Unaskable as unasked:
@@ -453,6 +471,8 @@ def main() -> int:
                         help="with --apply: the repository asking, which the bundle pins for ID")
     parser.add_argument("--carry", action="store_true",
                         help="with --apply: first move each pin the bundle on stdin holds elsewhere")
+    parser.add_argument("--offline", action="store_true",
+                        help="hold every copy to its pin without fetching anything")
     args = parser.parse_args()
     if args.self_test:
         return self_test()
@@ -461,7 +481,7 @@ def main() -> int:
         return 2
     if args.apply:
         return apply(tuple(args.apply), args.origin, args.carry)
-    return checked()
+    return checked(args.offline)
 
 
 EMPTY = """# commentary
@@ -579,6 +599,14 @@ def pairs() -> list[Case]:
             ("a copy no pin names refused", True, bool(paired([], found))),
             ("a pin with no copy refused", True, bool(paired([PIN, OTHER], found))),
         ]
+        pinned = {**PIN, "manifest": index.digest(COPY)}
+        with contextlib.redirect_stdout(io.StringIO()):
+            said += [
+                ("copies that are the bytes their pins name hold offline", True,
+                 offline_holds([pinned], found) == 0),
+                ("a copy that is not the bytes its pin names refused offline", True,
+                 offline_holds([PIN], found) == 1),
+            ]
         (directory / "notes.md").write_text("no", encoding="utf-8")
         return [*said, ("a file that is not a copy refused", True, refuses(lambda: copies(directory)))]
 

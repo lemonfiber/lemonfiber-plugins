@@ -66,8 +66,9 @@ holds. The file's own comments describe each field.
 The release train moves the pins. When a first-party plugin's pin pull request
 merges, its repository dispatches `bundle-bump.yml` with the merge commit and
 its own address, and the bump moves that pin and its copy on one rolling pull
-request, `release/bundle-pins`. It refuses a repository asking to move a pin
-the bundle holds from another origin. A plugin enters
+request, `release/bundle-pins`. Only the release App dispatches it, and only
+against `main`; it refuses a repository asking to move a pin the bundle holds
+from another origin, and commits no copy that is not the bytes its pin names. A plugin enters
 the bundle through a person's pull request, which says what it fills.
 
 The `bundle` job refuses a copy no pin names, a pin with no copy, a copy whose
