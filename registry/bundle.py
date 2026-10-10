@@ -16,17 +16,23 @@ fetched from its origin at the pinned revision; and a pinned revision failing a 
 `check.py` holds a registration to (REPO-R61). The fetch and those checks are
 `check.py`'s own, so nothing from a pinned repository is executed (REPO-R62).
 
-`--apply ID REVISION` is the train's half (OPS-R86): it moves a pinned plugin to the
-revision its pin pull request merged, taking the release from the adapter service's tag
-there and the digest from its manifest, and copies that manifest in. Only a plugin the
-bundle already pins is moved; a plugin enters the bundle through a person's pull
-request, because what it fills is a person's choice. `--carry FILE` first moves every
+A pinned revision has to be on its origin's default branch. A commit pushed to a fork
+on the same forge can be fetched through the origin's address, so a revision that
+fetches is not yet one the plugin published; its ancestry from the origin's default
+branch is what says so.
+
+`--apply ID REVISION --origin URL` is the train's half (OPS-R86): it moves a pinned
+plugin to the revision its pin pull request merged, taking the release from the adapter
+service's tag there and the digest from its manifest, and copies that manifest in. The
+origin is the repository asking, and has to be the one the bundle pins for that id.
+Only a plugin the bundle already pins is moved; a plugin enters the bundle through a
+person's pull request, because what it fills is a person's choice. `--carry FILE` first moves every
 pin that the bundle at FILE holds at another revision than this one, which is how the
 one rolling pull request keeps the moves it already carries. It prints the moves as
 JSON.
 
 Run:  python3 registry/bundle.py
-      python3 registry/bundle.py --apply jellyfin <commit> [--carry <bundle.toml>]
+      python3 registry/bundle.py --apply jellyfin <commit> --origin <url> [--carry <bundle.toml>]
       python3 registry/bundle.py --self-test
 Needs: git, and the network to fetch the release and the pinned revisions.
 Exit 0 = the bundle holds or was moved, 1 = it does not or could not be, 2 = this
@@ -252,11 +258,39 @@ def held_to_pin(pin: dict, copy: bytes) -> list[str]:
     return said
 
 
+def on_main(origin: str, revision: str) -> str | None:
+    """Why `revision` is not on the origin's default branch, or nothing where it is.
+
+    Only the default branch's commits are fetched, without their trees, and the
+    revision has to be among their ancestry: fetching the revision itself proves
+    nothing, because a forge serves a fork's commit through the origin's address.
+    """
+    with tempfile.TemporaryDirectory() as box:
+        steps = (
+            ("git", "init", "--quiet"),
+            ("git", "remote", "add", "origin", origin),
+            ("git", "-c", "core.hooksPath=/dev/null", "fetch", "--quiet", "--filter=tree:0",
+             "--no-tags", "origin", "HEAD"),
+        )
+        for step in steps:
+            done = check.ran(*step, at=pathlib.Path(box))
+            if done.returncode != 0:
+                said = (done.stderr or done.stdout).strip().splitlines()
+                return f"its default branch could not be fetched: {said[-1] if said else 'no output'}"
+        held = check.ran("git", "merge-base", "--is-ancestor", revision, "FETCH_HEAD", at=pathlib.Path(box))
+    if held.returncode != 0:
+        return f"{revision[:12]} is not on the origin's default branch"
+    return None
+
+
 def fetched(pin: dict, revision: str, into: pathlib.Path) -> bytes:
     """The manifest at `revision` of the pin's origin, fetched as data into `into`."""
     why = check.fetched(pin["origin"], revision, into)
     if why is not None:
         raise Refusal(f"{pin['id']} at {revision[:12]} could not be fetched: {why}")
+    why = on_main(pin["origin"], revision)
+    if why is not None:
+        raise Refusal(f"{pin['id']}: {why}")
     theirs = into / index.MANIFEST
     if not theirs.is_file():
         raise Refusal(f"{pin['id']} at {revision[:12]} has no {index.MANIFEST} at its root")
@@ -307,16 +341,30 @@ def wanted(asked: tuple[str, str], carried: list[dict], pins: list[dict]) -> lis
     return [*moves, asked]
 
 
-def applied(asked: tuple[str, str], carry: pathlib.Path | None) -> list[dict]:
-    """Move the pins and write the bundle and the copies, returning what moved."""
-    entries_module.revision(asked[1], asked[0])
-    text = BUNDLE.read_text(encoding="utf-8")
-    pins = read(text)
-    if asked[0] not in {pin["id"] for pin in pins}:
+def bound(pins: list[dict], name: str, origin: str) -> None:
+    """Refuse a move asked for by any repository but the one the bundle pins for `name`."""
+    pinned = {pin["id"]: pin["origin"] for pin in pins}
+    if name not in pinned:
         raise Refusal(
-            f"the bundle pins no {asked[0]!r}; a plugin enters it through a person's pull request, "
+            f"the bundle pins no {name!r}; a plugin enters it through a person's pull request, "
             "which says what it fills"
         )
+    if entries_module.repository(origin) != entries_module.repository(pinned[name]):
+        raise Refusal(f"{origin} asked to move {name!r}, which the bundle pins from {pinned[name]}")
+
+
+def applied(
+    asked: tuple[str, str],
+    origin: str,
+    carry: pathlib.Path | None,
+    bundle: pathlib.Path = BUNDLE,
+    held: pathlib.Path = COPIES,
+) -> list[dict]:
+    """Move the pins and write the bundle and the copies, returning what moved."""
+    entries_module.revision(asked[1], asked[0])
+    text = bundle.read_text(encoding="utf-8")
+    pins = read(text)
+    bound(pins, asked[0], origin)
     carried = read(carry.read_text(encoding="utf-8"), str(carry)) if carry else []
     by_id = {pin["id"]: pin for pin in pins}
     moves = []
@@ -326,11 +374,11 @@ def applied(asked: tuple[str, str], carry: pathlib.Path | None) -> list[dict]:
             manifest = fetched(was, revision, pathlib.Path(box) / "source")
         now = moved(was, revision, manifest)
         by_id[name] = now
-        (COPIES / f"{name}.toml").write_bytes(manifest)
+        (held / f"{name}.toml").write_bytes(manifest)
         if now != was:
             moves.append({"id": name, "from": was, "to": now})
     start = PINS_START.search(text)
-    BUNDLE.write_text(text[: start.start()] + rendered(list(by_id.values())), encoding="utf-8")
+    bundle.write_text(text[: start.start()] + rendered(list(by_id.values())), encoding="utf-8")
     return moves
 
 
@@ -340,17 +388,19 @@ def main() -> int:
                         help="prove each rule refuses the shape it exists to refuse")
     parser.add_argument("--apply", nargs=2, metavar=("ID", "REVISION"),
                         help="move a pinned plugin to the revision its pin pull request merged")
+    parser.add_argument("--origin", metavar="URL",
+                        help="with --apply: the repository asking, which the bundle pins for ID")
     parser.add_argument("--carry", type=pathlib.Path, metavar="FILE",
                         help="with --apply: first move each pin the bundle at FILE holds elsewhere")
     args = parser.parse_args()
     if args.self_test:
         return self_test()
-    if args.carry and not args.apply:
-        print("::error::--carry is part of --apply")
+    if bool(args.apply) != bool(args.origin) or (args.carry and not args.apply):
+        print("::error::--apply takes --origin, and --origin and --carry are part of --apply")
         return 2
     if args.apply:
         try:
-            moves = applied(tuple(args.apply), args.carry)
+            moves = applied(tuple(args.apply), args.origin, args.carry)
         except (Refusal, entries_module.Refusal, OSError) as refused:
             print(f"::error::{refused}")
             return 1
@@ -429,6 +479,23 @@ tag = "0.18.0"
 speaks = ["media.serve@1", "identity.source@1"]
 fronts = "jellyfin"
 """
+
+
+def ancestry() -> tuple[str | None, str | None]:
+    """`on_main` against a repository whose default branch holds one commit and whose
+    other branch holds another, the way a fork's commit is served through its parent."""
+    with tempfile.TemporaryDirectory() as box:
+        origin = pathlib.Path(box)
+        git = ("git", "-c", "user.name=self-test", "-c", "user.email=self-test@invalid",
+               "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null")
+        check.ran("git", "init", "--quiet", "--initial-branch=main", at=origin)
+        check.ran(*git, "commit", "--quiet", "--allow-empty", "-m", "main", at=origin)
+        held = check.ran("git", "rev-parse", "HEAD", at=origin).stdout.strip()
+        check.ran("git", "checkout", "--quiet", "-b", "fork", at=origin)
+        check.ran(*git, "commit", "--quiet", "--allow-empty", "-m", "fork", at=origin)
+        forked = check.ran("git", "rev-parse", "HEAD", at=origin).stdout.strip()
+        check.ran("git", "checkout", "--quiet", "main", at=origin)
+        return on_main(str(origin), held), on_main(str(origin), forked)
 
 
 def bundle_of(*pins: dict) -> str:
@@ -544,6 +611,30 @@ def self_test() -> int:
             wanted(("komga", "c" * 40), [PIN], [PIN, other]) == [("komga", "c" * 40)])
     verdict("a pin main no longer holds is not carried", True,
             wanted(("jellyfin", "c" * 40), rolling, [PIN]) == [("jellyfin", "c" * 40)])
+
+    with tempfile.TemporaryDirectory() as box:
+        directory = pathlib.Path(box)
+        (directory / "bundle.toml").write_text(good, encoding="utf-8")
+        try:
+            applied(("jellyfin", "f" * 40), other["origin"], None, directory / "bundle.toml", directory)
+            verdict("a move asked for by another repository refused", True, False)
+        except Refusal:
+            verdict("a move asked for by another repository refused", True,
+                    (directory / "bundle.toml").read_text(encoding="utf-8") == good)
+    try:
+        bound([PIN], "jellyfin", PIN["origin"] + ".git")
+        verdict("a move asked for by the pinned repository is bound to it", True, True)
+    except Refusal:
+        verdict("a move asked for by the pinned repository is bound to it", True, False)
+    try:
+        bound([PIN], "komga", other["origin"])
+        verdict("a move of a plugin the bundle does not pin refused", True, False)
+    except Refusal:
+        verdict("a move of a plugin the bundle does not pin refused", True, True)
+
+    on, off = ancestry()
+    verdict("a revision on the origin's default branch is on it", True, on is None)
+    verdict("a revision only on another branch refused", True, off is not None)
 
     print("\nself-test passed." if not failures else f"\n{failures} rule(s) did not refuse.")
     return 1 if failures else 0

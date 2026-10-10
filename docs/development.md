@@ -64,14 +64,17 @@ the manifest itself, copied byte for byte. It is the one copy this repository
 holds. The file's own comments describe each field.
 
 The release train moves the pins. When a first-party plugin's pin pull request
-merges, its repository dispatches `bundle-bump.yml`, which moves that pin and
-its copy on one rolling pull request, `release/bundle-pins`. A plugin enters
+merges, its repository dispatches `bundle-bump.yml` with the merge commit and
+its own address, and the bump moves that pin and its copy on one rolling pull
+request, `release/bundle-pins`. It refuses a repository asking to move a pin
+the bundle holds from another origin. A plugin enters
 the bundle through a person's pull request, which says what it fills.
 
 The `bundle` job refuses a copy no pin names, a pin with no copy, a copy whose
 digest, id or adapter tag is not its pin's, a `fills` the copy neither provides
-nor speaks, and a copy that differs from the manifest fetched from its origin
-at the pinned revision. It then holds that revision to everything `plugins`
+nor speaks, a pinned revision that is not on its origin's default branch, and a
+copy that differs from the manifest fetched from its origin at the pinned
+revision. It then holds that revision to everything `plugins`
 holds a registration to.
 
 ```sh

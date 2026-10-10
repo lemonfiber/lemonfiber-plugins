@@ -1,7 +1,8 @@
 # Move a first-party plugin's pin in the default bundle to what its release published.
 #
 # A first-party plugin's repository dispatches this once the pull request pinning its
-# adapter's image in its manifest has merged, with the merge commit (OPS-R86).
+# adapter's image in its manifest has merged, with the merge commit and its own
+# address, which has to be the origin the bundle pins for that id (OPS-R86).
 # `bundle.py --apply` moves the pin to that revision, taking the release from the
 # adapter service's tag and the digest from the manifest, and copies the manifest in;
 # this puts the change on one rolling branch, signed, and opens or updates its pull
@@ -16,6 +17,9 @@ on:
         required: true
       revision:
         description: "The commit its pin pull request merged, 40 hex."
+        required: true
+      origin:
+        description: "The repository asking, e.g. https://github.com/lemonfiber/plugin-jellyfin."
         required: true
 
 permissions:
@@ -79,6 +83,7 @@ jobs:
           REPO: ${{ github.repository }}
           PLUGIN: ${{ inputs.id }}
           REVISION: ${{ inputs.revision }}
+          ORIGIN: ${{ inputs.origin }}
           OPEN_HEAD: ${{ steps.rolling.outputs.head }}
         run: |
           set -euo pipefail
@@ -88,6 +93,8 @@ jobs:
             || { echo "::error::'${PLUGIN}' is not a plugin id"; exit 1; }
           [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] \
             || { echo "::error::'${REVISION}' is not a full commit"; exit 1; }
+          [[ "$ORIGIN" =~ ^https://[A-Za-z0-9.-]+/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] \
+            || { echo "::error::'${ORIGIN}' is not a repository address"; exit 1; }
           python3 registry/bundle.py --self-test
 
           # The moves the open rolling pull request already carries are kept.
@@ -100,7 +107,8 @@ jobs:
             carry=(--carry "$RUNNER_TEMP/carried.toml")
           fi
           # Outside the checkout, so the commit below cannot carry it.
-          python3 registry/bundle.py --apply "$PLUGIN" "$REVISION" "${carry[@]}" > "$RUNNER_TEMP/applied.json"
+          python3 registry/bundle.py --apply "$PLUGIN" "$REVISION" --origin "$ORIGIN" "${carry[@]}" \
+            > "$RUNNER_TEMP/applied.json"
           cat "$RUNNER_TEMP/applied.json"
           git add bundle
           if git diff --cached --quiet; then
