@@ -85,8 +85,10 @@ jobs:
         run: |
           set -euo pipefail
           [ "$REF" = "refs/heads/main" ] || { echo "::error::dispatched against ${REF}, not main"; exit 1; }
-          [ "$ACTOR" = "$BOT" ] && [ "$TRIGGERING" = "$BOT" ] \
-            || { echo "::error::dispatched by ${ACTOR} and run by ${TRIGGERING}, not ${BOT}"; exit 1; }
+          if [ "$ACTOR" != "$BOT" ] || [ "$TRIGGERING" != "$BOT" ]; then
+            echo "::error::dispatched by ${ACTOR} and run by ${TRIGGERING}, not ${BOT}"
+            exit 1
+          fi
           [[ "$ORIGIN" =~ ^https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)$ ]] \
             || { echo "::error::'${ORIGIN}' is not a repository on this forge"; exit 1; }
           slug="${BASH_REMATCH[1]}"
@@ -240,12 +242,13 @@ jobs:
 
             # A fast-forward from the head this run built on, or a branch created
             # where there was none. Either fails where another run moved first.
+            moved=no
             if [ -n "$head" ]; then
-              moved="$(gh api --method PATCH "repos/${REPO}/git/refs/heads/${BRANCH}" \
-                -F sha="${built}" -F force=false >/dev/null 2>&1 && echo yes || echo no)"
-            else
-              moved="$(gh api --method POST "repos/${REPO}/git/refs" \
-                -f ref="refs/heads/${BRANCH}" -f sha="${built}" >/dev/null 2>&1 && echo yes || echo no)"
+              if gh api --method PATCH "repos/${REPO}/git/refs/heads/${BRANCH}" \
+                -F sha="${built}" -F force=false >/dev/null 2>&1; then moved=yes; fi
+            elif gh api --method POST "repos/${REPO}/git/refs" \
+              -f ref="refs/heads/${BRANCH}" -f sha="${built}" >/dev/null 2>&1; then
+              moved=yes
             fi
             if [ "$moved" = "yes" ]; then
               echo "built=${built}" >> "$GITHUB_OUTPUT"
