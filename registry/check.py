@@ -220,15 +220,20 @@ def declared_in(report: pathlib.Path) -> list[str]:
 
 def one(plugin: dict) -> tuple[bool, list[str]]:
     """One registration, and everything that has to hold for it."""
-    said: list[str] = []
     with tempfile.TemporaryDirectory() as box:
         source = pathlib.Path(box) / "source"
-        work = pathlib.Path(box) / "work"
-        work.mkdir()
-
         why = fetched(plugin["origin"], plugin["revision"], source)
         if why is not None:
             return False, [f"the revision named could not be fetched: {why}"]
+        return holds(source)
+
+
+def holds(source: pathlib.Path) -> tuple[bool, list[str]]:
+    """Everything that has to hold for a revision already fetched into `source`."""
+    said: list[str] = []
+    with tempfile.TemporaryDirectory() as box:
+        work = pathlib.Path(box) / "work"
+        work.mkdir()
 
         why = assembled(source, work)
         if why is not None:

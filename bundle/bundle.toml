@@ -1,0 +1,25 @@
+# The default bundle: every first-party plugin a stack is built from, pinned
+# (REPO-R91, ADR-0042). The core embeds this repository as a submodule and
+# compiles this file and every copy beside it in, so a stack installs offline.
+#
+# One [[plugin]] table per first-party plugin, ordered by id:
+#
+#   id        the plugin's `[plugin].id`. Its manifest is copied byte for byte
+#             to bundle/plugins/<id>.toml.
+#   origin    the plugin's repository, as an https URL.
+#   release   the tag the release train cut there, without the `v`. The copy's
+#             adapter service (the one that `speaks`) is tagged at it.
+#   revision  the full 40-hex commit whose plugin.toml names the image that
+#             tag published: the merge of the plugin's pin pull request, never
+#             the tag, because the tag precedes the digest it publishes.
+#   manifest  the sha256 digest of plugin.toml at that revision, written
+#             `sha256:<64 hex>`.
+#   fills     the capabilities the plugin fills by default.
+#
+# The train moves `release`, `revision`, `manifest` and the copy (OPS-R86);
+# `origin` and `fills` are a person's choice. registry/bundle.py holds every
+# copy to its origin at the pinned revision (REPO-R92).
+
+schema = 1
+
+plugin = []

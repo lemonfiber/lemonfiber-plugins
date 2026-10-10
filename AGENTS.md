@@ -20,7 +20,15 @@ spec's `70-operations/plugins.toml` and answers a different question. Spec page:
 - **Register, never copy** (`REPO-R60`). An entry is an origin and a commit. A
   manifest, a fixture or a proof appearing in this repository is the defect this
   design exists to avoid: two answers to what a plugin declares, with nothing to
-  say which one an operator installed.
+  say which one an operator installed. The one exception is the default bundle
+  (`REPO-R91`): `bundle/plugins/<id>.toml` copies each first-party plugin's
+  manifest byte for byte, because the core compiles the bundle in, and
+  `registry/bundle.py` refuses a copy that is not its origin's manifest at the
+  pinned revision (`REPO-R92`).
+- **The bundle's pins move with the release train** (`OPS-R86`).
+  `bundle-bump.yml` moves a pin and its copy on one rolling pull request when a
+  plugin's own release dispatches it. A plugin enters `bundle/bundle.toml`
+  through a person's pull request, which says what it fills.
 - **Nothing from a registered repository is executed** (`REPO-R62`). `check.py`
   copies data out of a fetched revision — `plugin.toml`, `fixtures/`,
   `targets.toml` — and runs this repository's own programs over it. If you find
@@ -43,7 +51,7 @@ spec's `70-operations/plugins.toml` and answers a different question. Spec page:
 ## What is deliberately absent
 
 - **A plugin's manifest and fixtures.** See above; they stay where they are
-  published.
+  published, and only the bundle's manifests are copied.
 - **A version number of its own.** The catalogue is not a stream the version
   train cuts (`OPS-R59`), and a plugin landing here moves no version number in
   this organisation.
