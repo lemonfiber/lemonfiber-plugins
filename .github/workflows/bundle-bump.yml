@@ -16,8 +16,11 @@
 # that won.
 #
 # Only the release App dispatches it, from a plugin's own release, and only against
-# main: a run asked for by anyone else, or from another ref, is refused before it
-# reads anything, and what it runs is main's workflow and main's `bundle.py`.
+# main: a run asked for or re-run by anyone else, or from another ref, is refused
+# before it reads anything, and what it runs is main's workflow and main's
+# `bundle.py`. The revision has to be the merge of the App's own pin pull request in
+# the repository the dispatch names, so no dispatch moves a pin anywhere a plugin's
+# release did not propose.
 name: bundle-bump
 
 on:
@@ -42,11 +45,15 @@ concurrency:
 
 env:
   BRANCH: release/bundle-pins
+  # The rolling branch a plugin's own release proposes its adapter's pin on.
+  PIN_BRANCH: release/adapter-pin
   ATTEMPTS: 5
 
 jobs:
   bump:
-    if: github.ref == 'refs/heads/main' && endsWith(github.actor, '[bot]')
+    if: >-
+      github.ref == 'refs/heads/main'
+      && endsWith(github.actor, '[bot]') && endsWith(github.triggering_actor, '[bot]')
     runs-on: ubuntu-latest
     steps:
       # `main` requires signed commits and only commits GitHub makes are signed,
@@ -63,14 +70,33 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - name: Only the release App, and only against main, moves a pin
+      # The revision has to be the merge of the release App's own pin pull request
+      # in the repository asking, so a dispatch naming a plugin's origin moves that
+      # plugin only to a pin its own release proposed.
+      - name: Only the release App, against main, moves a pin to its own pin pull request's merge
         env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           ACTOR: ${{ github.actor }}
+          TRIGGERING: ${{ github.triggering_actor }}
           REF: ${{ github.ref }}
           BOT: ${{ steps.token.outputs.app-slug }}[bot]
+          ORIGIN: ${{ inputs.origin }}
+          REVISION: ${{ inputs.revision }}
         run: |
+          set -euo pipefail
           [ "$REF" = "refs/heads/main" ] || { echo "::error::dispatched against ${REF}, not main"; exit 1; }
-          [ "$ACTOR" = "$BOT" ] || { echo "::error::dispatched by ${ACTOR}, not ${BOT}"; exit 1; }
+          [ "$ACTOR" = "$BOT" ] && [ "$TRIGGERING" = "$BOT" ] \
+            || { echo "::error::dispatched by ${ACTOR} and run by ${TRIGGERING}, not ${BOT}"; exit 1; }
+          [[ "$ORIGIN" =~ ^https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)$ ]] \
+            || { echo "::error::'${ORIGIN}' is not a repository on this forge"; exit 1; }
+          slug="${BASH_REMATCH[1]}"
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::'${REVISION}' is not a full commit"; exit 1; }
+          merged="$(gh api "repos/${slug}/commits/${REVISION}/pulls" --jq "map(select(
+            .merged_at != null and .merge_commit_sha == \"${REVISION}\" and .base.ref == \"main\"
+            and .head.ref == \"${PIN_BRANCH}\" and .head.repo.full_name == \"${slug}\"
+            and .user.login == \"${BOT}\")) | length")"
+          [ "$merged" = "1" ] \
+            || { echo "::error::${REVISION} is not the merge of ${BOT}'s ${PIN_BRANCH} pull request in ${slug}"; exit 1; }
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
