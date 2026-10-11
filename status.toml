@@ -20,4 +20,8 @@ requirement = [
   { id = "F10-R7", state = "partial", evidence = ["registry/check.py", "justfile"] },
   { id = "F10-R13", state = "partial", evidence = [".github/reader/reader.py", ".github/reader/test_reader.py::test_every_declaration_an_assertion_failed_as_is_named"] },
   { id = "F10-R17", state = "partial", evidence = [".github/reader/reader.py", ".github/reader/test_reader.py::test_the_schema_of_another_release_is_refused_naming_both"] },
+  { id = "F10-R18", state = "done", evidence = [".github/reader/reader.py", ".github/reader/test_reader.py::test_both_are_refused_naming_both", ".github/reader/test_reader.py::test_a_commit_main_does_not_hold_is_refused_before_anything_is_built"] },
+  { id = "F10-R19", state = "done", evidence = [".github/reader/reader.py", ".github/reader/test_reader.py::test_a_commit_on_main_is_built_as_the_gate_builds_its_candidate_and_kept_under_it", ".github/reader/test_reader.py::test_the_report_names_the_commit_that_answered"] },
+  { id = "OPS-R88", state = "done", evidence = ["spec:scripts/check_plugins.py", "spec:scripts/test_plugins.py::test_a_plugin_naming_a_commit_rides_every_version_and_is_proved_with_the_candidate"] },
+  { id = "OPS-R89", state = "done", evidence = ["spec:scripts/check_bundle_pins.py", "spec:scripts/test_release_images.py::test_main_refuses_a_pin_targeting_a_core_commit_the_tagged_core_does_not_hold"] },
 ]

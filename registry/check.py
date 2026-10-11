@@ -168,23 +168,33 @@ def a_reader_is_here() -> str:
     """The release this catalogue targets, fetched and verified, before anything is judged.
 
     Raised rather than returned: a registration nothing could ask about is unproven, and
-    reporting no faults would read as clear.
+    reporting no faults would read as clear. The checks run from a release, so a
+    `targets.toml` here naming a commit of lemonfiber's `main` is refused before anything
+    is built.
     """
     try:
+        target = reader.targeted()
+        if target.commit:
+            raise Unaskable(f"this catalogue's targets.toml names {target}; its checks run from a release")
         reader.binary()
-        return reader.targeted()
+        return target.name
     except (reader.Unasked, OSError) as absent:
         raise Unaskable(f"the release this catalogue targets could not be fetched: {absent}") from absent
 
 
 def release(where: pathlib.Path) -> str | None:
-    """The lemonfiber release a `targets.toml` names, or nothing if it names none."""
+    """The lemonfiber a `targets.toml` names — a release, or a commit of lemonfiber's
+    `main` — or nothing if it names neither."""
     import tomllib
 
     try:
-        return tomllib.loads(where.read_text(encoding="utf-8")).get("lemonfiber")
+        read = tomllib.loads(where.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
         return None
+    commit = read.get(reader.COMMIT_KEY)
+    if commit is not None:
+        return str(reader.Target(str(commit), commit=True))
+    return read.get(reader.RELEASE_KEY)
 
 
 def targeted(theirs: pathlib.Path) -> str:
@@ -198,7 +208,7 @@ def targeted(theirs: pathlib.Path) -> str:
     ours = release(ROOT / "targets.toml")
     said = release(theirs)
     if said is None:
-        return "its targets.toml names no lemonfiber release"
+        return "its targets.toml names neither a lemonfiber release nor a commit"
     if ours is None or said == ours:
         return f"proved by its author against {said}, which is what these checks ran"
     return f"proved by its author against {said}; these checks ran {ours}"
