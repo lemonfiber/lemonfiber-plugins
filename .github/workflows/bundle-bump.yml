@@ -55,6 +55,7 @@ jobs:
       github.ref == 'refs/heads/main'
       && endsWith(github.actor, '[bot]') && endsWith(github.triggering_actor, '[bot]')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       branch: ${{ env.BRANCH }}
       head: ${{ steps.said.outputs.head }}
