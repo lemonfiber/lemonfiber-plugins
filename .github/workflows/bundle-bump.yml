@@ -55,11 +55,16 @@ jobs:
       github.ref == 'refs/heads/main'
       && endsWith(github.actor, '[bot]') && endsWith(github.triggering_actor, '[bot]')
     runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ env.BRANCH }}
+      head: ${{ steps.said.outputs.head }}
+      title: ${{ steps.said.outputs.title }}
+      body: ${{ steps.said.outputs.body }}
     steps:
-      # `main` requires signed commits and only commits GitHub makes are signed,
-      # and a pull request opened with `GITHUB_TOKEN` triggers no workflows. Both
-      # want an app token.
-      - name: Mint a token that can open a pull request here
+      # `main` requires signed commits, and only a commit GitHub makes for an
+      # app is signed. This token checks the dispatch and writes that commit;
+      # the pull request is opened in the next job, with a token of its own.
+      - name: Mint a token that can commit here
         id: token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
@@ -68,7 +73,6 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-contents: write
-          permission-pull-requests: write
 
       # The revision has to be the merge of the release App's own pin pull request
       # in the repository asking, so a dispatch naming a plugin's origin moves that
@@ -259,47 +263,48 @@ jobs:
           echo "::error::the rolling branch moved under every one of ${ATTEMPTS} attempts"
           exit 1
 
-      # The rolling pull request is the one on this repository's own branch that
-      # the release App opened. A pull request from a fork can carry a branch of
-      # the same name, so it is looked up by owner and its head and author held.
-      - name: Open or update the rolling pull request, and arm it
+      # A run that lost the race to a later one leaves the pull request to it: the
+      # later run's commit carries this move, and that run opens or edits and arms
+      # the pull request at its own commit. The words go to the next job.
+      - name: Is the commit still the branch's tip, and what the pull request says
+        id: said
         if: steps.move.outputs.built != ''
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           REPO: ${{ github.repository }}
-          OWNER: ${{ github.repository_owner }}
-          BOT: ${{ steps.token.outputs.app-slug }}[bot]
           BUILT: ${{ steps.move.outputs.built }}
         run: |
           set -euo pipefail
-          rolling() {
-            gh api "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=open" \
-              --jq "map(select(.head.repo.full_name == \"${REPO}\" and .user.login == \"${BOT}\")) | .[0].number // empty"
-          }
-          existing="$(rolling)"
-          headline="$(cat "$RUNNER_TEMP/headline.txt")"
-          if [ -z "$existing" ]; then
-            gh pr create --repo "${REPO}" --head "${BRANCH}" --base main \
-              --title "${headline}" --body-file "$RUNNER_TEMP/body.md" --label dependencies >/dev/null \
-              || echo "::notice::another run opened the pull request first."
-            existing="$(rolling)"
-          fi
-          [[ "$existing" =~ ^[0-9]+$ ]] || { echo "::error::no rolling pull request carries ${BRANCH}"; exit 1; }
-
-          # Nothing is edited or armed on a pull request whose head is not the
-          # commit this run made. A later run builds on that commit, carrying its
-          # move, and edits and arms the pull request itself.
-          head=""
-          for _ in 1 2 3 4 5 6; do
-            head="$(gh api "repos/${REPO}/pulls/${existing}" --jq .head.sha)"
-            [ "$head" = "$BUILT" ] && break
-            sleep 5
-          done
-          if [ "$head" != "$BUILT" ]; then
-            echo "::notice::#${existing}'s head is ${head}, a later run's, which carries this move and arms it."
+          tip="$(gh api "repos/${REPO}/git/ref/heads/${BRANCH}" --jq .object.sha)"
+          if [ "$tip" != "$BUILT" ]; then
+            echo "::notice::${BRANCH} is at ${tip}, a later run's, which carries this move and arms it."
             exit 0
           fi
-          gh pr edit "${existing}" --repo "${REPO}" --title "${headline}" --body-file "$RUNNER_TEMP/body.md" >/dev/null
-          gh pr merge "${existing}" --repo "${REPO}" --auto --squash --match-head-commit "${BUILT}" \
-            && echo "auto-merge armed on #${existing}" \
-            || echo "::warning::could not arm auto-merge on #${existing}; it waits for a maintainer."
+          # The delimiter is random, so no line of the body can end the value.
+          delimiter="body_$(openssl rand -hex 16)"
+          {
+            echo "head=${BUILT}"
+            echo "title=$(cat "$RUNNER_TEMP/headline.txt")"
+            echo "body<<${delimiter}"
+            cat "$RUNNER_TEMP/body.md"
+            echo "${delimiter}"
+          } >> "$GITHUB_OUTPUT"
+
+  # The pull request is opened, or the open one edited, only where it is this
+  # workflow's own: the release app opened it from this repository's branch and
+  # it is at the commit above (OPS-R87). It is armed to merge at that commit.
+  pull-request:
+    needs: bump
+    if: needs.bump.outputs.head != ''
+    permissions:
+      contents: read
+    uses: lemonfiber/spec/.github/workflows/rolling-pull-request.yml@be0b484aa5c2a7e2a6cee4b33866143634e6e1df # v1.0.70
+    with:
+      branch: ${{ needs.bump.outputs.branch }}
+      head: ${{ needs.bump.outputs.head }}
+      title: ${{ needs.bump.outputs.title }}
+      body: ${{ needs.bump.outputs.body }}
+      labels: dependencies
+      auto-merge: true
+    secrets:
+      RELEASE_APP_KEY: ${{ secrets.RELEASE_APP_KEY }}
