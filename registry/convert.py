@@ -52,6 +52,7 @@ import tomllib
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import entry  # noqa: E402
 import index  # noqa: E402
 import parts  # noqa: E402
 import tree  # noqa: E402
@@ -100,6 +101,18 @@ REVISION = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._/~^-]{0,255}\Z")
 COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
 EXECUTABLE = 0o755
 READABLE = 0o644
+
+
+def plain(path: str) -> bool:
+    """Whether `path` is a plain relative path inside a tree: `/` between segments, no `.` or `..`
+    segment, nothing absolute, no backslash and no NUL."""
+    return isinstance(path, str) and "\0" not in path and tree.relative(path)
+
+
+def unplain(manifest: dict) -> list[str]:
+    """Every recording the manifest names that is not a plain relative path."""
+    return [f"the recording {one!r} is not a plain relative path inside the tree"
+            for one in tree.recordings(manifest) if not plain(one)]
 
 
 class Refused(Exception):
@@ -273,6 +286,8 @@ def files_of(stack: pathlib.Path, name: str, manifest: dict, problems: list[str]
 
 def converted(stack: pathlib.Path, name: str, version: str) -> Part:
     """The part `name` of the stack snapshot at `stack`, or every reason it cannot be one."""
+    if not isinstance(name, str) or not entry.ID.match(name):
+        raise Refused([f"the part id {name!r} is not a plain id, lowercase words joined by '-'"])
     problems: list[str] = []
     stack_manifest = toml_of(stack, STACK_MANIFEST, problems)
     service = service_of(stack, name, problems)
@@ -291,6 +306,9 @@ def converted(stack: pathlib.Path, name: str, version: str) -> Part:
     asks, choices, links, unasked = asks_of(stack_manifest, name)
     problems += unasked
     manifest = manifest_of(service, plugin, asks)
+    unsafe = unplain(manifest)
+    if unsafe:
+        raise Refused(problems + unsafe)
     files, left = files_of(stack, name, manifest, problems)
     pin = {"id": name, "stage": parts.ASSEMBLED, "profile": profile,
            "fills": sorted(parts.filled_by(manifest["service"]))}
@@ -532,14 +550,28 @@ def prove(out: pathlib.Path, template: pathlib.Path, binary: pathlib.Path) -> in
         raise OSError(f"the template's reader asked {binary} nothing: {unasked}") from None
 
 
+def outside(base: pathlib.Path, files: dict[str, bytes]) -> list[str]:
+    """Every path of `files` that does not resolve strictly inside `base`."""
+    said = []
+    for path in sorted(files):
+        target = (base / path).resolve() if plain(path) else None
+        if target is None or target == base or not tree.inside(base, target):
+            said.append(f"{path!r} is not a path inside the directory written into")
+    return said
+
+
 def write(out: pathlib.Path, files: dict[str, bytes], executable: set[str]) -> None:
-    """Every file at its path under `out`, executable where its source is."""
+    """Every file at its path under `out`, executable where its source is; nothing where any path
+    would land outside it."""
     base = out.resolve()
+    refused = outside(base, files)
+    if refused:
+        raise Refused(refused)
     for path, body in sorted(files.items()):
-        target = (base / path).resolve()
-        if not tree.relative(path) or not tree.inside(base, target):
-            raise Refused([f"{path!r} is not a path inside {out}"])
+        target = base / path
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.is_symlink() or not tree.inside(base, target.parent.resolve()):
+            raise Refused([f"{path!r} would be written through a symbolic link"])
         target.write_bytes(body)
         target.chmod(EXECUTABLE if path in executable else READABLE)
 

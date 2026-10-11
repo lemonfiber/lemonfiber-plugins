@@ -386,6 +386,19 @@ def refusal_cases() -> list[Case]:
          ("surprise.txt", "neither kept"), {}),
         ("a variant README the converter would not write", STACK_FILES,
          {**template_files(), f"{convert.VARIANT}/README.md": "# Own\n"}, ("README.md", "disagree"), {}),
+        ("a part id that climbs out", STACK_FILES, template_files(), ("not a plain id",), {"name": "../stack"}),
+        ("a part id that is absolute", STACK_FILES, template_files(), ("not a plain id",), {"name": "/etc"}),
+        ("a recording that climbs out", changed("services/part.toml", "recordings/part/indexers.json",
+         "recordings/part/../../stack.toml"), template_files(), ("not a plain relative path",), {}),
+        ("a recording that is absolute", changed("services/part.toml", "recordings/part/indexers.json",
+         "/etc/passwd"), template_files(), ("not a plain relative path",), {}),
+        ("a recording written with backslashes", changed("services/part.toml", "recordings/part/indexers.json",
+         "recordings\\\\part\\\\indexers.json"), template_files(), ("not a plain relative path",), {}),
+        ("a recording holding a NUL", changed("services/part.toml", "recordings/part/indexers.json",
+         "recordings/part/indexers\\u0000.json"), template_files(), ("not a plain relative path",), {}),
+        ("a recording reached through a symbolic link", changed("services/part.toml",
+         "recordings/part/indexers.json", "recordings/linked/indexers.json"), template_files(),
+         ("symbolic link",), {"links": {"recordings/linked": "part"}}),
         ("a directory already holding something", STACK_FILES, template_files(), ("not an empty directory",),
          {"prepared": True}),
         ("a directory outside the working directory", STACK_FILES, template_files(),
@@ -408,6 +421,37 @@ def proving_cases() -> list[Case]:
          True, code == 0 and not refused and '"asked": "' in report and report.count("lemonfiber") == 2
          and '"of": "schema_version = 1"' in report),
     ]
+
+
+def write_cases() -> list[Case]:
+    cases: list[Case] = []
+    for what, path in (("climbs out", "../escaped"), ("is absolute", "/tmp/escaped"),
+                       ("uses a backslash", "a\\..\\escaped"), ("holds a NUL", "a\0b"),
+                       ("climbs out from inside", "config/../../escaped"), ("is the directory itself", ".")):
+        scratch = pathlib.Path(tempfile.mkdtemp())
+        SCRATCH.append(scratch)
+        out = scratch / "out"
+        out.mkdir()
+        try:
+            convert.write(out, {"plugin.toml": b"x", path: b"y"}, set())
+            refused = False
+        except convert.Refused as refusal:
+            refused = says(refusal.problems, "not a path inside")
+        cases.append((f"nothing is written where a path {what}", True,
+                      refused and not any(out.iterdir()) and not (scratch / "escaped").exists()))
+    scratch = pathlib.Path(tempfile.mkdtemp())
+    SCRATCH.append(scratch)
+    out = scratch / "out"
+    (out / "config").mkdir(parents=True)
+    os.symlink(scratch, out / "config" / "linked")
+    try:
+        convert.write(out, {"config/linked/escaped": b"y"}, set())
+        refused = False
+    except convert.Refused:
+        refused = True
+    cases.append(("nothing is written through a symbolic link in the directory", True,
+                  refused and not (scratch / "escaped").exists()))
+    return cases
 
 
 def option_cases() -> list[Case]:
@@ -439,7 +483,7 @@ def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     try:
-        cases = [*written_cases(), *readme_cases(), *refusal_cases(), *proving_cases(), *option_cases(),
+        cases = [*written_cases(), *readme_cases(), *refusal_cases(), *proving_cases(), *write_cases(), *option_cases(),
                  *round_trip_cases()]
     finally:
         for scratch in SCRATCH:
