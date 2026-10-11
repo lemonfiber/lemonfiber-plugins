@@ -63,6 +63,7 @@ plugins:
 # The default bundle, held to the origins it pins.
 bundle:
     python3 registry/bundle.py --self-test
+    python3 registry/convert.py --self-test
     python3 registry/bundle.py
 
 # The template an author starts from, against these same commands. It is not
