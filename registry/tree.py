@@ -96,21 +96,23 @@ def inside(root: pathlib.Path, path: pathlib.Path) -> bool:
 
 def walked(root: pathlib.Path, under: str) -> tuple[list[str], list[str]]:
     """Every file under `under` in `root`, and every symbolic link or other non-file there."""
-    found: list[str] = []
-    refused: list[str] = []
-    start = root / under
     link = linked(root, under)
     if link is not None:
         return [], [f"{link} is a symbolic link"]
-    if not inside(root, start):
+    base = os.path.realpath(root)
+    start = os.path.realpath(os.path.join(base, under))
+    if start != base and not start.startswith(base + os.sep):
         return [], [f"{under} is outside the tree"]
-    if not start.is_dir():
+    if not os.path.isdir(start):
         return [], []
+    top = pathlib.Path(base)
+    found: list[str] = []
+    refused: list[str] = []
     for at, directories, files in os.walk(start, followlinks=False):
         here = pathlib.Path(at)
         for name in sorted([*directories, *files]):
             path = here / name
-            said = path.relative_to(root).as_posix()
+            said = path.relative_to(top).as_posix()
             if path.is_symlink():
                 refused.append(f"{said} is a symbolic link")
             elif name in files and not path.is_file():
