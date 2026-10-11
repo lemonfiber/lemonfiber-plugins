@@ -49,7 +49,6 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import datetime
-import functools
 import json
 import pathlib
 import re
@@ -64,6 +63,7 @@ sys.path.insert(0, str(HERE))
 import check  # noqa: E402
 import entry as entries_module  # noqa: E402
 import index  # noqa: E402
+import parts  # noqa: E402
 import tree  # noqa: E402
 
 BUNDLE_FILE = "bundle.toml"
@@ -90,8 +90,7 @@ SHAPES = {
     "wiring": (("by", "why"), ("asks", "filled_by", "to")),
 }
 
-STAGES = ("assembled", "installed")
-ASSEMBLED, INSTALLED = STAGES
+STAGES = (parts.ASSEMBLED, "installed")
 PROTOCOLS = ("usenet", "torrent")
 
 PLACEHOLDER = ".gitkeep"
@@ -102,17 +101,7 @@ DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
 
 PINS_START = re.compile(rf"^(?:\[\[{TABLE}\]\]|{TABLE}\s*=)", re.MULTILINE)
 
-OWN_ORIGINS = "https://github.com/lemonfiber/"
-OWN_IMAGES = "ghcr.io/lemonfiber/"
-OWN_LICENCE = "Hippocratic-3.0"
-OSI = HERE / "spdx_osi.txt"
 
-CRITICAL = "critical"
-EGRESS_GUARD = "egress-guard"
-HOUSEHOLD = "lan"
-PROXY = "proxy.front"
-DOMAIN = ".{$DOMAIN"
-LABEL = re.compile(r"\A[a-z0-9-]+\Z")
 
 
 class Refusal(Exception):
@@ -176,20 +165,9 @@ def read(text: str, file: str = BUNDLE_FILE) -> Bundle:
     schema = held.get("schema")
     if isinstance(schema, bool) or schema not in SCHEMAS:
         raise Refusal(f"{file}: schema is {schema!r}, and this catalogue reads 1 and 2")
-    said = " and ".join(("schema", TABLE, *STACK_TABLES) if schema == 2 else ("schema", TABLE))
-    problems = [
-        f"{file}: {key} is not something a bundle at schema {schema} says; it says {said}"
-        for key in sorted(set(held) - {"schema", TABLE, *(STACK_TABLES if schema == 2 else ())})
-    ]
     if schema == 1 and TABLE not in held:
-        raise Refusal(*problems, f"{file}: names no [[{TABLE}]] list, not even an empty one")
-    tables = {}
-    for name in (TABLE, *(STACK_TABLES if schema == 2 else ())):
-        value = held.get(name, [])
-        if not isinstance(value, list) or not all(isinstance(one, dict) for one in value):
-            problems.append(f"{file}: {name} is not a list of [[{name}]] tables")
-            value = []
-        tables[name] = value
+        raise Refusal(f"{file}: names no [[{TABLE}]] list, not even an empty one")
+    tables, problems = tables_of(held, schema, file)
     pins = tables.pop(TABLE)
     pinned = pin_problems(pins, schema, file)
     problems += pinned
@@ -200,6 +178,21 @@ def read(text: str, file: str = BUNDLE_FILE) -> Bundle:
     if problems:
         raise Refusal(*problems)
     return Bundle(schema, pins, tables)
+
+
+def tables_of(held: dict, schema: int, file: str) -> tuple[dict[str, list[dict]], list[str]]:
+    """Each array of tables a bundle at `schema` says, absent ones empty, and every key it does not say."""
+    names = (TABLE, *STACK_TABLES) if schema == 2 else (TABLE,)
+    problems = [f"{file}: {key} is not something a bundle at schema {schema} says; it says "
+                f"{' and '.join(('schema', *names))}" for key in sorted(set(held) - {"schema", *names})]
+    tables = {}
+    for name in names:
+        value = held.get(name, [])
+        if not isinstance(value, list) or not all(isinstance(one, dict) for one in value):
+            problems.append(f"{file}: {name} is not a list of [[{name}]] tables")
+            value = []
+        tables[name] = value
+    return tables, problems
 
 
 def written_problems(text: str, pins: list[dict], schema: int, file: str) -> list[str]:
@@ -237,34 +230,42 @@ def one(pin: dict, file: str, schema: int = 1) -> list[str]:
         return [f"{file}: {named!r} is not a plugin id"]
     where = f"{file} ({named})"
     fields = FIELDS[schema]
-    missing = [field for field in fields if field not in pin and field not in OPTIONAL[schema]]
-    problems = [f"{where}: is missing {field!r}" for field in missing]
-    problems += [
-        f"{where}: {field} is not something a pin says; it says {', '.join(fields)}"
-        for field in sorted(set(pin) - set(fields))
-    ]
+    problems = [f"{where}: is missing {field!r}" for field in fields
+                if field not in pin and field not in OPTIONAL[schema]]
+    problems += [f"{where}: {field} is not something a pin says; it says {', '.join(fields)}"
+                 for field in sorted(set(pin) - set(fields))]
     if problems:
         return problems
+    problems = pointer_problems(pin, where) + digest_problems(pin, where, schema) + fills_problems(pin, where)
+    return problems + (part_fields(pin, where) if schema == 2 else [])
+
+
+def pointer_problems(pin: dict, where: str) -> list[str]:
+    """Where a pin points: an https origin, a full revision, and a release as the train tags one."""
+    problems = []
     try:
         entries_module.origin(pin["origin"], where)
         entries_module.revision(pin["revision"], where)
     except entries_module.Refusal as refused:
         problems.append(str(refused))
     if "release" in pin and (not isinstance(pin["release"], str) or RELEASE.match(pin["release"]) is None):
-        problems.append(
-            f"{where}: release {pin['release']!r} is not a tag the train cuts, three numbers without its v"
-        )
-    for field in ("manifest",) if schema == 1 else ("manifest", "tree"):
-        if not isinstance(pin[field], str) or DIGEST_SHAPE.match(pin[field]) is None:
-            problems.append(f"{where}: {field} {pin[field]!r} is not {index.DIGEST}<64 hex>")
+        problems.append(f"{where}: release {pin['release']!r} is not a tag the train cuts, three numbers without its v")
+    return problems
+
+
+def digest_problems(pin: dict, where: str, schema: int) -> list[str]:
+    """Each digest a pin carries, written `sha256:<64 hex>`."""
+    return [f"{where}: {field} {pin[field]!r} is not {index.DIGEST}<64 hex>"
+            for field in (("manifest",) if schema == 1 else ("manifest", "tree"))
+            if not isinstance(pin[field], str) or DIGEST_SHAPE.match(pin[field]) is None]
+
+
+def fills_problems(pin: dict, where: str) -> list[str]:
+    """What a pin fills: a list of capabilities, none twice."""
     fills = pin["fills"]
     if not isinstance(fills, list) or not all(isinstance(it, str) and it for it in fills):
-        problems.append(f"{where}: fills is not a list of capabilities")
-    elif len(set(fills)) != len(fills):
-        problems.append(f"{where}: fills names a capability twice")
-    if schema == 2:
-        problems += part_fields(pin, where)
-    return problems
+        return [f"{where}: fills is not a list of capabilities"]
+    return [f"{where}: fills names a capability twice"] if len(set(fills)) != len(fills) else []
 
 
 def part_fields(pin: dict, where: str) -> list[str]:
@@ -324,55 +325,66 @@ def stack_problems(tables: dict[str, list[dict]], pins: list[dict], file: str) -
     problems = [problem for name in STACK_TABLES for problem in shaped(name, tables[name], file)]
     if problems:
         return problems
-    problems += [problem for name in ("profile", "form", "removed") for problem in unique(name, tables[name], file)]
     profiles = {row["id"] for row in tables["profile"]}
     pinned = {pin.get("id") for pin in pins if isinstance(pin.get("id"), str)}
-
-    by_protocol: dict[str, list[str]] = {}
-    for row in tables["profile"]:
-        if "protocol" in row:
-            if row["protocol"] not in PROTOCOLS:
-                problems.append(
-                    f"{file}: [[profile]] {row.get('id')!r}: protocol {row['protocol']!r} is not "
-                    f"{' or '.join(PROTOCOLS)}"
-                )
-            by_protocol.setdefault(str(row["protocol"]), []).append(str(row.get("id")))
-    problems += [
-        f"{file}: [[profile]] {' and '.join(map(repr, held))} both declare protocol {protocol!r}"
-        for protocol, held in by_protocol.items()
-        if len(held) > 1
+    return [
+        *(problem for name in ("profile", "form", "removed") for problem in unique(name, tables[name], file)),
+        *protocol_problems(tables["profile"], file),
+        *(problem for row in tables["form"] for problem in form_problems(row, profiles, file)),
+        *(problem for row in tables["removed"] for problem in removed_problems(row, pinned, file)),
+        *wiring_shapes(tables["wiring"], file),
+        *(f"{file} ({pin['id']}): profile {pin['profile']!r} is no declared [[profile]]" for pin in pins
+          if isinstance(pin.get("id"), str) and isinstance(pin.get("profile"), str) and pin["profile"] not in profiles),
     ]
 
-    for row in tables["form"]:
-        where = f"{file}: [[form]] {row.get('id')!r}"
-        closure = row.get("profiles")
-        if not isinstance(closure, list) or not all(isinstance(it, str) for it in closure):
-            problems.append(f"{where}: profiles is not a list of profiles")
-        else:
-            problems += [f"{where}: names profile {it!r}, which no [[profile]] declares" for it in closure
-                         if it not in profiles]
-        if "composable" in row and not isinstance(row["composable"], bool):
-            problems.append(f"{where}: composable is not true or false")
 
-    for row in tables["removed"]:
-        where = f"{file}: [[removed]] {row.get('id')!r}"
-        if row.get("id") in pinned:
-            problems.append(f"{where} is a pinned plugin, which the catalogue still carries")
-        if "replaced_by" in row and row["replaced_by"] not in pinned:
-            problems.append(f"{where}: replaced_by {row['replaced_by']!r} is no pinned plugin")
+def protocol_problems(profiles: list[dict], file: str) -> list[str]:
+    """Each `protocol` a permitted value, on at most one profile."""
+    declaring: dict[str, list[str]] = {}
+    for row in (row for row in profiles if "protocol" in row):
+        declaring.setdefault(row["protocol"], []).append(row["id"])
+    problems = [f"{file}: [[profile]] {row['id']!r}: protocol {row['protocol']!r} is not {' or '.join(PROTOCOLS)}"
+                for row in profiles if "protocol" in row and row["protocol"] not in PROTOCOLS]
+    return problems + [f"{file}: [[profile]] {' and '.join(map(repr, held))} both declare protocol {protocol!r}"
+                       for protocol, held in declaring.items() if len(held) > 1]
 
-    problems += wiring_shapes(tables["wiring"], file)
-    problems += [
-        f"{file} ({pin['id']}): profile {pin['profile']!r} is no declared [[profile]]"
-        for pin in pins
-        if isinstance(pin.get("id"), str) and isinstance(pin.get("profile"), str) and pin["profile"] not in profiles
-    ]
+
+def form_problems(row: dict, profiles: set[str], file: str) -> list[str]:
+    """A form's closure names declared profiles, and `composable` is true or false."""
+    where = f"{file}: [[form]] {row['id']!r}"
+    closure = row["profiles"]
+    if not isinstance(closure, list) or not all(isinstance(it, str) for it in closure):
+        problems = [f"{where}: profiles is not a list of profiles"]
+    else:
+        problems = [f"{where}: names profile {it!r}, which no [[profile]] declares" for it in closure
+                    if it not in profiles]
+    if "composable" in row and not isinstance(row["composable"], bool):
+        problems.append(f"{where}: composable is not true or false")
     return problems
 
 
-def wiring_named(row: dict) -> str:
-    """How a wiring is named in what is said about it."""
-    return f"[[wiring]] {row.get('by')!r} {'asks ' + repr(row['asks']) if 'asks' in row else 'to ' + repr(row.get('to'))}"
+def removed_problems(row: dict, pinned: set[str], file: str) -> list[str]:
+    """A removed service is no pinned plugin, and what replaced it is one."""
+    where = f"{file}: [[removed]] {row['id']!r}"
+    problems = [f"{where} is a pinned plugin, which the catalogue still carries"] if row["id"] in pinned else []
+    if "replaced_by" in row and row["replaced_by"] not in pinned:
+        problems.append(f"{where}: replaced_by {row['replaced_by']!r} is no pinned plugin")
+    return problems
+
+
+def wiring_shape(row: dict, where: str) -> list[str]:
+    """One wiring: exactly one of `asks` and `to`, `filled_by` with `asks` alone, and never its own `by`."""
+    asks, to = "asks" in row, "to" in row
+    problems = []
+    if asks == to:
+        problems.append(f"{where} carries {'both asks and to' if asks else 'neither asks nor to'}; it names one")
+    if asks and "filled_by" not in row:
+        problems.append(f"{where} asks with no filled_by: an ask belongs in the asker's [[ask]]")
+    if "filled_by" in row and not asks:
+        problems.append(f"{where} names filled_by without asks")
+    if row["by"] in (row.get("to"), row.get("filled_by")):
+        problems.append(f"{where} names its own by")
+    return problems
 
 
 def wiring_shapes(rows: list[dict], file: str) -> list[str]:
@@ -380,21 +392,12 @@ def wiring_shapes(rows: list[dict], file: str) -> list[str]:
     problems = []
     seen: dict[tuple, str] = {}
     for row in rows:
-        where = f"{file}: {wiring_named(row)}"
-        asks, to = "asks" in row, "to" in row
-        if asks == to:
-            problems.append(f"{where} carries {'both asks and to' if asks else 'neither asks nor to'}; it names one")
-        if asks and "filled_by" not in row:
-            problems.append(f"{where} asks with no filled_by: an ask belongs in the asker's [[ask]]")
-        if "filled_by" in row and not asks:
-            problems.append(f"{where} names filled_by without asks")
-        named = [row.get(key) for key in ("to", "filled_by") if key in row]
-        if row.get("by") in named:
-            problems.append(f"{where} names its own by")
-        key = (row.get("by"), "asks", row["asks"]) if asks else (row.get("by"), "to", row.get("to"))
+        named = parts.wiring_named(row)
+        problems += wiring_shape(row, f"{file}: {named}")
+        key = (row["by"], "asks", row["asks"]) if "asks" in row else (row["by"], "to", row.get("to"))
         if key in seen:
-            problems.append(f"{where} repeats {seen[key]}")
-        seen.setdefault(key, wiring_named(row))
+            problems.append(f"{file}: {named} repeats {seen[key]}")
+        seen.setdefault(key, named)
     return problems
 
 
@@ -434,38 +437,6 @@ def paired(pins: list[dict], held: dict[str, pathlib.Path], schema: int = 1) -> 
     ]
 
 
-def contract(spoken: str) -> str:
-    """The capability a `speaks` entry names, without its major."""
-    return spoken.partition("@")[0]
-
-
-def listed(table: dict, key: str) -> list:
-    """A list a manifest table holds under `key`, or nothing where it holds no list."""
-    value = table.get(key)
-    return value if isinstance(value, list) else []
-
-
-def services_of(manifest: dict) -> list[dict]:
-    """Every service a manifest declares."""
-    return [one for one in listed(manifest, "service") if isinstance(one, dict)]
-
-
-def adapters_of(services: list[dict]) -> list[dict]:
-    """The services that speak a contract: the plugin's adapters."""
-    return [one for one in services if listed(one, "speaks")]
-
-
-def built_of(services: list[dict]) -> list[dict]:
-    """The services running an image lemonfiber builds: what makes a plugin one that builds an image."""
-    return [one for one in services if str(one.get("image", "")).startswith(OWN_IMAGES)]
-
-
-def filled_by(services: list[dict]) -> set[str]:
-    """Every capability the services provide or speak."""
-    filled = {name for one in services for name in listed(one, "provides") if isinstance(name, str)}
-    return filled | {contract(name) for one in services for name in listed(one, "speaks") if isinstance(name, str)}
-
-
 def parsed(manifest: bytes) -> dict:
     """A manifest read as TOML, or a refusal."""
     try:
@@ -489,8 +460,8 @@ def held_to_pin(pin: dict, copy: bytes) -> list[str]:
     if declared != pin["id"]:
         said.append(f"the copy declares [plugin].id {declared!r}, not {pin['id']!r}")
 
-    services = services_of(manifest)
-    adapters = adapters_of(services)
+    services = parts.services_of(manifest)
+    adapters = parts.adapters_of(services)
     if not adapters:
         said.append("the copy declares no adapter service, so nothing in it is tagged at the pinned release")
     for adapter in adapters:
@@ -499,102 +470,12 @@ def held_to_pin(pin: dict, copy: bytes) -> list[str]:
                 f"the adapter service {adapter.get('id')!r} is tagged {adapter.get('tag')!r}, "
                 f"not the pinned release {pin['release']!r}"
             )
-    filled = filled_by(services)
+    filled = parts.filled_by(services)
     said += [
         f"fills {name!r}, which no service of the copy provides or speaks"
         for name in pin["fills"]
         if name not in filled
     ]
-    return said
-
-
-@functools.cache
-def osi() -> frozenset[str]:
-    """The OSI-approved SPDX identifiers a first-party plugin's licence may be."""
-    lines = OSI.read_text(encoding="utf-8").splitlines()
-    return frozenset(line.strip() for line in lines if line.strip() and not line.startswith("#"))
-
-
-def part_problems(pin: dict, manifest: dict, bundle: Bundle) -> list[str]:
-    """Everything a schema 2 pin's manifest has to say for it (ARCH-R266, ARCH-R96, ARCH-R97,
-    ARCH-R222, ARCH-R270, ARCH-R272, F2-R5, OPS-R86, REPO-R92)."""
-    name = pin["id"]
-    said = []
-    plugin = manifest.get("plugin") if isinstance(manifest.get("plugin"), dict) else {}
-    if plugin.get("id") != name:
-        said.append(f"the copy declares [plugin].id {plugin.get('id')!r}, not {name!r}")
-    services = services_of(manifest)
-    ids = [service.get("id") for service in services]
-
-    if pin["stage"] == ASSEMBLED:
-        if len(services) != 1:
-            said.append(f"it is assembled and declares {len(services)} services, not exactly one")
-        said += [
-            f"it is assembled and service {service.get('id')!r} speaks {listed(service, 'speaks')}"
-            for service in adapters_of(services)
-        ]
-        if ids and ids[0] != name:
-            said.append(f"it is assembled and its one service is {ids[0]!r}, not {name!r}")
-        said += [
-            f"it is assembled and its claim names the recording {recording}, outside recordings/{name}/"
-            for recording in tree.recordings(manifest.get("claim"))
-            if not recording.startswith(f"recordings/{name}/")
-        ]
-    else:
-        taking = [service for service in services if service.get("id") == name]
-        if not taking:
-            said.append(f"it is installed and declares no service {name!r} to take the part's place")
-        elif taking[0].get("replaces") != name:
-            said.append(f"it is installed and service {name}.replaces is {taking[0].get('replaces')!r}, not {name!r}")
-        said += [
-            f"it is installed and service {service.get('id')}.api names an in-process adapter"
-            for service in services
-            if "api" in service
-        ]
-
-    for service in services:
-        where = f"service {service.get('id')}"
-        if "replaces" in service and service["replaces"] != service.get("id"):
-            said.append(f"{where}.replaces {service['replaces']!r} is not its own id")
-        if "reaches" not in service or "asks_for" not in service:
-            said.append(f"{where} does not declare both reaches and asks_for")
-        elif not isinstance(service["asks_for"], str) or not service["asks_for"].strip():
-            said.append(f"{where}.asks_for is blank")
-        if service.get("criticality") == CRITICAL and service.get("shape") != EGRESS_GUARD:
-            said.append(f"{where} is critical without shape = {EGRESS_GUARD!r}")
-
-    filled = filled_by(services)
-    said += [f"fills {it!r}, which no service of the copy provides or speaks" for it in pin["fills"]
-             if it not in filled]
-
-    holding = sorted(
-        str(form.get("id")) for form in bundle.table("form") if pin["profile"] in listed(form, "profiles")
-    )
-    forms = listed(plugin, "forms")
-    if sorted(map(str, forms)) != holding:
-        said.append(
-            f"[plugin].forms is {forms}, and the forms whose closure holds profile {pin['profile']!r} are {holding}"
-        )
-
-    licence = plugin.get("license")
-    built = built_of(services)
-    own = str(plugin.get("upstream", "")).startswith(OWN_ORIGINS) and bool(built)
-    if own and licence != OWN_LICENCE:
-        said.append(f"its licence is {licence!r}, and lemonfiber's own code with its own image carries {OWN_LICENCE}")
-    if not own and licence not in osi():
-        said.append(f"its licence {licence!r} is not an OSI identifier")
-
-    if "release" in pin:
-        if not built:
-            said.append(
-                f"it names release {pin['release']}, and it builds no image, so the train never tags it"
-            )
-        said += [
-            f"the image service {service.get('id')!r} is tagged {service.get('tag')!r}, not the pinned "
-            f"release {pin['release']!r}"
-            for service in built
-            if service.get("tag") != pin["release"]
-        ]
     return said
 
 
@@ -621,109 +502,6 @@ def held_to_tree(pin: dict, root: pathlib.Path) -> tuple[list[str], dict | None]
     paths = {path for path, _ in files}
     said += [f"the copy holds {path}, which is not in the plugin's tree" for path in everything if path not in paths]
     return [*said, *refused], manifest
-
-
-def proxied_to(text: str) -> str | None:
-    """The service a `reverse_proxy <service>:<port>` in `text` names."""
-    target = text.partition("reverse_proxy ")[2].split()
-    return (target[0].split(":")[0] or None) if target else None
-
-
-def answered(text: str) -> list[tuple[str, str | None]]:
-    """Each label a proxy configuration answers on in front of the operator's domain, with the
-    service its stanza's first `reverse_proxy` names. A commented-out stanza still names its label."""
-    found: list[tuple[str, str | None]] = []
-    opened: str | None = None
-    for line in text.splitlines():
-        said = line.lstrip().lstrip("#").lstrip()
-        label, marker, rest = said.partition(DOMAIN)
-        if marker and LABEL.match(label):
-            if opened is not None:
-                found.append((opened, None))
-            opened, said = label, rest
-        if opened is None:
-            continue
-        target = proxied_to(said)
-        if target is not None or said.startswith("}"):
-            found.append((opened, target))
-            opened = None
-    if opened is not None:
-        found.append((opened, None))
-    return found
-
-
-def hostnames_of(manifest: dict) -> list[tuple[str, str]]:
-    """Each label a plugin's household services are proxied at, with the service."""
-    services = services_of(manifest)
-    wired: dict[str, object] = {}
-    for row in listed(manifest, "wiring"):
-        if isinstance(row, dict) and "hostname" in row:
-            about = row.get("service", services[0].get("id") if len(services) == 1 else None)
-            wired[str(about)] = row["hostname"]
-    return [
-        (str(wired.get(str(service.get("id")), service.get("id"))), str(service.get("id")))
-        for service in services
-        if service.get("bind") == HOUSEHOLD and service.get("port") is not None
-    ]
-
-
-def ports_of(service: dict) -> list[object]:
-    """Every port a service publishes on the host."""
-    published = [row.get("port") for row in listed(service, "publish") if isinstance(row, dict)]
-    return [port for port in (service.get("port"), *published) if port is not None]
-
-
-def register(parts: dict[str, dict], roots: dict[str, pathlib.Path]) -> dict[tuple[str, str], set[str]]:
-    """The reserved register: each id, port and hostname, and the plugins holding it (ARCH-R269)."""
-    held: dict[tuple[str, str], set[str]] = {}
-    owner = {str(service.get("id")): name for name, part in parts.items() for service in services_of(part)}
-    for name, part in parts.items():
-        for service in services_of(part):
-            held.setdefault(("id", str(service.get("id"))), set()).add(name)
-            for port in ports_of(service):
-                held.setdefault(("port", str(port)), set()).add(name)
-        for label, _ in hostnames_of(part):
-            held.setdefault(("hostname", label), set()).add(name)
-        for service in services_of(part):
-            if PROXY not in listed(service, "provides") or name not in roots:
-                continue
-            for path in sorted((roots[name] / tree.CONFIG / str(service.get("id"))).rglob("*")):
-                if not path.is_file() or path.is_symlink():
-                    continue
-                for label, target in answered(path.read_text(encoding="utf-8", errors="replace")):
-                    held.setdefault(("hostname", label), set()).add(owner.get(str(target), name))
-    return held
-
-
-def across(bundle: Bundle, parts: dict[str, dict], roots: dict[str, pathlib.Path]) -> list[str]:
-    """What holds across the pinned plugins: the wiring's services, and the reserved register."""
-    problems = [
-        f"{kind} {value!r} is reserved by {' and '.join(sorted(holders))} (ARCH-R269)"
-        for (kind, value), holders in sorted(register(parts, roots).items())
-        if len(holders) > 1
-    ]
-    services = {str(service.get("id")): (name, service) for name, part in parts.items()
-                for service in services_of(part)}
-    for row in bundle.table("wiring"):
-        where = wiring_named(row)
-        for key in ("by", "to", "filled_by"):
-            if key in row and row[key] not in services:
-                problems.append(f"{where}: {key} {row[key]!r} is no service of a pinned plugin")
-        if "asks" not in row or row.get("by") not in services:
-            continue
-        name, _ = services[row["by"]]
-        part = parts[name]
-        alone = len(services_of(part)) == 1
-        asked = [ask for ask in listed(part, "ask") if isinstance(ask, dict)
-                 and ask.get("capability") == row["asks"]
-                 and ask.get("service", row["by"] if alone else None) == row["by"]]
-        if not asked:
-            problems.append(f"{where}: {row['by']}'s plugin asks no {row['asks']!r} in its [[ask]]")
-        elif any(ask.get("each") is True for ask in asked):
-            problems.append(f"{where}: {row['by']} asks {row['asks']!r} of each filler, so there is none to choose")
-        if row.get("filled_by") in services and row["asks"] not in filled_by([services[row["filled_by"]][1]]):
-            problems.append(f"{where}: {row['filled_by']} neither provides nor speaks {row['asks']!r}")
-    return problems
 
 
 def on_main(origin: str, revision: str) -> str | None:
@@ -804,8 +582,8 @@ def held_to_origin(pin: dict, copy: bytes | pathlib.Path) -> tuple[bool, list[st
 
 def released(manifest: bytes, schema: int = 1) -> str:
     """The release a manifest's adapter services (schema 1) or built images (schema 2) are tagged at."""
-    services = services_of(parsed(manifest))
-    tagged = adapters_of(services) if schema == 1 else built_of(services)
+    services = parts.services_of(parsed(manifest))
+    tagged = parts.adapters_of(services) if schema == 1 else parts.built_of(services)
     tags = {str(one.get("tag")) for one in tagged}
     what = "adapter services" if schema == 1 else "images it builds"
     if not tagged:
@@ -847,7 +625,7 @@ def moved_tree(pin: dict, revision: str, source: pathlib.Path, bundle: Bundle) -
         "manifest": index.digest(manifest),
         "tree": tree.digest(files),
     }
-    said = part_problems(to, parsed(manifest), bundle)
+    said = parts.part_problems(to, parsed(manifest), bundle.table("form"))
     if said:
         raise Refusal(f"{pin['id']} at {revision[:12]}: {'; '.join(said)}")
     return to, files
@@ -955,13 +733,14 @@ def offline_problems(bundle: Bundle, held: dict[str, pathlib.Path]) -> dict[str,
     if bundle.schema == 1:
         return {pin["id"]: held_to_pin(pin, held[pin["id"]].read_bytes()) for pin in bundle.pins}
     found: dict[str, list[str]] = {}
-    parts: dict[str, dict] = {}
+    manifests: dict[str, dict] = {}
     for pin in bundle.pins:
         found[pin["id"]], manifest = held_to_tree(pin, held[pin["id"]])
         if manifest is not None:
-            parts[pin["id"]] = manifest
-            found[pin["id"]] += part_problems(pin, manifest, bundle)
-    found[""] = across(bundle, parts, held) if len(parts) == len(bundle.pins) else []
+            manifests[pin["id"]] = manifest
+            found[pin["id"]] += parts.part_problems(pin, manifest, bundle.table("form"))
+    complete = len(manifests) == len(bundle.pins)
+    found[""] = parts.across(bundle.table("wiring"), manifests, held) if complete else []
     return found
 
 

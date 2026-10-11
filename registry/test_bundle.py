@@ -12,6 +12,7 @@ import tempfile
 import check
 import entry as entries_module
 import index
+import parts
 import tree
 
 import bundle
@@ -627,7 +628,7 @@ def proxy() -> list[Case]:
     )
     return [
         ("each label is read with the service it routes to, commented-out ones included", True,
-         bundle.answered(text) == [("watch", "door"), ("sonarr", "sonarr"), ("bare", None)]),
+         parts.answered(text) == [("watch", "door"), ("sonarr", "sonarr"), ("bare", None)]),
     ]
 
 

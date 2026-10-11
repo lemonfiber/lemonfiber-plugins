@@ -88,6 +88,12 @@ def linked(root: pathlib.Path, path: str) -> str | None:
     return None
 
 
+def inside(root: pathlib.Path, path: pathlib.Path) -> bool:
+    """Whether `path`, every link followed, is `root` or beneath it."""
+    base = os.path.realpath(root)
+    return os.path.commonpath([base, os.path.realpath(path)]) == base
+
+
 def walked(root: pathlib.Path, under: str) -> tuple[list[str], list[str]]:
     """Every file under `under` in `root`, and every symbolic link or other non-file there."""
     found: list[str] = []
@@ -96,6 +102,8 @@ def walked(root: pathlib.Path, under: str) -> tuple[list[str], list[str]]:
     link = linked(root, under)
     if link is not None:
         return [], [f"{link} is a symbolic link"]
+    if not inside(root, start):
+        return [], [f"{under} is outside the tree"]
     if not start.is_dir():
         return [], []
     for at, directories, files in os.walk(start, followlinks=False):
@@ -113,40 +121,46 @@ def walked(root: pathlib.Path, under: str) -> tuple[list[str], list[str]]:
     return found, refused
 
 
+def starting_files(root: pathlib.Path, service: str) -> tuple[list[str], list[str]]:
+    """A service's starting files under `config/<id>/`, and every reason they cannot be carried."""
+    if not relative(service) or "/" in service:
+        return [], [f"service id {service!r} is not a directory name"]
+    found, refused = walked(root, f"{CONFIG}/{service}")
+    weight = sum((root / one).stat().st_size for one in found)
+    if len(found) > MOST_STARTING_FILES:
+        refused.append(f"service {service} starts with {len(found)} files, more than {MOST_STARTING_FILES}")
+    if weight > MOST_STARTING_BYTES:
+        refused.append(f"service {service} starts with {weight} bytes, more than {MOST_STARTING_BYTES}")
+    return found, refused
+
+
+def named(root: pathlib.Path, manifest: dict) -> tuple[list[str], list[str]]:
+    """Every recording the manifest names, and every one that is not a file of the tree."""
+    found: list[str] = []
+    refused: list[str] = []
+    for recording in sorted(set(recordings(manifest))):
+        if not relative(recording):
+            refused.append(f"the recording {recording!r} is not a path inside the repository")
+        elif linked(root, recording) is not None or not inside(root, root / recording):
+            refused.append(f"the recording {recording} is reached through a symbolic link")
+        elif not (root / recording).is_file():
+            refused.append(f"the recording {recording} is not in the tree")
+        else:
+            found.append(recording)
+    return found, refused
+
+
 def paths(root: pathlib.Path, manifest: dict) -> list[str]:
     """The tree's paths, sorted bytewise, or every reason they cannot be listed."""
     held = {MANIFEST}
     problems: list[str] = []
     if (root / MANIFEST).is_symlink() or not (root / MANIFEST).is_file():
         problems.append(f"{MANIFEST} is not a file at the root")
-    for service in service_ids(manifest):
-        if not relative(service) or "/" in service:
-            problems.append(f"service id {service!r} is not a directory name")
-            continue
-        found, refused = walked(root, f"{CONFIG}/{service}")
+    parts = [starting_files(root, service) for service in service_ids(manifest)]
+    parts += [named(root, manifest), walked(root, CONFORMANCE)]
+    for found, refused in parts:
         held.update(found)
         problems += refused
-        weight = sum((root / one).stat().st_size for one in found)
-        if len(found) > MOST_STARTING_FILES:
-            problems.append(
-                f"service {service} starts with {len(found)} files, more than {MOST_STARTING_FILES}"
-            )
-        if weight > MOST_STARTING_BYTES:
-            problems.append(
-                f"service {service} starts with {weight} bytes, more than {MOST_STARTING_BYTES}"
-            )
-    for recording in sorted(set(recordings(manifest))):
-        if not relative(recording):
-            problems.append(f"the recording {recording!r} is not a path inside the repository")
-        elif linked(root, recording) is not None:
-            problems.append(f"the recording {recording} is reached through a symbolic link")
-        elif not (root / recording).is_file():
-            problems.append(f"the recording {recording} is not in the tree")
-        else:
-            held.add(recording)
-    found, refused = walked(root, CONFORMANCE)
-    held.update(found)
-    problems += refused
     if problems:
         raise Unreadable(problems)
     return sorted(held, key=lambda one: one.encode("utf-8"))
@@ -199,7 +213,7 @@ fixture = "recordings/example/catalogue.json"
 """
 
 VECTOR_FILES: dict[str, bytes] = {
-    "plugin.toml": VECTOR_MANIFEST,
+    MANIFEST: VECTOR_MANIFEST,
     "config/example/settings.ini": b"[main]\nport = 8080\n",
     "config/example-db/init.sql": b"CREATE TABLE seen (id INTEGER);\n",
     "recordings/example/catalogue.json": b'{"status": 200}\n',
@@ -212,7 +226,7 @@ VECTOR_PATHS = [
     "config/example-db/init.sql",
     "config/example/settings.ini",
     "conformance/media.serve.json",
-    "plugin.toml",
+    MANIFEST,
     "recordings/example/catalogue.json",
 ]
 

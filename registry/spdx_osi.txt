@@ -4,9 +4,9 @@
 # approved. It is vendored rather than fetched so that validation is offline,
 # deterministic, and unaffected by a network outage or a changed remote.
 #
-# To add an identifier: confirm it appears at https://opensource.org/license
-# and that the spelling matches https://spdx.org/licenses exactly, then add it
-# below in sorted order and say so in the commit.
+# To add an identifier: confirm OSI lists it as approved and that the spelling
+# matches the SPDX licence list exactly, then add it below in sorted order and
+# say so in the commit.
 #
 # Last reviewed: 2026-07-25. The identifiers are the ones lemonfiber's
 # crates/lemonfiber-manifest/src/spdx_osi.txt holds.
