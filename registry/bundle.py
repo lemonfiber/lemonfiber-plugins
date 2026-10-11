@@ -102,8 +102,6 @@ DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
 PINS_START = re.compile(rf"^(?:\[\[{TABLE}\]\]|{TABLE}\s*=)", re.MULTILINE)
 
 
-
-
 class Refusal(Exception):
     """The bundle, refused, with every reason."""
 
@@ -592,7 +590,7 @@ def released(manifest: bytes, schema: int = 1) -> str:
             + ("" if schema == 1 else "; a plugin that builds none is moved by a person's pull request")
         )
     if len(tags) != 1:
-        raise Refusal(f"the manifest's {what} are tagged {sorted(map(str, tags))}, not at one release")
+        raise Refusal(f"the manifest's {what} are tagged {sorted(tags)}, not at one release")
     tag = tags.pop()
     if RELEASE.match(tag) is None:
         raise Refusal(f"the manifest's {what} are tagged {tag!r}, which is not a release the train cuts")
