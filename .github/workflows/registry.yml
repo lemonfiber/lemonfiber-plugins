@@ -106,5 +106,7 @@ jobs:
           python-version: "3.12"
       - name: The rules refuse what they exist to refuse
         run: python3 registry/bundle.py --self-test
+      - name: A part of the media stack is written as its repository, and refused where it cannot be
+        run: python3 registry/convert.py --self-test
       - name: Every copy is its origin's manifest at the pinned revision
         run: python3 registry/bundle.py

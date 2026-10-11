@@ -187,6 +187,44 @@ python3 registry/bundle.py --offline     # the bundle and its copies, nothing fe
 python3 registry/bundle.py               # every pin, held to its origin
 ```
 
+### A part's repository, written from the media stack
+
+`registry/convert.py` writes the repository of one part of the media stack
+([ADR-0045](https://github.com/lemonfiber/spec/blob/main/00-overview/decisions/0045-every-bundled-part-has-its-repository-now-and-its-adapter-later.md)).
+It reads `lemonfiber-media-stack` and `plugin-template` each at a commit, so the
+same two commits and the same part always write the same bytes, and writes into
+an empty directory:
+
+- `plugin.toml`, the part's `services/<id>.toml` in the plugin manifest's
+  vocabulary. The plugin's id and name are the service's, and `[plugin]` takes
+  its `describes`, `without_it`, `upstream` and `license`. `forms` names exactly
+  the forms whose closure holds the service's profile. Each wiring asking a
+  capability by the service is an `[[ask]]`, and its claims are `[[claim]]`. The
+  service declares `replaces` naming its own id, which is how a manifest takes
+  an id and a port the bundle reserves.
+- Every file under `config/<id>/`, and every recording its claims name, byte for
+  byte at its path.
+- plugin-template's `bundled-part/` variant laid over the template's root, as
+  the template's `docs/development.md` lists, with a README and an AGENTS.md
+  written for the part. The variant's own README and AGENTS.md have to be what
+  this writes for the variant's part, or nothing is written.
+- `proofs.json`, where `--lemonfiber` names a build of the commit the variant's
+  `targets.toml` names, written by the template's reader.
+
+It refuses, by name and writing nothing: a field the plugin manifest has no
+place for, a part that builds an image, a profile, a recording or a link the
+stack does not hold, a template file nothing says what becomes of, and anything
+the `bundle` job would refuse of the manifest it wrote. The profile, the
+upstream's last release, the choices of filler and the links by name stay the
+bundle's, and it prints them for the pin, with the manifest and tree digests.
+
+```sh
+python3 registry/convert.py --self-test
+python3 registry/convert.py --stack ../lemonfiber-media-stack --stack-at <commit> \
+  --template ../plugin-template --template-at <commit> \
+  [--lemonfiber <build>] sabnzbd ../plugin-sabnzbd
+```
+
 ## How to register
 
 1. **Have a plugin that passes its own CI.** Copy
