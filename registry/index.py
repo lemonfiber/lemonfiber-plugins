@@ -95,6 +95,11 @@ def serial_of() -> tuple[int | None, str | None]:
     return int(said), None
 
 
+def digest(manifest: bytes) -> str:
+    """A manifest's digest, as the index and the bundle write it."""
+    return DIGEST + hashlib.sha256(manifest).hexdigest()
+
+
 def digest_of(plugin: dict, into: pathlib.Path) -> tuple[str | None, str | None]:
     """The manifest's digest at the registered revision, or why it could not be taken."""
     failed = check.fetched(plugin["origin"], plugin["revision"], into)
@@ -103,7 +108,7 @@ def digest_of(plugin: dict, into: pathlib.Path) -> tuple[str | None, str | None]
     manifest = into / MANIFEST
     if not manifest.is_file():
         return None, f"{plugin['id']}: the revision holds no {MANIFEST}"
-    return DIGEST + hashlib.sha256(manifest.read_bytes()).hexdigest(), None
+    return digest(manifest.read_bytes()), None
 
 
 def self_test() -> int:
@@ -168,11 +173,11 @@ def main() -> int:
     failures: list[str] = []
     with tempfile.TemporaryDirectory() as work:
         for plugin in entries:
-            digest, why = digest_of(plugin, pathlib.Path(work) / plugin["id"])
+            taken, why = digest_of(plugin, pathlib.Path(work) / plugin["id"])
             if why:
                 failures.append(why)
             else:
-                digests[plugin["id"]] = digest
+                digests[plugin["id"]] = taken
     if failures:
         for why in failures:
             print(f"::error::{why}")

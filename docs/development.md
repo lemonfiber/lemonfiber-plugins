@@ -28,7 +28,10 @@ origins; a registry of copies would manufacture that case rather than refuse it.
 
 ```
 plugins/
-└── <id>.toml      where it is, and the revision somebody read
+└── <id>.toml            where it is, and the revision somebody read
+bundle/
+├── bundle.toml          the default bundle: each first-party plugin, pinned
+└── plugins/<id>.toml    a copy of each pinned manifest
 ```
 
 An entry is a pointer and nothing else:
@@ -50,6 +53,35 @@ README's table of plugins says the same thing, and moves with it.
 tree rather than of a name: a name can be repointed after it was read, which is
 the whole of what registering it was for. Moving a plugin forward is a pull
 request moving that one line, and that is the same person reading again.
+
+## The default bundle
+
+`bundle/bundle.toml` is the set of first-party plugins every stack is built
+from. lemonfiber embeds this repository and compiles the bundle in, so it pins
+each plugin by its release, the revision whose manifest names that release's
+image, and the digest of that manifest, and `bundle/plugins/<id>.toml` holds
+the manifest itself, copied byte for byte. It is the one copy this repository
+holds. The file's own comments describe each field.
+
+The release train moves the pins. When a first-party plugin's pin pull request
+merges, its repository dispatches `bundle-bump.yml` with the merge commit and
+its own address, and the bump moves that pin and its copy on one rolling pull
+request, `release/bundle-pins`. Only the release App dispatches it, and only
+against `main`; it refuses a repository asking to move a pin the bundle holds
+from another origin, and commits no copy that is not the bytes its pin names. A plugin enters
+the bundle through a person's pull request, which says what it fills.
+
+The `bundle` job refuses a copy no pin names, a pin with no copy, a copy whose
+digest, id or adapter tag is not its pin's, a `fills` the copy neither provides
+nor speaks, a pinned revision that is not on its origin's default branch, and a
+copy that differs from the manifest fetched from its origin at the pinned
+revision. It then holds that revision to everything `plugins`
+holds a registration to.
+
+```sh
+python3 registry/bundle.py --self-test   # the gate refuses what it should
+python3 registry/bundle.py               # every pin, held to its origin
+```
 
 ## How to register
 

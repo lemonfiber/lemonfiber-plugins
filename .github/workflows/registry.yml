@@ -1,10 +1,11 @@
 # What this catalogue says about every registration, before a person reads one.
 #
-# `REPO-R61` is the whole of this file: fetch each registered revision and, out of the
+# `REPO-R61` is this file: fetch each registered revision and, out of the
 # data in that revision alone, validate the manifest against the schema lemonfiber
 # publishes, run every declared proof against that plugin's own recordings, and check
 # its declared reach statically. A registration failing any of it is refused here
-# rather than in review, which is what `F5-R13` asks the catalogue's CI to be.
+# rather than in review, which is what `F5-R13` asks the catalogue's CI to be. The
+# bundle's pinned revisions are held to the same, and each copy to its origin (`REPO-R92`).
 #
 # Nothing from a registered repository runs (`REPO-R62`). The programs are this
 # repository's own copies and the registered revision supplies data — see the comment
@@ -86,3 +87,19 @@ jobs:
           python-version: "3.12"
       - name: Every registration, as the release this catalogue targets reads it
         run: python3 registry/check.py
+
+  # The default bundle: each copy against its origin at the pinned revision, and that
+  # revision held to what a registration is held to (REPO-R92).
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: The rules refuse what they exist to refuse
+        run: python3 registry/bundle.py --self-test
+      - name: Every copy is its origin's manifest at the pinned revision
+        run: python3 registry/bundle.py

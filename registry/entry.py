@@ -121,6 +121,11 @@ def revision(commit: object, file: str) -> None:
         )
 
 
+def repository(where: str) -> str:
+    """An origin as the repository it names, whatever trailing slash or `.git` it carries."""
+    return where.rstrip("/").removesuffix(".git")
+
+
 def collisions(found: list[dict]) -> list[str]:
     """Two entries that cannot both stand.
 
@@ -131,7 +136,7 @@ def collisions(found: list[dict]) -> list[str]:
     seen: dict[str, str] = {}
     said: list[str] = []
     for plugin in found:
-        at = plugin["origin"].rstrip("/").removesuffix(".git")
+        at = repository(plugin["origin"])
         if at in seen:
             said.append(f"{at} is registered as both {seen[at]!r} and {plugin['id']!r}")
         seen[at] = plugin["id"]

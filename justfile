@@ -37,7 +37,7 @@ hooks:
 #                                              a registration
 #
 # Every gate CI runs over this repository's contents — not the whole of CI.
-ci: hooks entries plugins template typos links
+ci: hooks entries plugins bundle template typos links
 
 # The rules refuse what they exist to refuse, then every entry against them. The
 # self-test runs first: a gate nobody has seen fail is a gate nobody knows the
@@ -55,6 +55,15 @@ entries:
 # Every registration, fetched at the revision it names.
 plugins:
     python3 registry/check.py
+
+# The default bundle: every pin's copy fetched again from its origin at the pinned
+# revision and compared byte for byte, and that revision held to what a
+# registration is held to (REPO-R92). The self-test runs first, as for entries.
+#
+# The default bundle, held to the origins it pins.
+bundle:
+    python3 registry/bundle.py --self-test
+    python3 registry/bundle.py
 
 # The template an author starts from, against these same commands. It is not
 # registered — it is the thing somebody copies rather than a thing to install —
