@@ -407,6 +407,18 @@ def proving_cases() -> list[Case]:
     ]
 
 
+def option_cases() -> list[Case]:
+    scratch = pathlib.Path(tempfile.mkdtemp())
+    SCRATCH.append(scratch)
+    committed(scratch / "stack", STACK_FILES)
+    try:
+        convert.snapshot(scratch / "stack", "--output=/tmp/x", scratch / "into")
+        refused = False
+    except OSError as why:
+        refused = "not a revision" in str(why)
+    return [("a revision that would reach git as an option is refused", True, refused)]
+
+
 def round_trip_cases() -> list[Case]:
     manifest = tomllib.loads(convert.written(tomllib.loads(OWN)))
     odd = {"schema_version": 1, "plugin": {"id": "x"},
@@ -424,7 +436,8 @@ def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     try:
-        cases = [*written_cases(), *readme_cases(), *refusal_cases(), *proving_cases(), *round_trip_cases()]
+        cases = [*written_cases(), *readme_cases(), *refusal_cases(), *proving_cases(), *option_cases(),
+                 *round_trip_cases()]
     finally:
         for scratch in SCRATCH:
             shutil.rmtree(scratch, ignore_errors=True)

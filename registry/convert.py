@@ -56,6 +56,7 @@ import index  # noqa: E402
 import parts  # noqa: E402
 import tree  # noqa: E402
 
+MANIFEST = tree.MANIFEST
 STACK_MANIFEST = "stack.toml"
 SERVICES = "services"
 RECORDINGS = "recordings"
@@ -83,7 +84,7 @@ QUIET_WHEN_FALSE = ("host_managed",)
 ASK_KEYS = {"by", "asks", "each", "filled_by", "why"}
 LINK_KEYS = {"by", "to", "why"}
 
-PART_PATHS = ("plugin.toml", PROOFS, f"{tree.CONFIG}/", f"{RECORDINGS}/")
+PART_PATHS = (MANIFEST, PROOFS, f"{tree.CONFIG}/", f"{RECORDINGS}/")
 WRITTEN = (README, AGENTS)
 KEPT = (
     ".editorconfig", ".githooks/", ".markdownlint.jsonc", "typos.toml", "LICENSE", "CLAUDE.md",
@@ -95,6 +96,8 @@ DROPPED = (
 )
 NOTE = re.compile(r"\A(?:>[^\n]*\n)+\n")
 BARE_KEY = re.compile(r"\A[A-Za-z0-9_-]+\Z")
+REVISION = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._/~^-]{0,255}\Z")
+COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
 EXECUTABLE = 0o755
 READABLE = 0o644
 
@@ -123,11 +126,18 @@ class Part:
 def snapshot(repository: pathlib.Path, revision: str, into: pathlib.Path) -> str:
     """`repository` at `revision`, written into `into` as git holds it, links as links; the
     commit it resolved to."""
-    commit = git(repository, "rev-parse", "--verify", f"{revision}^{{commit}}").decode().strip()
+    if not REVISION.match(revision):
+        raise OSError(f"{revision!r} is not a revision this will hand to git")
+    commit = git(repository, "rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}").decode().strip()
+    if not COMMIT.match(commit):
+        raise OSError(f"{revision!r} in {repository} resolved to {commit!r}, which is not a commit")
     archive = git(repository, "archive", "--format=tar", commit)
+    base = into.resolve()
     with tarfile.open(fileobj=io.BytesIO(archive)) as held:
         for member in held.getmembers():
-            path = into / member.name
+            path = (base / member.name).resolve() if not member.issym() else base / member.name
+            if not tree.relative(member.name.rstrip("/")) or not tree.inside(base, path.parent):
+                raise OSError(f"{repository} at {commit} holds {member.name!r}, which is not a path inside it")
             if member.isdir():
                 path.mkdir(parents=True, exist_ok=True)
             elif member.issym():
@@ -198,22 +208,25 @@ def built(service: dict, path: str) -> list[str]:
     return []
 
 
+def kind_of(row: dict) -> str:
+    """Whether a wiring row is an ask, a link by name, or neither."""
+    if "asks" in row and "to" not in row and set(row) <= ASK_KEYS:
+        return "ask"
+    if "to" in row and "asks" not in row and set(row) <= LINK_KEYS:
+        return "link"
+    return "neither"
+
+
 def asks_of(stack_manifest: dict, name: str) -> tuple[list[dict], list[dict], list[dict], list[str]]:
     """The part's asks as `[[ask]]`, the bundle's choices of filler and links by name from it, and
     every wiring row by it that is neither."""
-    asks, choices, links, problems = [], [], [], []
-    for row in parts.listed(stack_manifest, "wiring"):
-        if not isinstance(row, dict) or row.get("by") != name:
-            continue
-        where = parts.wiring_named(row)
-        if "asks" in row and "to" not in row and set(row) <= ASK_KEYS:
-            asks.append({"capability": row["asks"], **({"each": True} if row.get("each") is True else {})})
-            if "filled_by" in row:
-                choices.append(row)
-        elif "to" in row and "asks" not in row and set(row) <= LINK_KEYS:
-            links.append(row)
-        else:
-            problems.append(f"{STACK_MANIFEST} {where} is neither an ask nor a link by name")
+    rows = [row for row in parts.listed(stack_manifest, "wiring") if isinstance(row, dict) and row.get("by") == name]
+    asked = [row for row in rows if kind_of(row) == "ask"]
+    asks = [{"capability": row["asks"], **({"each": True} if row.get("each") is True else {})} for row in asked]
+    choices = [row for row in asked if "filled_by" in row]
+    links = [row for row in rows if kind_of(row) == "link"]
+    problems = [f"{STACK_MANIFEST} {parts.wiring_named(row)} is neither an ask nor a link by name"
+                for row in rows if kind_of(row) == "neither"]
     return asks, choices, links, problems
 
 
@@ -252,9 +265,9 @@ def files_of(stack: pathlib.Path, name: str, manifest: dict, problems: list[str]
     """The starting files and the claimed recordings, each at its path, and the recordings under
     `recordings/<id>/` its claims do not name."""
     starting, refused = tree.starting_files(stack, name)
-    problems += [f"config/{name}/: {reason}" for reason in refused]
+    problems.extend(f"config/{name}/: {reason}" for reason in refused)
     named, missing = tree.named(stack, {CLAIM: manifest.get(CLAIM, [])})
-    problems += missing
+    problems.extend(missing)
     found = {path: (stack / path).read_bytes() for path in [*starting, *named]}
     held, _ = tree.walked(stack, f"{RECORDINGS}/{name}")
     return found, sorted(set(held) - set(named))
@@ -476,9 +489,9 @@ def template_files(template: pathlib.Path) -> tuple[dict[str, pathlib.Path], dic
             taken[path] = template / path
         elif fate == "unclassified":
             problems.append(f"plugin-template's {path} is neither kept, dropped nor replaced by {VARIANT}/")
-    problems += [f"plugin-template's {VARIANT}/ holds no {one}" for one in ("plugin.toml", TARGETS, *WRITTEN)
+    problems += [f"plugin-template's {VARIANT}/ holds no {one}" for one in (MANIFEST, TARGETS, *WRITTEN)
                  if one not in variant]
-    own = toml_of(template / VARIANT, "plugin.toml", problems) if "plugin.toml" in variant else {}
+    own = toml_of(template / VARIANT, MANIFEST, problems) if MANIFEST in variant else {}
     return taken, own, problems
 
 
@@ -512,7 +525,7 @@ def prove(out: pathlib.Path, template: pathlib.Path, binary: pathlib.Path) -> in
         raise OSError(f"plugin-template's {READER} cannot be loaded")
     reader = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(reader)
-    reader.ROOT, reader.MANIFEST = out, out / "plugin.toml"
+    reader.ROOT, reader.MANIFEST = out, out / MANIFEST
     reader.TARGETS, reader.REPORT = out / TARGETS, out / PROOFS
     reader.binary = lambda: binary
     try:
@@ -523,8 +536,11 @@ def prove(out: pathlib.Path, template: pathlib.Path, binary: pathlib.Path) -> in
 
 def write(out: pathlib.Path, files: dict[str, bytes], executable: set[str]) -> None:
     """Every file at its path under `out`, executable where its source is."""
+    base = out.resolve()
     for path, body in sorted(files.items()):
-        target = out / path
+        target = (base / path).resolve()
+        if not tree.relative(path) or not tree.inside(base, target):
+            raise Refused([f"{path!r} is not a path inside {out}"])
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(body)
         target.chmod(EXECUTABLE if path in executable else READABLE)
@@ -552,7 +568,7 @@ def convert(stack_repo: pathlib.Path, stack_at: str, template_repo: pathlib.Path
             raise Refused(problems)
         manifest_text = written(part.manifest)
         plugin = part.manifest["plugin"]
-        files = {**{path: source.read_bytes() for path, source in taken.items()}, **part.files, "plugin.toml": manifest_text.encode(),
+        files = {**{path: source.read_bytes() for path, source in taken.items()}, **part.files, MANIFEST: manifest_text.encode(),
                  README: readme(plugin, part.manifest["service"][0], part.files).encode(),
                  AGENTS: agents(plugin).encode()}
         executable = {path for path, source in taken.items() if os.access(source, os.X_OK)}
