@@ -253,7 +253,7 @@ def committed(directory: pathlib.Path, files: dict[str, str], links: dict[str, s
 
 def ran(stack: dict[str, str], template: dict[str, str], name: str = "part",
         links: dict[str, str] | None = None, prepared: bool = False,
-        binary: bool = False) -> tuple[int | None, list[str], pathlib.Path, str, dict[str, bytes]]:
+        binary: bool = False, outside: bool = False) -> tuple[int | None, list[str], pathlib.Path, str, dict[str, bytes]]:
     """Convert `name` from a stack and a template made of these files: the exit, what was refused,
     the output directory, what was printed, and every file written."""
     scratch = pathlib.Path(tempfile.mkdtemp())
@@ -268,9 +268,10 @@ def ran(stack: dict[str, str], template: dict[str, str], name: str = "part",
     refused: list[str] = []
     code: int | None = None
     built = scratch / "lemonfiber" if binary else None
-    with contextlib.redirect_stdout(printed):
+    with contextlib.redirect_stdout(printed), contextlib.chdir(scratch):
         try:
-            code = convert.convert(scratch / "stack", "HEAD", scratch / "template", "HEAD", name, out, built)
+            code = convert.convert(scratch / "stack", "HEAD", scratch / "template", "HEAD", name,
+                                   pathlib.Path("..", "elsewhere") if outside else pathlib.Path(out.name), built)
         except convert.Refused as refusal:
             refused = refusal.problems
     held = {path.relative_to(out).as_posix(): path.read_bytes()
@@ -387,6 +388,8 @@ def refusal_cases() -> list[Case]:
          {**template_files(), f"{convert.VARIANT}/README.md": "# Own\n"}, ("README.md", "disagree"), {}),
         ("a directory already holding something", STACK_FILES, template_files(), ("not an empty directory",),
          {"prepared": True}),
+        ("a directory outside the working directory", STACK_FILES, template_files(),
+         ("not beneath the working directory",), {"outside": True}),
     ]
     cases: list[Case] = []
     for what, stack, template, words, extra in shapes:

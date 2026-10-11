@@ -3,7 +3,7 @@
 
 The media stack and plugin-template are each read at a commit, never from a working
 tree, so the same two commits and the same part always write the same bytes. Into an
-empty directory it writes:
+empty directory beneath the working directory it writes:
 
 - `plugin.toml`, the part's `services/<id>.toml` in the plugin manifest's vocabulary:
   the plugin's id and name are the service's, `[plugin]` takes the service's
@@ -126,37 +126,35 @@ class Part:
 def snapshot(repository: pathlib.Path, revision: str, into: pathlib.Path) -> str:
     """`repository` at `revision`, written into `into` as git holds it, links as links; the
     commit it resolved to."""
-    if not REVISION.match(revision):
+    if not REVISION.fullmatch(revision):
         raise OSError(f"{revision!r} is not a revision this will hand to git")
     commit = git(repository, "rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}").decode().strip()
-    if not COMMIT.match(commit):
+    if not COMMIT.fullmatch(commit):
         raise OSError(f"{revision!r} in {repository} resolved to {commit!r}, which is not a commit")
     archive = git(repository, "archive", "--format=tar", commit)
-    base = into.resolve()
-    with tarfile.open(fileobj=io.BytesIO(archive)) as held:
-        for member in held.getmembers():
-            path = (base / member.name).resolve() if not member.issym() else base / member.name
-            if not tree.relative(member.name.rstrip("/")) or not tree.inside(base, path.parent):
-                raise OSError(f"{repository} at {commit} holds {member.name!r}, which is not a path inside it")
-            if member.isdir():
-                path.mkdir(parents=True, exist_ok=True)
-            elif member.issym():
-                path.parent.mkdir(parents=True, exist_ok=True)
-                os.symlink(member.linkname, path)
-            elif member.isfile():
-                path.parent.mkdir(parents=True, exist_ok=True)
-                body = held.extractfile(member)
-                path.write_bytes(body.read() if body else b"")
-                path.chmod(EXECUTABLE if member.mode & 0o100 else READABLE)
+    try:
+        with tarfile.open(fileobj=io.BytesIO(archive)) as held:
+            held.extractall(into, filter="data")
+    except tarfile.FilterError as outside:
+        raise OSError(f"{repository} at {commit} holds what leaves it: {outside}") from None
     return commit
 
 
 def git(repository: pathlib.Path, *asked: str) -> bytes:
-    """What git says, or why it could not be asked."""
-    done = subprocess.run(["git", "-C", str(repository), *asked], capture_output=True, check=False)
+    """What git says in `repository`, or why it could not be asked."""
+    done = subprocess.run(["git", *asked], cwd=repository, capture_output=True, check=False)
     if done.returncode != 0:
         raise OSError(f"git {' '.join(asked[:2])} in {repository}: {done.stderr.decode().strip()}")
     return done.stdout
+
+
+def inside_here(path: pathlib.Path) -> pathlib.Path:
+    """`path` resolved, where it lies beneath the working directory; refused where it does not."""
+    base = os.path.realpath(os.getcwd())
+    resolved = os.path.realpath(os.path.join(base, path))
+    if not resolved.startswith(base + os.sep):
+        raise Refused([f"{path} is not beneath the working directory, {base}"])
+    return pathlib.Path(resolved)
 
 
 def toml_of(root: pathlib.Path, path: str, problems: list[str]) -> dict:
@@ -549,6 +547,7 @@ def write(out: pathlib.Path, files: dict[str, bytes], executable: set[str]) -> N
 def convert(stack_repo: pathlib.Path, stack_at: str, template_repo: pathlib.Path, template_at: str,
             name: str, out: pathlib.Path, binary: pathlib.Path | None = None) -> int:
     """Write the part `name` into `out`, and say what the bundle pins it by."""
+    out = inside_here(out)
     if out.exists() and (not out.is_dir() or any(out.iterdir())):
         raise Refused([f"{out} is not an empty directory"])
     with tempfile.TemporaryDirectory() as scratch:
@@ -601,7 +600,8 @@ def main() -> int:
     parser.add_argument("--lemonfiber", type=pathlib.Path,
                         help="a build of the commit the variant's targets.toml names, to write proofs.json")
     parser.add_argument("part", nargs="?", help="the part's id, its service's")
-    parser.add_argument("out", nargs="?", type=pathlib.Path, help="an empty directory to write into")
+    parser.add_argument("out", nargs="?", type=pathlib.Path,
+                        help="an empty directory beneath the working directory to write into")
     args = parser.parse_args()
     if args.self_test:
         import test_convert

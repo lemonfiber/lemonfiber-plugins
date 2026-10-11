@@ -193,7 +193,7 @@ python3 registry/bundle.py               # every pin, held to its origin
 ([ADR-0045](https://github.com/lemonfiber/spec/blob/main/00-overview/decisions/0045-every-bundled-part-has-its-repository-now-and-its-adapter-later.md)).
 It reads `lemonfiber-media-stack` and `plugin-template` each at a commit, so the
 same two commits and the same part always write the same bytes, and writes into
-an empty directory:
+an empty directory beneath the working directory:
 
 - `plugin.toml`, the part's `services/<id>.toml` in the plugin manifest's
   vocabulary. The plugin's id and name are the service's, and `[plugin]` takes
@@ -222,7 +222,7 @@ bundle's, and it prints them for the pin, with the manifest and tree digests.
 python3 registry/convert.py --self-test
 python3 registry/convert.py --stack ../lemonfiber-media-stack --stack-at <commit> \
   --template ../plugin-template --template-at <commit> \
-  [--lemonfiber <build>] sabnzbd ../plugin-sabnzbd
+  [--lemonfiber <build>] sabnzbd out/plugin-sabnzbd
 ```
 
 ## How to register
