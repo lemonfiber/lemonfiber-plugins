@@ -42,15 +42,16 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import check  # noqa: E402
 import entry as entries_module  # noqa: E402
+import tree  # noqa: E402
 
 #: The shape of the index, so a reader can refuse one it does not know.
 SCHEMA = 1
 
 #: The one file of a revision whose digest the index carries.
-MANIFEST = "plugin.toml"
+MANIFEST = tree.MANIFEST
 
 #: How a digest names the algorithm it was taken with.
-DIGEST = "sha256:"
+DIGEST = tree.DIGEST
 
 #: The name the index is written under, in the directory this is run from. Fixed,
 #: because the release publishes exactly this file and nothing else is written.

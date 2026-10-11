@@ -31,7 +31,8 @@ plugins/
 └── <id>.toml            where it is, and the revision somebody read
 bundle/
 ├── bundle.toml          the default bundle: each first-party plugin, pinned
-└── plugins/<id>.toml    a copy of each pinned manifest
+└── plugins/             a copy of each pinned plugin: <id>.toml at schema 1,
+                         <id>/ holding its tree at schema 2
 ```
 
 An entry is a pointer and nothing else:
@@ -57,29 +58,132 @@ request moving that one line, and that is the same person reading again.
 ## The default bundle
 
 `bundle/bundle.toml` is the set of first-party plugins every stack is built
-from. lemonfiber embeds this repository and compiles the bundle in, so it pins
-each plugin by its release, the revision whose manifest names that release's
-image, and the digest of that manifest, and `bundle/plugins/<id>.toml` holds
-the manifest itself, copied byte for byte. It is the one copy this repository
-holds. The file's own comments describe each field.
+from, as the
+[bundle contract](https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/bundle.md)
+states it. lemonfiber embeds this repository and compiles the bundle in. It is
+the one place this repository holds a copy of what a plugin publishes. The
+file's own comments describe each field. `registry/bundle.py` reads it at
+`schema = 1` and `schema = 2`, and refuses any other schema, naming both.
 
-The release train moves the pins. When a first-party plugin's pin pull request
-merges, its repository dispatches `bundle-bump.yml` with the merge commit and
-its own address, and the bump moves that pin and its copy on one rolling pull
-request, `release/bundle-pins`. Only the release App dispatches it, and only
-against `main`; it refuses a repository asking to move a pin the bundle holds
-from another origin, and commits no copy that is not the bytes its pin names. A plugin enters
-the bundle through a person's pull request, which says what it fills.
+At **schema 1** the bundle pins each plugin by its release, the revision whose
+manifest names that release's image, and the digest of that manifest, and
+`bundle/plugins/<id>.toml` holds the manifest itself, copied byte for byte. Each
+copy's adapter service, the one that `speaks`, is tagged at the release.
 
-The `bundle` job refuses a copy no pin names, a pin with no copy, a copy whose
-digest, id or adapter tag is not its pin's, a `fills` the copy neither provides
-nor speaks, a pinned revision that is not on its origin's default branch, and a
-copy that differs from the manifest fetched from its origin at the pinned
-revision. It then holds that revision to everything `plugins`
-holds a registration to.
+At **schema 2** the bundle also declares the stack's `[[profile]]`, `[[form]]`,
+`[[wiring]]` and `[[removed]]` tables, and each `[[plugin]]` names its
+`revision`, the digests of its `manifest` and its `tree`, what it `fills`, its
+`stage` (`assembled` or `installed`), its `profile` and the upstream's
+`last_release`. It names a `release` only where the plugin builds an image, one
+of its services running an image under `ghcr.io/lemonfiber/`, and every such
+image is then tagged at it. A release is three numbers without a `v`, because
+the train tags no pre-release. `bundle/plugins/<id>/` holds the plugin's tree at
+the pinned revision, each file at its path in the plugin's repository.
+
+### The tree, and its digest
+
+A plugin's tree is `plugin.toml`, every file under `config/<service id>/` for
+each service the manifest declares, every recording the manifest names (each
+`fixture`, wherever it appears), and every file under `conformance/`. Nothing
+else is in it, no symbolic link may be, and each service's starting files are
+at most 64 files and 1 MiB.
+
+`tree` is the SHA-256 of a listing of those files, one line each: the file's
+SHA-256 in lowercase hex, two spaces, its path from the repository root with `/`
+between segments, and a line feed. The lines are sorted by the path's UTF-8
+bytes, so `config/example-db/` sorts before `config/example/`, because `-` is
+0x2d and `/` is 0x2f. A sort by path component gives another digest. The
+listing is what `sha256sum` prints for the same files in that order, and
+`python3 registry/tree.py <directory>` prints it and the digest for a checkout.
+
+The vector `registry/test_bundle.py` holds the digest to, and any other reader
+can be held to, is a repository holding these seven files, each written exactly
+as shown, with a final line feed:
+
+| Path | Bytes |
+| --- | --- |
+| `plugin.toml` | below |
+| `config/example/settings.ini` | `[main]` and `port = 8080`, on two lines |
+| `config/example-db/init.sql` | `CREATE TABLE seen (id INTEGER);` |
+| `recordings/example/catalogue.json` | `{"status": 200}` |
+| `recordings/example/unused.json` | `{}` |
+| `conformance/media.serve.json` | `{}` |
+| `README.md` | `# Example` |
+
+```toml
+schema_version = 1
+
+[plugin]
+id = "example"
+
+[[service]]
+id = "example"
+
+[[service]]
+id = "example-db"
+
+[[claim]]
+capability = "media.serve"
+
+[[claim.probe]]
+id = "catalogue"
+fixture = "recordings/example/catalogue.json"
+```
+
+Its tree leaves out `README.md`, which is none of the four, and
+`recordings/example/unused.json`, which the manifest does not name. The listing
+is:
+
+```text
+6e174a2633a59381bd17b8119908c22e4e8f01c3674c97c0811d3dcd7d9c0f47  config/example-db/init.sql
+275a814ae5de8dc3a28e8de2cd66fc9188651dba5d3fbcd419f6c8781f5c4fe1  config/example/settings.ini
+ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356  conformance/media.serve.json
+32a4e386817bdf93699b3a1188b9776f2af6a34298df7497a2efdfcc1698829f  plugin.toml
+9e80cc1a864b04a50ef8b57bff6c0f51fb4e822becc0482cf95f2bcb07f95c8e  recordings/example/catalogue.json
+```
+
+and the tree digest is
+`sha256:083641a4cacc0289f6d0acc96e7e1b67b2dafc17b8d5df47265eaaaf5ce35a77`.
+
+### How a pin moves
+
+The release train moves the pin of a plugin that builds an image. When a
+first-party plugin's pin pull request merges, its repository dispatches
+`bundle-bump.yml` with the merge commit and its own address, and the bump moves
+that pin and its copy on one rolling pull request, `release/bundle-pins`. Only
+the release App dispatches it, and only against `main`; it refuses a repository
+asking to move a pin the bundle holds from another origin, and commits no copy
+that is not what its pin names. At schema 2 it refuses to move a plugin that
+builds no image: that pin moves by a person's pull request here. A plugin
+enters the bundle through a person's pull request, which says what it fills.
+
+### What the `bundle` job refuses
+
+At either schema: a copy no pin names, a pin with no copy, a pinned revision
+that is not on its origin's default branch, a copy that differs from what is
+fetched from its origin at the pinned revision, and a pinned revision failing
+what `plugins` holds a registration to.
+
+At schema 1: a copy whose digest, id or adapter tag is not its pin's, and a
+`fills` the copy neither provides nor speaks.
+
+At schema 2, everything the bundle contract's validation names: the stack's
+tables and their references to each other, a wiring that is neither a choice
+of filler nor a link by name, a copy whose manifest or tree digest is not its
+pin's, a file in a copy outside the plugin's tree, an assembled plugin that is
+not one service speaking no contract with its claims recorded under
+`recordings/<id>/`, an installed plugin whose service of its id does not
+replace it or which names an in-process adapter, `[plugin].forms` that are not
+exactly the forms holding its profile, a licence that is neither OSI nor, for
+lemonfiber's own code and image, `Hippocratic-3.0`, a service without both
+`reaches` and `asks_for`, `critical` without the egress guard's shape, a release
+on a plugin that builds no image or a built image not tagged at it, and an id,
+published port or proxy hostname taken by two pinned plugins, the hostnames the
+proxy's configuration in its copy answers on included.
 
 ```sh
 python3 registry/bundle.py --self-test   # the gate refuses what it should
+python3 registry/bundle.py --offline     # the bundle and its copies, nothing fetched
 python3 registry/bundle.py               # every pin, held to its origin
 ```
 

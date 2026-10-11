@@ -135,7 +135,7 @@ def fetched(origin: str, revision: str, into: pathlib.Path) -> str | None:
     return None
 
 
-def assembled(source: pathlib.Path, into: pathlib.Path) -> str | None:
+def assembled(source: pathlib.Path, into: pathlib.Path, carried: list[str] | None = None) -> str | None:
     """This catalogue's programs, and that plugin's data, in one tree.
 
     The direction is the point. The harness, the release it fetched and the release this
@@ -143,6 +143,9 @@ def assembled(source: pathlib.Path, into: pathlib.Path) -> str | None:
     author's own `targets.toml` are copied *in* from there, the last under another name so
     that the release asked is this catalogue's; nothing crosses the other way and nothing
     executable crosses from there at all.
+
+    `carried` names the files of a bundled plugin's tree to copy in place of `fixtures/`:
+    its starting files, the recordings its manifest names and its conformance.
     """
     shutil.copytree(HARNESS, into / ".github" / "reader")
     shutil.copytree(reader.CACHE, into / reader.CACHE.name)
@@ -152,6 +155,11 @@ def assembled(source: pathlib.Path, into: pathlib.Path) -> str | None:
         if not found.is_file():
             return f"the revision read has no {name} at its root"
         shutil.copy2(found, into / (THEIRS if name == "targets.toml" else name))
+    if carried is not None:
+        for path in carried:
+            (into / path).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source / path, into / path)
+        return None
     for name in CARRIED_DIRS:
         found = source / name
         if not found.is_dir():
@@ -238,14 +246,15 @@ def one(plugin: dict) -> tuple[bool, list[str]]:
         return holds(source)
 
 
-def holds(source: pathlib.Path) -> tuple[bool, list[str]]:
-    """Everything that has to hold for a revision already fetched into `source`."""
+def holds(source: pathlib.Path, carried: list[str] | None = None) -> tuple[bool, list[str]]:
+    """Everything that has to hold for a revision already fetched into `source`, carrying
+    `carried` in place of `fixtures/` where it names a bundled plugin's tree."""
     said: list[str] = []
     with tempfile.TemporaryDirectory() as box:
         work = pathlib.Path(box) / "work"
         work.mkdir()
 
-        why = assembled(source, work)
+        why = assembled(source, work, carried)
         if why is not None:
             return False, [why]
 

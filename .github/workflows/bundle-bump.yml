@@ -3,10 +3,12 @@
 # A first-party plugin's repository dispatches this once the pull request pinning its
 # adapter's image in its manifest has merged, with the merge commit and its own
 # address, which has to be the origin the bundle pins for that id (OPS-R86).
-# `bundle.py --apply` moves the pin to that revision, taking the release from the
-# adapter service's tag and the digest from the manifest, and copies the manifest in;
-# this puts the change on one rolling branch, signed, and opens or updates its pull
-# request. Its checks are the ones every change to the bundle meets (REPO-R92).
+# `bundle.py --apply` moves the pin to that revision and copies in what it holds: at
+# schema 1 the manifest, taking the release from the adapter service's tag; at schema 2
+# the plugin's tree, taking the release from the tag of every image it builds, and
+# refusing a plugin that builds none. This puts the change on one rolling branch,
+# signed, and opens or updates its pull request. Its checks are the ones every change
+# to the bundle meets (REPO-R92).
 #
 # No move is lost. Runs for one plugin queue behind each other, and a newer one
 # waiting replaces an older one waiting, because the newer merge supersedes it. Runs
@@ -166,7 +168,7 @@ jobs:
           moves = json.load(open(f"{scratch}/applied.json"))["moves"]
           headline = "chore(bundle): pin " + ", ".join(f"{move['id']} {move['to']['release']}" for move in moves)
           said = [
-              f"- {move['id']}: {move['from']['release']} -> {move['to']['release']}, at "
+              f"- {move['id']}: {move['from'].get('release', 'unreleased')} -> {move['to']['release']}, at "
               f"{move['to']['revision']}, manifest {move['to']['manifest']}"
               for move in moves
           ]
@@ -210,7 +212,7 @@ jobs:
             # What is committed is what was checked: every copy's bytes against the
             # digest its pin carries, read from the files the commit is made from.
             python3 registry/bundle.py --offline
-            git diff --cached --name-status "$parent" -- bundle > "$RUNNER_TEMP/changed.txt"
+            git diff --cached --no-renames --name-status "$parent" -- bundle > "$RUNNER_TEMP/changed.txt"
             python3 - "$REPO" "$staging" "$parent" "$RUNNER_TEMP" <<'PY' > "$RUNNER_TEMP/request.json"
           import base64
           import json
