@@ -24,8 +24,9 @@ empty directory beneath the working directory it writes:
 
 What the plugin manifest cannot say is refused by name and nothing is written: a field
 it has no place for, a profile, a link or a recording the stack does not hold, a part
-that builds an image written from `bundled-part`, a part written from `built-part` that
-pins no image, tag or digest, and anything the bundle would refuse of the manifest written. The
+that builds an image written from `bundled-part`, a part written from `built-part` whose
+image, tag or digest is not one, a name, description or licence that is not one line of
+text (the README escapes every character Markdown or HTML would read), and anything the bundle would refuse of the manifest written. The
 profile, the upstream's last release and the links by name and choices of filler stay
 the bundle's, and are printed for the pin. Last it prints the manifest's digest and the
 tree's (ARCH-R267).
@@ -107,6 +108,10 @@ NOTE = re.compile(r"\A(?:>[^\n]*\n)+\n")
 BARE_KEY = re.compile(r"\A[A-Za-z0-9_-]+\Z")
 REVISION = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._/~^-]{0,255}\Z")
 COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
+IMAGE = re.compile(r"\A(?:[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::[0-9]+)?/)?[a-z0-9]+(?:[._-]+[a-z0-9]+)*(?:/[a-z0-9]+(?:[._-]+[a-z0-9]+)*)*\Z")
+TAG = re.compile(r"\A[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}\Z")
+MARKDOWN = re.compile(r"([\\`*_\[\]<>|~])")
+CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 EXECUTABLE = 0o755
 READABLE = 0o644
 
@@ -226,8 +231,10 @@ def built(service: dict, path: str, variant: str) -> list[str]:
         return [(f"{path}: image {service['image']} is one lemonfiber builds, and the {VARIANT} variant "
                  f"carries no image build or release")]
     if variant == BUILT:
-        return [f"{path}: the {BUILT} variant builds from the image the service names, and it names no {field}"
-                for field in ("image", "tag", "digest") if not isinstance(service.get(field), str) or not service[field]]
+        return [f"{path}: the {BUILT} variant builds from the image the service names, and its {field} "
+                f"{service.get(field)!r} is not one"
+                for field, shape in (("image", IMAGE), ("tag", TAG), ("digest", tree.DIGEST_SHAPE))
+                if not isinstance(service.get(field), str) or not shape.match(service[field])]
     return []
 
 
@@ -388,9 +395,23 @@ def written(manifest: dict) -> str:
     return text
 
 
+def md(text: str) -> str:
+    """`text` as Markdown that renders as that text: every character Markdown or HTML would read
+    escaped, and anything that would start a line of its own refused."""
+    if not isinstance(text, str) or CONTROL.search(text):
+        raise Refused([f"{text!r} is not one line of text a README can say"])
+    return MARKDOWN.sub(r"\\\1", text)
+
+
 def sentence(text: str) -> str:
-    """`text` ending in one full stop."""
-    return text.rstrip().rstrip(".") + "."
+    """`text` ending in one full stop, as Markdown."""
+    return md(text.rstrip().rstrip(".") + ".")
+
+
+def annotated(problem: str) -> str:
+    """`problem` as one GitHub Actions error annotation, which no character of it can end."""
+    escaped = problem.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return f"::error::{escaped}"
 
 
 def dockerfile(service: dict) -> str:
@@ -400,7 +421,7 @@ def dockerfile(service: dict) -> str:
 
 def readme(plugin: dict, service: dict, files: dict[str, bytes], builds: bool = False) -> str:
     """The part's README."""
-    name, ident = plugin["name"], plugin["id"]
+    name, ident = md(plugin["name"]), plugin["id"]
     carried = (f"Until its adapter ships, lemonfiber assembles {name} into the stack it ships as a\n"
                "stack service, and reaches it through the in-process adapter its `api` names."
                if "api" in service else
@@ -455,9 +476,9 @@ def readme(plugin: dict, service: dict, files: dict[str, bytes], builds: bool = 
         "## Licence",
         "",
         "The data in this repository is under the licence in `LICENSE`.",
-        *([f"{name} itself is under {plugin['license']}, and the image built here from it",
+        *([f"{name} itself is under {md(plugin['license'])}, and the image built here from it",
            "carries it under the same licence."] if builds else
-          [f"{name} itself is under {plugin['license']} and is not distributed here: this",
+          [f"{name} itself is under {md(plugin['license'])} and is not distributed here: this",
            "repository names an image, it does not contain one."]),
         "",
     ])
@@ -465,7 +486,7 @@ def readme(plugin: dict, service: dict, files: dict[str, bytes], builds: bool = 
 
 def agents(plugin: dict, builds: bool = False) -> str:
     """The part's AGENTS.md."""
-    name, ident = plugin["name"], plugin["id"]
+    name, ident = md(plugin["name"]), plugin["id"]
     return "\n".join([
         f"# AGENTS.md — plugin-{ident}",
         "",
@@ -686,10 +707,10 @@ def main() -> int:
                        args.lemonfiber, args.variant)
     except Refused as refused:
         for problem in refused.problems:
-            print(f"::error::{problem}")
+            print(annotated(problem))
         return 1
     except (OSError, tree.Unreadable) as unread:
-        print(f"::error::{unread}")
+        print(annotated(str(unread)))
         return 2
 
 

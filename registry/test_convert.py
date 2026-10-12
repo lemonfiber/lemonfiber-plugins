@@ -519,6 +519,43 @@ def option_cases() -> list[Case]:
     return [("a revision that would reach git as an option is refused", True, refused)]
 
 
+def injection_cases() -> list[Case]:
+    hostile = "Part <img src=x onerror=alert(1)> [x](javascript:y) | `z` *w*"
+    marked = ran(changed("services/part.toml", 'name = "Part"', f'name = "{hostile}"'), template_files())
+    readme = marked[4].get("README.md", b"").decode()
+    spliced = 'Holds\\"] id = \\"evil\\" [x = \\"'
+    quoted = ran(changed("services/part.toml", 'describes = "Holds your indexers"', f'describes = "{spliced}"'),
+                 template_files())
+    manifest = tomllib.loads(quoted[4].get("plugin.toml", b"").decode() or "x = 1")
+    lined = ran(changed("services/part.toml", 'describes = "Holds your indexers"', 'describes = "Holds\\n# owned"'),
+                template_files())
+    stepped = ran(changed("services/part.toml", 'tag = "1.2.3"', 'tag = "1.2.3\\nRUN wget evil"'), template_files(),
+                  variant=convert.BUILT)
+    short = ran(changed("services/part.toml", f'"sha256:{"a" * 64}"', '"sha256:aa"'), template_files(),
+                variant=convert.BUILT)
+    named = ran(changed("services/part.toml", '"lscr.io/linuxserver/part"', '"part AS x"'), template_files(),
+                variant=convert.BUILT)
+    annotation = convert.annotated("a\n::warning::b%0A\r")
+    return [
+        ("a name Markdown or HTML would read is written escaped, as the text it is", True,
+         marked[0] == 0 and r"Part \<img src=x onerror=alert(1)\> \[x\](javascript:y) \| \`z\` \*w\*" in readme
+         and readme.count("<img") == readme.count("\\<img") > 0),
+        ("a value that closes its TOML string reads back as that value, and adds no key", True,
+         manifest.get("plugin", {}).get("description") == 'Holds"] id = "evil" [x = "'
+         and manifest.get("plugin", {}).get("id") == "part"),
+        ("refused, by name, with nothing written: a description that starts a line of its own", True,
+         lined[0] is None and says(lined[1], "one line") and not lined[4]),
+        ("refused, by name, with nothing written: a tag that would add a step to the Dockerfile", True,
+         stepped[0] is None and says(stepped[1], "tag", "RUN") and not stepped[4]),
+        ("refused, by name, with nothing written: a digest that is not a whole sha256", True,
+         short[0] is None and says(short[1], "digest") and not short[4]),
+        ("refused, by name, with nothing written: an image that is not an image reference", True,
+         named[0] is None and says(named[1], "image", "part AS x") and not named[4]),
+        ("a problem is one annotation, whatever it holds", True,
+         annotation == "::error::a%0A::warning::b%250A%0D" and "\n" not in annotation),
+    ]
+
+
 def round_trip_cases() -> list[Case]:
     manifest = tomllib.loads(convert.written(tomllib.loads(OWN)))
     odd = {"schema_version": 1, "plugin": {"id": "x"},
@@ -537,7 +574,7 @@ def self_test() -> int:
     failures = 0
     try:
         cases = [*written_cases(), *readme_cases(), *refusal_cases(), *proving_cases(), *write_cases(), *built_cases(),
-                 *option_cases(),
+                 *injection_cases(), *option_cases(),
                  *round_trip_cases()]
     finally:
         for scratch in SCRATCH:

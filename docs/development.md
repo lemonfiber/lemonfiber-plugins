@@ -209,14 +209,17 @@ an empty directory beneath the working directory:
   written for the part. The variant's own README and AGENTS.md have to be what
   this writes for the variant's part, or nothing is written. `bundled-part`, the
   default, names the upstream's image. `built-part` builds one here, so it also
-  writes a `Dockerfile` from the image, tag and digest the stack pins.
+  writes a `Dockerfile` from the image, tag and digest the stack pins. The
+  README escapes every character of the stack's text Markdown or HTML would
+  read.
 - `proofs.json`, where `--lemonfiber` names a build of the commit the variant's
   `targets.toml` names, written by the template's reader.
 
 It refuses, by name and writing nothing: a field the plugin manifest has no
 place for, a part that builds an image written from `bundled-part`, a part
-written from `built-part` that pins no image, tag or digest, a profile, a
-recording or a link the stack does not hold, a template file nothing says what
+written from `built-part` whose image, tag or digest is not one, a name,
+description or licence that is not one line of text, a profile, a recording or
+a link the stack does not hold, a template file nothing says what
 becomes of, and anything
 the `bundle` job would refuse of the manifest it wrote. The profile, the
 upstream's last release, the choices of filler and the links by name stay the
