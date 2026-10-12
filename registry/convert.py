@@ -403,6 +403,13 @@ def md(text: str) -> str:
     return MARKDOWN.sub(r"\\\1", text)
 
 
+def code(text: str) -> str:
+    """`text` as a Markdown code span, which nothing in it can end."""
+    if not isinstance(text, str) or "`" in text or CONTROL.search(text):
+        raise Refused([f"{text!r} is not one line of text a README can quote"])
+    return f"`{text}`"
+
+
 def sentence(text: str) -> str:
     """`text` ending in one full stop, as Markdown."""
     return md(text.rstrip().rstrip(".") + ".")
@@ -422,6 +429,7 @@ def dockerfile(service: dict) -> str:
 def readme(plugin: dict, service: dict, files: dict[str, bytes], builds: bool = False) -> str:
     """The part's README."""
     name, ident = md(plugin["name"]), plugin["id"]
+    upstream = code(service.get("image", ""))
     carried = (f"Until its adapter ships, lemonfiber assembles {name} into the stack it ships as a\n"
                "stack service, and reaches it through the in-process adapter its `api` names."
                if "api" in service else
@@ -449,7 +457,7 @@ def readme(plugin: dict, service: dict, files: dict[str, bytes], builds: bool = 
         "repository by a revision and the digests of its manifest and its tree, and",
         "lemonfiber compiles that tree in.",
         carried,
-        *([f"Its image is built here from {name}'s, with what the posture it runs under",
+        *([f"Its image is built here from {upstream}, with what the posture it runs under",
            "does not hold taken out. Every commit on main publishes it, the release train",
            "tags this repository, and the bundle pins the tag."] if builds else
           [f"Its image is {name}'s own, so the release train never tags this repository, and",
@@ -476,8 +484,8 @@ def readme(plugin: dict, service: dict, files: dict[str, bytes], builds: bool = 
         "## Licence",
         "",
         "The data in this repository is under the licence in `LICENSE`.",
-        *([f"{name} itself is under {md(plugin['license'])}, and the image built here from it",
-           "carries it under the same licence."] if builds else
+        *([f"{upstream}, which its image is built from, is under {md(plugin['license'])}, and the",
+           "image built here carries it under the same licence."] if builds else
           [f"{name} itself is under {md(plugin['license'])} and is not distributed here: this",
            "repository names an image, it does not contain one."]),
         "",
@@ -515,7 +523,7 @@ def agents(plugin: dict, builds: bool = False) -> str:
         "- **Every service declares `reaches` and `asks_for`** (`ARCH-R270`).",
         "- **No Python here.** The reader is spec's `first-party-plugin` workflow's.",
         *(["- **The image is built here** (`OPS-R90`). The `Dockerfile` builds it from",
-           f"  {name}'s, and it runs under the posture its manifest declares (`ARCH-R250`);",
+           "  its upstream's, and it runs under the posture its manifest declares (`ARCH-R250`);",
            "  `posture/prepare`, where there is one, gives it what lemonfiber writes at",
            "  install. Its pin moves on the release app's rolling pull request."] if builds else
           [f"- **The image is {name}'s own**, so this repository is never tagged. Moving",

@@ -536,6 +536,12 @@ def injection_cases() -> list[Case]:
     named = ran(changed("services/part.toml", '"lscr.io/linuxserver/part"', '"part AS x"'), template_files(),
                 variant=convert.BUILT)
     annotation = convert.annotated("a\n::warning::b%0A\r")
+    quoted_image = ran(changed("services/part.toml", '"lscr.io/linuxserver/part"', '"part`<b>x</b>`"'), template_files(),
+                       variant=convert.BUILT)
+    try:
+        spans = convert.code("a`b")
+    except convert.Refused:
+        spans = None
     return [
         ("a name Markdown or HTML would read is written escaped, as the text it is", True,
          marked[0] == 0 and r"Part \<img src=x onerror=alert(1)\> \[x\](javascript:y) \| \`z\` \*w\*" in readme
@@ -551,6 +557,11 @@ def injection_cases() -> list[Case]:
          short[0] is None and says(short[1], "digest") and not short[4]),
         ("refused, by name, with nothing written: an image that is not an image reference", True,
          named[0] is None and says(named[1], "image", "part AS x") and not named[4]),
+        ("refused, by name, with nothing written: an image that would end the code span quoting it", True,
+         quoted_image[0] is None and not quoted_image[4] and spans is None),
+        ("the README names the image a built part is built from, quoted", True,
+         "built here from `lscr.io/linuxserver/part`" in ran(STACK_FILES, template_files(), variant=convert.BUILT)[4]
+         .get("README.md", b"").decode()),
         ("a problem is one annotation, whatever it holds", True,
          annotation == "::error::a%0A::warning::b%250A%0D" and "\n" not in annotation),
     ]
