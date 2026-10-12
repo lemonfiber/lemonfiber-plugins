@@ -1,7 +1,7 @@
 # Move a first-party plugin's pin in the default bundle to what its release published.
 #
-# A first-party plugin's repository dispatches this once the pull request pinning its
-# adapter's image in its manifest has merged, with the merge commit and its own
+# A first-party plugin's repository dispatches this once the pull request pinning the
+# image it builds, an adapter's or a part's, in its manifest has merged, with the merge commit and its own
 # address, which has to be the origin the bundle pins for that id (OPS-R86).
 # `bundle.py --apply` moves the pin to that revision and copies in what it holds: at
 # schema 1 the manifest, taking the release from the adapter service's tag; at schema 2
@@ -47,8 +47,10 @@ concurrency:
 
 env:
   BRANCH: release/bundle-pins
-  # The rolling branch a plugin's own release proposes its adapter's pin on.
-  PIN_BRANCH: release/adapter-pin
+  # The rolling branches a plugin's own release proposes its pin on: an adapter's
+  # (a plugin's own release workflow) and a built part's (spec's first-party-image).
+  ADAPTER_PIN_BRANCH: release/adapter-pin
+  IMAGE_PIN_BRANCH: release/image-pin
   ATTEMPTS: 5
 
 jobs:
@@ -102,10 +104,11 @@ jobs:
           [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::'${REVISION}' is not a full commit"; exit 1; }
           merged="$(gh api "repos/${slug}/commits/${REVISION}/pulls" --jq "map(select(
             .merged_at != null and .merge_commit_sha == \"${REVISION}\" and .base.ref == \"main\"
-            and .head.ref == \"${PIN_BRANCH}\" and .head.repo.full_name == \"${slug}\"
+            and (.head.ref == \"${ADAPTER_PIN_BRANCH}\" or .head.ref == \"${IMAGE_PIN_BRANCH}\")
+            and .head.repo.full_name == \"${slug}\"
             and .user.login == \"${BOT}\")) | length")"
           [ "$merged" = "1" ] \
-            || { echo "::error::${REVISION} is not the merge of ${BOT}'s ${PIN_BRANCH} pull request in ${slug}"; exit 1; }
+            || { echo "::error::${REVISION} is not the merge of ${BOT}'s ${ADAPTER_PIN_BRANCH} or ${IMAGE_PIN_BRANCH} pull request in ${slug}"; exit 1; }
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
