@@ -228,8 +228,26 @@ def own_files() -> dict[str, str]:
     return files
 
 
+def built_files() -> dict[str, str]:
+    """The built-part variant: the bundled-part's files, a Dockerfile and a prepare script."""
+    plugin = tomllib.loads(OWN)
+    files = {path: text for path, text in own_files().items() if path not in ("README.md", "AGENTS.md")}
+    marks = {path: b"" for path in ("config/own/own.ini", "recordings/own/r.json")}
+    files.update({
+        "README.md": "> **The built variant.** Delete this note.\n\n"
+                     + convert.readme(plugin["plugin"], plugin["service"][0], marks, True),
+        "AGENTS.md": convert.agents(plugin["plugin"], True),
+        "Dockerfile": "FROM scratch\n",
+        "posture/prepare": "#!/bin/sh\nexit 0\n",
+        ".github/workflows/image.yml": "name: image\n",
+    })
+    return files
+
+
 def template_files() -> dict[str, str]:
-    return {**TEMPLATE_ROOT, **{f"{convert.VARIANT}/{path}": text for path, text in own_files().items()}}
+    return {**TEMPLATE_ROOT, **{f"{convert.VARIANT}/{path}": text for path, text in own_files().items()},
+            **{f"{convert.BUILT}/{path}": text for path, text in built_files().items()},
+            ".github/workflows/built-part.yml": "name: built-part\n"}
 
 
 def committed(directory: pathlib.Path, files: dict[str, str], links: dict[str, str] | None = None) -> str:
@@ -253,7 +271,7 @@ def committed(directory: pathlib.Path, files: dict[str, str], links: dict[str, s
 
 def ran(stack: dict[str, str], template: dict[str, str], name: str = "part",
         links: dict[str, str] | None = None, prepared: bool = False,
-        binary: bool = False, outside: bool = False) -> tuple[int | None, list[str], pathlib.Path, str, dict[str, bytes]]:
+        binary: bool = False, outside: bool = False, variant: str = convert.VARIANT) -> tuple[int | None, list[str], pathlib.Path, str, dict[str, bytes]]:
     """Convert `name` from a stack and a template made of these files: the exit, what was refused,
     the output directory, what was printed, and every file written."""
     scratch = pathlib.Path(tempfile.mkdtemp())
@@ -271,7 +289,8 @@ def ran(stack: dict[str, str], template: dict[str, str], name: str = "part",
     with contextlib.redirect_stdout(printed), contextlib.chdir(scratch):
         try:
             code = convert.convert(scratch / "stack", "HEAD", scratch / "template", "HEAD", name,
-                                   pathlib.Path("..", "elsewhere") if outside else pathlib.Path(out.name), built)
+                                   pathlib.Path("..", "elsewhere") if outside else pathlib.Path(out.name), built,
+                                   variant)
         except convert.Refused as refusal:
             refused = refusal.problems
     held = {path.relative_to(out).as_posix(): path.read_bytes()
@@ -454,6 +473,40 @@ def write_cases() -> list[Case]:
     return cases
 
 
+def built_cases() -> list[Case]:
+    own_image = changed("services/part.toml", "lscr.io/linuxserver/part", "ghcr.io/lemonfiber/part")
+    code, refused, _, _, held = ran(own_image, template_files(), variant=convert.BUILT)
+    readme = held.get("README.md", b"").decode()
+    upstream = ran(STACK_FILES, template_files(), variant=convert.BUILT)
+    bare = {path: text for path, text in template_files().items() if path != f"{convert.BUILT}/Dockerfile"}
+    unbuilt = ran(STACK_FILES, bare, variant=convert.BUILT)
+    named = ran(STACK_FILES, template_files(), variant="elsewhere")
+    undigested = ran(changed("services/part.toml", f'digest = "sha256:{"a" * 64}"\n', ""), template_files(), variant=convert.BUILT)
+    return [
+        ("the built-part variant writes a part whose image lemonfiber builds", True, code == 0 and not refused),
+        ("it takes the variant's image workflow, and not its Dockerfile or prepare script", True,
+         held.get("Dockerfile", b"") != b"FROM scratch\n" and ".github/workflows/image.yml" in held
+         and not any(path.startswith("posture/") for path in held)),
+        ("it writes a Dockerfile from the image, tag and digest the stack pins", True,
+         upstream[4].get("Dockerfile") == f"FROM lscr.io/linuxserver/part:1.2.3@sha256:{'a' * 64}\n".encode()),
+        ("its README says the image is built here and the train tags it", True,
+         "Its image is built here" in readme and "the release train\ntags this repository" in readme
+         and "`Dockerfile`" in readme),
+        ("the other variant and the template's own built-part workflow are left behind", True,
+         not any(path.startswith(("bundled-part/", "built-part/")) or path.endswith("built-part.yml") for path in held)),
+        ("a part still on its upstream's image is written from the built-part variant too", True,
+         upstream[0] == 0 and "Dockerfile" in upstream[4]),
+        ("the bundled-part variant leaves out the built-part's Dockerfile", True,
+         "Dockerfile" not in ran(STACK_FILES, template_files())[4]),
+        ("refused, by name, with nothing written: a built-part variant with no Dockerfile", True,
+         unbuilt[0] is None and says(unbuilt[1], "built-part/", "Dockerfile") and not unbuilt[4]),
+        ("refused, by name, with nothing written: a part built from an image it pins no digest of", True,
+         undigested[0] is None and says(undigested[1], "services/part.toml", "digest") and not undigested[4]),
+        ("refused, by name, with nothing written: a variant the template does not have", True,
+         named[0] is None and says(named[1], "elsewhere", "variants") and not named[4]),
+    ]
+
+
 def option_cases() -> list[Case]:
     scratch = pathlib.Path(tempfile.mkdtemp())
     SCRATCH.append(scratch)
@@ -464,6 +517,54 @@ def option_cases() -> list[Case]:
     except OSError as why:
         refused = "not a revision" in str(why)
     return [("a revision that would reach git as an option is refused", True, refused)]
+
+
+def injection_cases() -> list[Case]:
+    hostile = "Part <img src=x onerror=alert(1)> [x](javascript:y) | `z` *w*"
+    marked = ran(changed("services/part.toml", 'name = "Part"', f'name = "{hostile}"'), template_files())
+    readme = marked[4].get("README.md", b"").decode()
+    spliced = 'Holds\\"] id = \\"evil\\" [x = \\"'
+    quoted = ran(changed("services/part.toml", 'describes = "Holds your indexers"', f'describes = "{spliced}"'),
+                 template_files())
+    manifest = tomllib.loads(quoted[4].get("plugin.toml", b"").decode() or "x = 1")
+    lined = ran(changed("services/part.toml", 'describes = "Holds your indexers"', 'describes = "Holds\\n# owned"'),
+                template_files())
+    stepped = ran(changed("services/part.toml", 'tag = "1.2.3"', 'tag = "1.2.3\\nRUN wget evil"'), template_files(),
+                  variant=convert.BUILT)
+    short = ran(changed("services/part.toml", f'"sha256:{"a" * 64}"', '"sha256:aa"'), template_files(),
+                variant=convert.BUILT)
+    named = ran(changed("services/part.toml", '"lscr.io/linuxserver/part"', '"part AS x"'), template_files(),
+                variant=convert.BUILT)
+    annotation = convert.annotated("a\n::warning::b%0A\r")
+    quoted_image = ran(changed("services/part.toml", '"lscr.io/linuxserver/part"', '"part`<b>x</b>`"'), template_files(),
+                       variant=convert.BUILT)
+    try:
+        spans = convert.code("a`b")
+    except convert.Refused:
+        spans = None
+    return [
+        ("a name Markdown or HTML would read is written escaped, as the text it is", True,
+         marked[0] == 0 and r"Part \<img src=x onerror=alert(1)\> \[x\](javascript:y) \| \`z\` \*w\*" in readme
+         and readme.count("<img") == readme.count("\\<img") > 0),
+        ("a value that closes its TOML string reads back as that value, and adds no key", True,
+         manifest.get("plugin", {}).get("description") == 'Holds"] id = "evil" [x = "'
+         and manifest.get("plugin", {}).get("id") == "part"),
+        ("refused, by name, with nothing written: a description that starts a line of its own", True,
+         lined[0] is None and says(lined[1], "one line") and not lined[4]),
+        ("refused, by name, with nothing written: a tag that would add a step to the Dockerfile", True,
+         stepped[0] is None and says(stepped[1], "tag", "RUN") and not stepped[4]),
+        ("refused, by name, with nothing written: a digest that is not a whole sha256", True,
+         short[0] is None and says(short[1], "digest") and not short[4]),
+        ("refused, by name, with nothing written: an image that is not an image reference", True,
+         named[0] is None and says(named[1], "image", "part AS x") and not named[4]),
+        ("refused, by name, with nothing written: an image that would end the code span quoting it", True,
+         quoted_image[0] is None and not quoted_image[4] and spans is None),
+        ("the README names the image a built part is built from, quoted", True,
+         "built here from `lscr.io/linuxserver/part`" in ran(STACK_FILES, template_files(), variant=convert.BUILT)[4]
+         .get("README.md", b"").decode()),
+        ("a problem is one annotation, whatever it holds", True,
+         annotation == "::error::a%0A::warning::b%250A%0D" and "\n" not in annotation),
+    ]
 
 
 def round_trip_cases() -> list[Case]:
@@ -483,7 +584,8 @@ def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     try:
-        cases = [*written_cases(), *readme_cases(), *refusal_cases(), *proving_cases(), *write_cases(), *option_cases(),
+        cases = [*written_cases(), *readme_cases(), *refusal_cases(), *proving_cases(), *write_cases(), *built_cases(),
+                 *injection_cases(), *option_cases(),
                  *round_trip_cases()]
     finally:
         for scratch in SCRATCH:

@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
+import re
 import sys
 import tomllib
 
@@ -38,6 +39,9 @@ RECORDING = "fixture"
 
 #: How a digest names the algorithm it was taken with.
 DIGEST = "sha256:"
+
+#: A whole digest as a pin writes it.
+DIGEST_SHAPE = re.compile(rf"\A{re.escape(DIGEST)}[0-9a-f]{{64}}\Z")
 
 #: ARCH-R271's bounds on one service's starting files.
 MOST_STARTING_FILES = 64

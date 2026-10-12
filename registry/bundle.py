@@ -96,7 +96,6 @@ PROTOCOLS = ("usenet", "torrent")
 PLACEHOLDER = ".gitkeep"
 
 RELEASE = re.compile(r"\A(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\Z")
-DIGEST_SHAPE = re.compile(rf"\A{re.escape(index.DIGEST)}[0-9a-f]{{64}}\Z")
 DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
 
 PINS_START = re.compile(rf"^(?:\[\[{TABLE}\]\]|{TABLE}\s*=)", re.MULTILINE)
@@ -255,7 +254,7 @@ def digest_problems(pin: dict, where: str, schema: int) -> list[str]:
     """Each digest a pin carries, written `sha256:<64 hex>`."""
     return [f"{where}: {field} {pin[field]!r} is not {index.DIGEST}<64 hex>"
             for field in (("manifest",) if schema == 1 else ("manifest", "tree"))
-            if not isinstance(pin[field], str) or DIGEST_SHAPE.match(pin[field]) is None]
+            if not isinstance(pin[field], str) or tree.DIGEST_SHAPE.match(pin[field]) is None]
 
 
 def fills_problems(pin: dict, where: str) -> list[str]:

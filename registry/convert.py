@@ -14,21 +14,25 @@ empty directory beneath the working directory it writes:
   id, a port and a hostname the bundle reserves (ARCH-R222);
 - every file under `config/<id>/`, byte for byte (ARCH-R271);
 - every recording the part's claims name, byte for byte, at its path (ARCH-R267);
-- plugin-template's `bundled-part/` variant laid over the template's root: the
+- the plugin-template variant `--variant` names laid over the template's root: the
   variant's files, the root's that the variant's documentation keeps, and a README and
-  an AGENTS.md written for the part;
+  an AGENTS.md written for the part. `bundled-part` names the upstream's image;
+  `built-part` builds one here, so it also writes a `Dockerfile` from the image, tag and
+  digest the stack pins, and the variant has to hold one;
 - `proofs.json`, where `--lemonfiber` names a build of the commit the variant's
   `targets.toml` names, written by the template's reader.
 
 What the plugin manifest cannot say is refused by name and nothing is written: a field
 it has no place for, a profile, a link or a recording the stack does not hold, a part
-that builds an image, and anything the bundle would refuse of the manifest written. The
+that builds an image written from `bundled-part`, a part written from `built-part` whose
+image, tag or digest is not one, a name, description or licence that is not one line of
+text (the README escapes every character Markdown or HTML would read), and anything the bundle would refuse of the manifest written. The
 profile, the upstream's last release and the links by name and choices of filler stay
 the bundle's, and are printed for the pin. Last it prints the manifest's digest and the
 tree's (ARCH-R267).
 
 Run:  python3 registry/convert.py --stack DIR [--stack-at REV] --template DIR [--template-at REV]
-                                  [--lemonfiber BINARY] ID OUT
+                                  [--variant bundled-part|built-part] [--lemonfiber BINARY] ID OUT
       python3 registry/convert.py --self-test
 Needs: git.
 Exit 0 = written, 1 = refused, or written with a proof that did not pass, 2 = could not be asked.
@@ -62,6 +66,10 @@ STACK_MANIFEST = "stack.toml"
 SERVICES = "services"
 RECORDINGS = "recordings"
 VARIANT = "bundled-part"
+BUILT = "built-part"
+VARIANTS = (VARIANT, BUILT)
+DOCKERFILE = "Dockerfile"
+POSTURE = "posture/"
 READER = ".github/reader/reader.py"
 PROOFS = "proofs.json"
 TARGETS = "targets.toml"
@@ -85,7 +93,7 @@ QUIET_WHEN_FALSE = ("host_managed",)
 ASK_KEYS = {"by", "asks", "each", "filled_by", "why"}
 LINK_KEYS = {"by", "to", "why"}
 
-PART_PATHS = (MANIFEST, PROOFS, f"{tree.CONFIG}/", f"{RECORDINGS}/")
+PART_PATHS = (MANIFEST, PROOFS, f"{tree.CONFIG}/", f"{RECORDINGS}/", POSTURE, DOCKERFILE)
 WRITTEN = (README, AGENTS)
 KEPT = (
     ".editorconfig", ".githooks/", ".markdownlint.jsonc", "typos.toml", "LICENSE", "CLAUDE.md",
@@ -94,11 +102,16 @@ KEPT = (
 )
 DROPPED = (
     "fixtures/", PROOFS, ".github/reader/", "ruff.toml", "docs/", ".github/workflows/bundle.yml",
+    ".github/workflows/built-part.yml", *(f"{one}/" for one in VARIANTS),
 )
 NOTE = re.compile(r"\A(?:>[^\n]*\n)+\n")
 BARE_KEY = re.compile(r"\A[A-Za-z0-9_-]+\Z")
 REVISION = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._/~^-]{0,255}\Z")
 COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
+IMAGE = re.compile(r"\A(?:[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::[0-9]+)?/)?[a-z0-9]+(?:[._-]+[a-z0-9]+)*(?:/[a-z0-9]+(?:[._-]+[a-z0-9]+)*)*\Z")
+TAG = re.compile(r"\A[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}\Z")
+MARKDOWN = re.compile(r"([\\`*_\[\]<>|~])")
+CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 EXECUTABLE = 0o755
 READABLE = 0o644
 
@@ -211,11 +224,17 @@ def unplaced(service: dict, path: str) -> list[str]:
     return said
 
 
-def built(service: dict, path: str) -> list[str]:
-    """A part whose image lemonfiber builds is not one the bundled-part variant carries."""
-    if str(service.get("image", "")).startswith(parts.OWN_IMAGES):
+def built(service: dict, path: str, variant: str) -> list[str]:
+    """A part whose image lemonfiber builds is not one the bundled-part variant carries, and a part
+    the built-part variant builds names the image it is built from."""
+    if variant == VARIANT and str(service.get("image", "")).startswith(parts.OWN_IMAGES):
         return [(f"{path}: image {service['image']} is one lemonfiber builds, and the {VARIANT} variant "
                  f"carries no image build or release")]
+    if variant == BUILT:
+        return [f"{path}: the {BUILT} variant builds from the image the service names, and its {field} "
+                f"{service.get(field)!r} is not one"
+                for field, shape in (("image", IMAGE), ("tag", TAG), ("digest", tree.DIGEST_SHAPE))
+                if not isinstance(service.get(field), str) or not shape.match(service[field])]
     return []
 
 
@@ -284,7 +303,7 @@ def files_of(stack: pathlib.Path, name: str, manifest: dict, problems: list[str]
     return found, sorted(set(held) - set(named))
 
 
-def converted(stack: pathlib.Path, name: str, version: str) -> Part:
+def converted(stack: pathlib.Path, name: str, version: str, variant: str = VARIANT) -> Part:
     """The part `name` of the stack snapshot at `stack`, or every reason it cannot be one."""
     if not isinstance(name, str) or not entry.ID.match(name):
         raise Refused([f"the part id {name!r} is not a plain id, lowercase words joined by '-'"])
@@ -294,7 +313,7 @@ def converted(stack: pathlib.Path, name: str, version: str) -> Part:
     if not service:
         raise Refused(problems)
     path = f"{SERVICES}/{name}.toml"
-    problems += unplaced(service, path) + built(service, path)
+    problems += unplaced(service, path) + built(service, path, variant)
     profile = str(service.get("profile", ""))
     plugin = {
         "id": name,
@@ -376,14 +395,41 @@ def written(manifest: dict) -> str:
     return text
 
 
+def md(text: str) -> str:
+    """`text` as Markdown that renders as that text: every character Markdown or HTML would read
+    escaped, and anything that would start a line of its own refused."""
+    if not isinstance(text, str) or CONTROL.search(text):
+        raise Refused([f"{text!r} is not one line of text a README can say"])
+    return MARKDOWN.sub(r"\\\1", text)
+
+
+def code(text: str) -> str:
+    """`text` as a Markdown code span, which nothing in it can end."""
+    if not isinstance(text, str) or "`" in text or CONTROL.search(text):
+        raise Refused([f"{text!r} is not one line of text a README can quote"])
+    return f"`{text}`"
+
+
 def sentence(text: str) -> str:
-    """`text` ending in one full stop."""
-    return text.rstrip().rstrip(".") + "."
+    """`text` ending in one full stop, as Markdown."""
+    return md(text.rstrip().rstrip(".") + ".")
 
 
-def readme(plugin: dict, service: dict, files: dict[str, bytes]) -> str:
+def annotated(problem: str) -> str:
+    """`problem` as one GitHub Actions error annotation, which no character of it can end."""
+    escaped = problem.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    return f"::error::{escaped}"
+
+
+def dockerfile(service: dict) -> str:
+    """The Dockerfile a built part starts from: its upstream's image at the digest the stack pins."""
+    return f"FROM {service['image']}:{service['tag']}@{service['digest']}\n"
+
+
+def readme(plugin: dict, service: dict, files: dict[str, bytes], builds: bool = False) -> str:
     """The part's README."""
-    name, ident = plugin["name"], plugin["id"]
+    name, ident = md(plugin["name"]), plugin["id"]
+    upstream = code(service.get("image", ""))
     carried = (f"Until its adapter ships, lemonfiber assembles {name} into the stack it ships as a\n"
                "stack service, and reaches it through the in-process adapter its `api` names."
                if "api" in service else
@@ -393,6 +439,8 @@ def readme(plugin: dict, service: dict, files: dict[str, bytes]) -> str:
         rows.append(f"| `config/{ident}/` | The files {name} starts with, written into its configuration directory |")
     if any(path.startswith(f"{RECORDINGS}/") for path in files):
         rows.append(f"| `recordings/{ident}/` | The responses its claims are proved against |")
+    if builds:
+        rows += ["| `Dockerfile` | How its image is built |"]
     rows += ["| `targets.toml` | The lemonfiber its checks run against |",
              "| `proofs.json` | What those checks said, committed |"]
     return "\n".join([
@@ -409,8 +457,11 @@ def readme(plugin: dict, service: dict, files: dict[str, bytes]) -> str:
         "repository by a revision and the digests of its manifest and its tree, and",
         "lemonfiber compiles that tree in.",
         carried,
-        f"Its image is {name}'s own, so the release train never tags this repository, and",
-        "its pin moves by a reviewed pull request on the catalogue.",
+        *([f"Its image is built here from {upstream}, with what the posture it runs under",
+           "does not hold taken out. Every commit on main publishes it, the release train",
+           "tags this repository, and the bundle pins the tag."] if builds else
+          [f"Its image is {name}'s own, so the release train never tags this repository, and",
+           "its pin moves by a reviewed pull request on the catalogue."]),
         "",
         "## What is here",
         "",
@@ -425,19 +476,25 @@ def readme(plugin: dict, service: dict, files: dict[str, bytes]) -> str:
         "workflow: the manifest as the lemonfiber `targets.toml` names reads it, every",
         "claim against its recording, and every pinned digest. This repository holds no",
         "Python of its own. `just ci` runs the gates that need nothing but this tree.",
+        *(["The image is one job of spec's",
+           "[`first-party-image`](https://github.com/lemonfiber/spec/blob/main/.github/workflows/first-party-image.yml)",
+           "workflow: built and run under the posture its manifest declares on a pull",
+           "request, and published, run again and pinned from main and a train tag."] if builds else []),
         "",
         "## Licence",
         "",
         "The data in this repository is under the licence in `LICENSE`.",
-        f"{name} itself is under {plugin['license']} and is not distributed here: this",
-        "repository names an image, it does not contain one.",
+        *([f"{upstream}, which its image is built from, is under {md(plugin['license'])}, and the",
+           "image built here carries it under the same licence."] if builds else
+          [f"{name} itself is under {md(plugin['license'])} and is not distributed here: this",
+           "repository names an image, it does not contain one."]),
         "",
     ])
 
 
-def agents(plugin: dict) -> str:
+def agents(plugin: dict, builds: bool = False) -> str:
     """The part's AGENTS.md."""
-    name, ident = plugin["name"], plugin["id"]
+    name, ident = md(plugin["name"]), plugin["id"]
     return "\n".join([
         f"# AGENTS.md — plugin-{ident}",
         "",
@@ -465,9 +522,13 @@ def agents(plugin: dict) -> str:
         f"  files, where it has any, under `config/{ident}/` (`ARCH-R271`).",
         "- **Every service declares `reaches` and `asks_for`** (`ARCH-R270`).",
         "- **No Python here.** The reader is spec's `first-party-plugin` workflow's.",
-        f"- **The image is {name}'s own**, so this repository is never tagged. Moving",
-        "  the digest means recording every response again against the new image in",
-        "  the same change, and committing the `proofs.json` the checks write.",
+        *(["- **The image is built here** (`OPS-R90`). The `Dockerfile` builds it from",
+           "  its upstream's, and it runs under the posture its manifest declares (`ARCH-R250`);",
+           "  `posture/prepare`, where there is one, gives it what lemonfiber writes at",
+           "  install. Its pin moves on the release app's rolling pull request."] if builds else
+          [f"- **The image is {name}'s own**, so this repository is never tagged. Moving",
+           "  the digest means recording every response again against the new image in",
+           "  the same change, and committing the `proofs.json` the checks write."]),
         "",
     ])
 
@@ -488,12 +549,12 @@ def part_owned(path: str) -> bool:
     return any(path == one or (one.endswith("/") and path.startswith(one)) for one in PART_PATHS)
 
 
-def template_files(template: pathlib.Path) -> tuple[dict[str, pathlib.Path], dict, list[str]]:
+def template_files(template: pathlib.Path, chosen: str = VARIANT) -> tuple[dict[str, pathlib.Path], dict, list[str]]:
     """The file a part's repository takes from the template at each of its paths, the variant's own
     manifest, and every template file nothing says what becomes of."""
     everything, refused = tree.walked(template, ".")
     problems = list(refused)
-    under = f"{VARIANT}/"
+    under = f"{chosen}/"
     variant = {path[len(under):] for path in everything if path.startswith(under)}
     taken = {path: template / under / path for path in sorted(variant)
              if not part_owned(path) and path not in WRITTEN}
@@ -504,32 +565,33 @@ def template_files(template: pathlib.Path) -> tuple[dict[str, pathlib.Path], dic
         if fate == "kept":
             taken[path] = template / path
         elif fate == "unclassified":
-            problems.append(f"plugin-template's {path} is neither kept, dropped nor replaced by {VARIANT}/")
-    problems += [f"plugin-template's {VARIANT}/ holds no {one}" for one in (MANIFEST, TARGETS, *WRITTEN)
-                 if one not in variant]
-    own = toml_of(template / VARIANT, MANIFEST, problems) if MANIFEST in variant else {}
+            problems.append(f"plugin-template's {path} is neither kept, dropped nor replaced by {chosen}/")
+    needed = (MANIFEST, TARGETS, *WRITTEN, *((DOCKERFILE,) if chosen == BUILT else ()))
+    problems += [f"plugin-template's {chosen}/ holds no {one}" for one in needed if one not in variant]
+    own = toml_of(template / chosen, MANIFEST, problems) if MANIFEST in variant else {}
     return taken, own, problems
 
 
-def held_to_variant(template: pathlib.Path, own: dict, files: dict[str, bytes]) -> list[str]:
+def held_to_variant(template: pathlib.Path, own: dict, files: dict[str, bytes], chosen: str = VARIANT) -> list[str]:
     """The variant's README and AGENTS.md are what this writes for the variant's own part."""
     plugin = parts.plugin_of(own)
     services = parts.services_of(own)
     if not plugin or len(services) != 1:
-        return [f"plugin-template's {VARIANT}/plugin.toml is not a part of one service"]
-    expected = {README: readme(plugin, services[0], files), AGENTS: agents(plugin)}
+        return [f"plugin-template's {chosen}/plugin.toml is not a part of one service"]
+    builds = chosen == BUILT
+    expected = {README: readme(plugin, services[0], files, builds), AGENTS: agents(plugin, builds)}
     said = []
     for path, text in expected.items():
-        held = (template / VARIANT / path).read_text(encoding="utf-8")
+        held = (template / chosen / path).read_text(encoding="utf-8")
         if NOTE.sub("", held, count=1) != text:
-            said.append(f"plugin-template's {VARIANT}/{path} is not what this writes for its own part, so "
+            said.append(f"plugin-template's {chosen}/{path} is not what this writes for its own part, so "
                         f"the two disagree on what a part's {path} says")
     return said
 
 
-def variant_files(template: pathlib.Path) -> dict[str, bytes]:
+def variant_files(template: pathlib.Path, chosen: str = VARIANT) -> dict[str, bytes]:
     """The variant's own part's files, as the repository made from it holds them."""
-    root = template / VARIANT
+    root = template / chosen
     found, _ = tree.walked(root, ".")
     return {path: (root / path).read_bytes() for path in found if part_owned(path) and path != PROOFS}
 
@@ -577,7 +639,7 @@ def write(out: pathlib.Path, files: dict[str, bytes], executable: set[str]) -> N
 
 
 def convert(stack_repo: pathlib.Path, stack_at: str, template_repo: pathlib.Path, template_at: str,
-            name: str, out: pathlib.Path, binary: pathlib.Path | None = None) -> int:
+            name: str, out: pathlib.Path, binary: pathlib.Path | None = None, chosen: str = VARIANT) -> int:
     """Write the part `name` into `out`, and say what the bundle pins it by."""
     out = inside_here(out)
     if out.exists() and (not out.is_dir() or any(out.iterdir())):
@@ -586,22 +648,26 @@ def convert(stack_repo: pathlib.Path, stack_at: str, template_repo: pathlib.Path
         stack, template = pathlib.Path(scratch) / "stack", pathlib.Path(scratch) / "template"
         stack_commit = snapshot(stack_repo, stack_at, stack)
         template_commit = snapshot(template_repo, template_at, template)
-        taken, own, problems = template_files(template)
+        if chosen not in VARIANTS:
+            raise Refused([f"{chosen!r} is not one of plugin-template's variants, {', '.join(VARIANTS)}"])
+        builds = chosen == BUILT
+        taken, own, problems = template_files(template, chosen)
         version = str(parts.plugin_of(own).get("version", ""))
         if not version:
-            problems.append(f"plugin-template's {VARIANT}/plugin.toml names no [plugin].version to give the part")
+            problems.append(f"plugin-template's {chosen}/plugin.toml names no [plugin].version to give the part")
         try:
-            part = converted(stack, name, version)
+            part = converted(stack, name, version, chosen)
         except Refused as refused:
             raise Refused(problems + refused.problems) from None
-        problems += held_to_variant(template, own, variant_files(template))
+        problems += held_to_variant(template, own, variant_files(template, chosen), chosen)
         if problems:
             raise Refused(problems)
         manifest_text = written(part.manifest)
         plugin = part.manifest["plugin"]
         files = {**{path: source.read_bytes() for path, source in taken.items()}, **part.files, MANIFEST: manifest_text.encode(),
-                 README: readme(plugin, part.manifest["service"][0], part.files).encode(),
-                 AGENTS: agents(plugin).encode()}
+                 README: readme(plugin, part.manifest["service"][0], part.files, builds).encode(),
+                 AGENTS: agents(plugin, builds).encode(),
+                 **({DOCKERFILE: dockerfile(part.manifest["service"][0]).encode()} if builds else {})}
         executable = {path for path, source in taken.items() if os.access(source, os.X_OK)}
         out.mkdir(parents=True, exist_ok=True)
         write(out, files, executable)
@@ -629,6 +695,8 @@ def main() -> int:
     parser.add_argument("--stack-at", default="HEAD", help="the media stack's commit to read")
     parser.add_argument("--template", type=pathlib.Path, help="a clone of plugin-template")
     parser.add_argument("--template-at", default="HEAD", help="plugin-template's commit to read")
+    parser.add_argument("--variant", default=VARIANT, choices=VARIANTS,
+                        help="the plugin-template variant the repository is made from")
     parser.add_argument("--lemonfiber", type=pathlib.Path,
                         help="a build of the commit the variant's targets.toml names, to write proofs.json")
     parser.add_argument("part", nargs="?", help="the part's id, its service's")
@@ -644,13 +712,13 @@ def main() -> int:
         return 2
     try:
         return convert(args.stack, args.stack_at, args.template, args.template_at, args.part, args.out,
-                       args.lemonfiber)
+                       args.lemonfiber, args.variant)
     except Refused as refused:
         for problem in refused.problems:
-            print(f"::error::{problem}")
+            print(annotated(problem))
         return 1
     except (OSError, tree.Unreadable) as unread:
-        print(f"::error::{unread}")
+        print(annotated(str(unread)))
         return 2
 
 
