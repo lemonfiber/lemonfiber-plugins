@@ -193,6 +193,16 @@ to        = "lidarr"
 why       = "The same, in Lidarr's terms."
 
 [[wiring]]
+by        = "recyclarr"
+to        = "sonarr"
+why       = "It writes Sonarr-shaped quality profiles from Sonarr-shaped guides, into a section of its own configuration named for the service. Nothing about it generalises to a library curator."
+
+[[wiring]]
+by        = "recyclarr"
+to        = "radarr"
+why       = "The same, in Radarr's terms."
+
+[[wiring]]
 by        = "decline"
 to        = "jellyfin"
 why       = "It makes three of Jellyfin's own calls, reading an account and its activity log and writing the account's policy back disabled, with a key lemonfiber minted for it alone. What it acts on is Jellyfin, not whatever serves identity."
@@ -398,6 +408,17 @@ fills        = ["library.curate"]
 stage        = "assembled"
 profile      = "movies"
 last_release = "2026-09-16"
+
+[[plugin]]
+id           = "recyclarr"
+origin       = "https://github.com/lemonfiber/plugin-recyclarr"
+revision     = "e60d5d6a3b4160bf422a4cb71f299561660f72c7"
+manifest     = "sha256:5329672f931bcd15c892621abca8ef904f475a446a68ddff91b24cd1b3165792"
+tree         = "sha256:9c0bdd0feebbb3d8a9ec17e0bcde0b6cae7da4eba091ca6b877cb564fe3cc2b2"
+fills        = []
+stage        = "assembled"
+profile      = "tuning"
+last_release = "2026-10-05"
 
 [[plugin]]
 id           = "sabnzbd"
