@@ -1,0 +1,237 @@
+{
+  "recorded_from": "docker.io/jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db",
+  "note": "The certificates in Jellyfin's rating table for its default country.",
+  "request": {
+    "method": "POST",
+    "path": "/lemonfiber/identity.source/v1/ratings",
+    "accept": "application/json"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": [
+      {
+        "name": "Approved",
+        "age": 0
+      },
+      {
+        "name": "G",
+        "age": 0
+      },
+      {
+        "name": "TV-G",
+        "age": 0
+      },
+      {
+        "name": "TV-Y",
+        "age": 0
+      },
+      {
+        "name": "TV-Y7",
+        "age": 7
+      },
+      {
+        "name": "TV-Y7-FV",
+        "age": 7
+      },
+      {
+        "name": "PG",
+        "age": 10
+      },
+      {
+        "name": "TV-PG",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-D",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-L",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-S",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-V",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-DL",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-DS",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-DV",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-LS",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-LV",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-SV",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-DLS",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-DLV",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-DSV",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-LSV",
+        "age": 10
+      },
+      {
+        "name": "TV-PG-DLSV",
+        "age": 10
+      },
+      {
+        "name": "PG-13",
+        "age": 13
+      },
+      {
+        "name": "TV-14",
+        "age": 14
+      },
+      {
+        "name": "TV-14-D",
+        "age": 14
+      },
+      {
+        "name": "TV-14-L",
+        "age": 14
+      },
+      {
+        "name": "TV-14-S",
+        "age": 14
+      },
+      {
+        "name": "TV-14-V",
+        "age": 14
+      },
+      {
+        "name": "TV-14-DL",
+        "age": 14
+      },
+      {
+        "name": "TV-14-DS",
+        "age": 14
+      },
+      {
+        "name": "TV-14-DV",
+        "age": 14
+      },
+      {
+        "name": "TV-14-LS",
+        "age": 14
+      },
+      {
+        "name": "TV-14-LV",
+        "age": 14
+      },
+      {
+        "name": "TV-14-SV",
+        "age": 14
+      },
+      {
+        "name": "TV-14-DLS",
+        "age": 14
+      },
+      {
+        "name": "TV-14-DLV",
+        "age": 14
+      },
+      {
+        "name": "TV-14-DSV",
+        "age": 14
+      },
+      {
+        "name": "TV-14-LSV",
+        "age": 14
+      },
+      {
+        "name": "TV-14-DLSV",
+        "age": 14
+      },
+      {
+        "name": "R",
+        "age": 17
+      },
+      {
+        "name": "NC-17",
+        "age": 17
+      },
+      {
+        "name": "TV-MA",
+        "age": 17
+      },
+      {
+        "name": "TV-MA-L",
+        "age": 17
+      },
+      {
+        "name": "TV-MA-S",
+        "age": 17
+      },
+      {
+        "name": "TV-MA-V",
+        "age": 17
+      },
+      {
+        "name": "TV-MA-LS",
+        "age": 17
+      },
+      {
+        "name": "TV-MA-LV",
+        "age": 17
+      },
+      {
+        "name": "TV-MA-SV",
+        "age": 17
+      },
+      {
+        "name": "TV-MA-LSV",
+        "age": 17
+      },
+      {
+        "name": "TV-X",
+        "age": 18
+      },
+      {
+        "name": "TV-AO",
+        "age": 18
+      },
+      {
+        "name": "21",
+        "age": 21
+      },
+      {
+        "name": "XXX",
+        "age": 1000
+      },
+      {
+        "name": "Banned",
+        "age": 1001
+      }
+    ]
+  }
+}

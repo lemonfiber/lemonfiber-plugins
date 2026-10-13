@@ -1,0 +1,43 @@
+schema_version = 1
+
+[plugin]
+id          = "gluetun"
+name        = "Gluetun"
+version     = "1.0.0"
+description = "Routes torrent traffic through your VPN and blocks it if the VPN drops"
+without_it  = "Your home IP is visible to every peer"
+upstream    = "https://github.com/qdm12/gluetun"
+license     = "MIT"
+forms       = ["dl", "hunt", "tv", "movies", "music", "books", "auto", "full"]
+
+[[service]]
+id          = "gluetun"
+name        = "Gluetun"
+image       = "qmcgaw/gluetun"
+digest      = "sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027"
+tag         = "v3.41.3"
+health      = { kind = "container" }
+criticality = "critical"
+memory_mib  = 50
+reaches     = "your VPN provider's servers"
+asks_for    = "Dials the tunnel everything torrent-shaped is routed through, and asks the provider for a forwarded port where you asked for one."
+provides    = ["network.egress-guard"]
+shape       = "egress-guard"
+replaces    = "gluetun"
+
+[service.env]
+VPN_SERVICE_PROVIDER         = { setting = "gluetun:provider", default = "" }
+VPN_TYPE                     = "wireguard"
+SERVER_COUNTRIES             = { setting = "gluetun:countries", default = "Netherlands" }
+VPN_PORT_FORWARDING          = { setting = "gluetun:port-forwarding", default = "off" }
+VPN_PORT_FORWARDING_PROVIDER = { setting = "gluetun:provider", default = "" }
+PORT_FORWARD_ONLY            = { setting = "gluetun:port-forwarding", default = "off" }
+
+[[claim]]
+capability = "network.egress-guard"
+
+[[claim.probe]]
+id      = "identifies"
+request = { method = "GET", path = "/v1/vpn/status" }
+expect  = { status = 200, json_types = { status = "str" } }
+fixture = "recordings/gluetun/network-egress-guard-identifies.json"

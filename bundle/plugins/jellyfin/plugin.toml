@@ -1,0 +1,101 @@
+#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/5e3ef10f7037f6a53d5bfd2cf87ed1c69cbc4387/contract/plugin-manifest.schema.json
+# Jellyfin, as a first-party lemonfiber plugin (ADR-0041, ADR-0042).
+#
+# Contract: https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/plugin-manifest.md
+#
+# Two services. `jellyfin` is the upstream, under the container name, the
+# configuration directory (config/jellyfin, mounted at /config) and the data root
+# the bundled Jellyfin uses. It `replaces` the bundled Jellyfin, so an install
+# moves to this plugin in place (ADR-0042 §4). `jellyfin-adapter` speaks the
+# contracts in front of it. release.yml publishes it from every commit on main,
+# tagged `main-<commit>`, and from every train tag, and its rolling pull requests
+# move the digest and tag below to what was published.
+
+schema_version = 1
+
+[plugin]
+id          = "jellyfin"
+name        = "Jellyfin"
+version     = "0.18.0"
+description = "Plays your library on TVs, phones and browsers"
+without_it  = "Files on disk, no way to watch them"
+upstream    = "https://github.com/jellyfin/jellyfin"
+license     = "GPL-2.0-only"
+forms       = ["library", "full"]
+
+[[service]]
+id          = "jellyfin"
+name        = "Jellyfin"
+image       = "docker.io/jellyfin/jellyfin"
+digest      = "sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db"
+tag         = "10.11.11"
+port        = 8095
+bind        = "loopback"
+health      = { kind = "http", path = "/health", timeout_s = 120 }
+criticality = "important"
+memory_mib  = 600
+reaches     = "metadata providers and its own plugin repository"
+asks_for    = "Reads artwork and descriptions for what is in your library, and checks its plugin repository for updates unless you turn that off in its own settings."
+takes_data  = true
+config_path = "/config"
+listens     = 8096
+user_mode   = "uid"
+native      = "jellyfin"
+replaces    = "jellyfin"
+
+[[service.mount]]
+from = "cache"
+to   = "/cache"
+
+[[service]]
+id          = "jellyfin-adapter"
+name        = "Jellyfin adapter"
+image       = "ghcr.io/lemonfiber/jellyfin-adapter"
+digest      = "sha256:0352d3232d0ffe22725ebd706ed8fa92d23b20de02a076ac195971d1fc4a0c07"
+tag         = "main-31a58cdb60de"
+criticality = "important"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's media.serve and identity.source contracts by calling Jellyfin, beside it, with the key lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["media.serve@1", "identity.source@1"]
+fronts      = "jellyfin"
+provides    = ["media.serve", "identity.source"]
+
+[[proof]]
+id      = "jellyfin.identifies"
+service = "jellyfin"
+title   = "Jellyfin says which server it is to anybody"
+fixture = "fixtures/system-info-public.json"
+why     = """
+The adapter's readiness is this answer, and the first run is driven from the
+`StartupWizardCompleted` it carries, so the pinned image has to answer it
+without a credential.
+"""
+request = { method = "GET", path = "/System/Info/Public" }
+expect  = { status = 200, json = { ProductName = "Jellyfin Server" }, json_types = { Version = "str", StartupWizardCompleted = "bool" } }
+
+[[proof]]
+id      = "jellyfin.guarded"
+service = "jellyfin"
+title   = "Jellyfin tells nobody who holds an account on it"
+fixture = "fixtures/users-unauthenticated.json"
+why     = """
+The household's accounts are the adapter's to read, signed in as the
+administrator. A Jellyfin that answered this to a caller presenting nothing
+would be naming every member to every device that can reach it.
+"""
+request = { method = "GET", path = "/Users" }
+expect  = { status = 401 }
+
+[[proof]]
+id      = "jellyfin.catalogue-guarded"
+service = "jellyfin"
+title   = "Jellyfin shows its catalogue to nobody presenting nothing"
+fixture = "fixtures/items-unauthenticated.json"
+why     = """
+A media server on the household network that answered this would be
+publishing the household's library to every device that can reach it.
+"""
+request = { method = "GET", path = "/Items" }
+expect  = { status = 401 }

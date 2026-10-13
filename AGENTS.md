@@ -43,9 +43,10 @@ spec's `70-operations/plugins.toml` and answers a different question. Spec page:
   is copied from `plugin-template` and diffed against it in CI. Change it there
   and bring the copy across; never change it here alone.
 - **Nothing here describes the manifest format** (`F10-R2`), and nothing here
-  decides a verdict. The harness fetches the release `targets.toml` names and
-  asks it `lemonfiber plugin claims`; every verdict this catalogue reports is
-  that release's own.
+  decides a verdict. The harness fetches the release `targets.toml` names, or
+  builds the commit of lemonfiber's `main` it names while no release reads what
+  the bundled plugins declare (`REPO-R56`), and asks it `lemonfiber plugin
+  claims`; every verdict this catalogue reports is that build's own.
 - **Everything must be reviewable as a diff** (`REPO-R60`). No archives, no
   encoded blobs, no generated artefacts.
 - **This is not a service** (`REPO-R59`) and nothing here is resolved at run

@@ -1,0 +1,55 @@
+schema_version = 1
+
+[plugin]
+id          = "homepage"
+name        = "Homepage"
+version     = "1.0.0"
+description = "One page linking everything, with live status"
+without_it  = "Remember a dozen URLs and ports"
+upstream    = "https://github.com/gethomepage/homepage"
+license     = "GPL-3.0-only"
+forms       = ["full"]
+
+[[service]]
+id          = "homepage"
+name        = "Homepage"
+image       = "ghcr.io/gethomepage/homepage"
+digest      = "sha256:a0b71c8e757298d02560186bab9fbe3fc2d375c523a62cc1019177b37e48aa28"
+tag         = "v1.13.2"
+port        = 3000
+bind        = "lan"
+health      = { kind = "http", path = "/", timeout_s = 60 }
+criticality = "enhancing"
+memory_mib  = 150
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It reads the other services' own APIs over the stack's internal network to draw their status."
+config_path = "/app/config"
+user_mode   = "puid-env"
+replaces    = "homepage"
+
+[service.env]
+HOMEPAGE_ALLOWED_HOSTS = { setting = "homepage:allowed-hosts", default = "localhost:3000" }
+HOMEPAGE_VAR_LAN_HOST  = { setting = "lan-host", default = "localhost" }
+
+[[proof]]
+id      = "homepage.healthy"
+title   = "Homepage says it is up once it has read its configuration"
+request = { method = "GET", path = "/api/healthcheck" }
+expect  = { status = 200, body_starts_with = "up" }
+fixture = "recordings/homepage/healthcheck.json"
+why     = """
+The dashboard is a page drawn from the configuration lemonfiber writes. Its
+own health check answering up is the pinned image serving at all, which a
+status alone could not say of a client-routed page.
+"""
+
+[[proof]]
+id      = "homepage.services"
+title   = "Homepage lists the groups of services its configuration names"
+request = { method = "GET", path = "/api/services" }
+expect  = { status = 200, content_type = "application/json", json_array_min = 1 }
+fixture = "recordings/homepage/services.json"
+why     = """
+What makes the page the stack's is the list of services it links, read from
+the starting configuration. An empty list would be a dashboard of nothing.
+"""

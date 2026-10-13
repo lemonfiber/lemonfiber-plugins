@@ -1,18 +1,20 @@
-# The lemonfiber release this catalogue checks registrations against (REPO-R56).
+# The lemonfiber this catalogue checks registrations and the bundle against (REPO-R56).
 #
 # A catalogue that validated against a different build than the operator runs would
-# be vouching for something it had not tested, so the release is pinned here and
+# be vouching for something it had not tested, so the build is pinned here and
 # named rather than inferred from whatever `main` holds on the day a registration
-# lands.
+# lands. It is a release, `lemonfiber = "X.Y.Z"`, or, while no release reads what
+# the bundled plugins declare, a full commit of lemonfiber's `main` as `commit`,
+# built from source. Once that release is published, this names it instead.
 #
-# It is one number for the whole catalogue rather than one per entry. A plugin
-# names the release *it* was proved against in its own `targets.toml`, and the two
-# are different facts: that one is the author's claim, this one is the build these
-# checks ran. Where they disagree, the disagreement is the interesting part and is
-# reported rather than resolved.
+# It is one target for the whole catalogue rather than one per entry. A plugin
+# names the lemonfiber *it* was proved against in its own `targets.toml`, and the
+# two are different facts: that one is the author's claim, this one is the build
+# these checks ran. Where they disagree, the disagreement is the interesting part
+# and is reported rather than resolved.
 #
-# `registry/check.py` fetches this release through `.github/reader/reader.py` and
-# asks it about every registration, so every verdict it reports is this release's
-# own.
+# `registry/check.py` fetches or builds this through `.github/reader/reader.py` and
+# asks it about every registration and every pinned plugin, so every verdict it
+# reports is this build's own.
 
-lemonfiber = "0.16.0"
+commit = "5e3ef10f7037f6a53d5bfd2cf87ed1c69cbc4387"

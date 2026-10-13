@@ -1,0 +1,16 @@
+{
+  "recorded_from": "docker.io/jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db",
+  "note": "An account put where its person can claim it: switched on, bounded, narrowed.",
+  "request": {
+    "method": "POST",
+    "path": "/lemonfiber/identity.source/v1/claimable",
+    "accept": "application/json"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body_starts_with": "null"
+  }
+}

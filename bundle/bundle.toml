@@ -1,25 +1,427 @@
-# The default bundle: every first-party plugin a stack is built from, pinned
-# (REPO-R91, ADR-0042). The core embeds this repository as a submodule and
-# compiles this file and every copy beside it in, so a stack installs offline.
+# The default bundle: the stack lemonfiber ships and every first-party plugin it is
+# built from, pinned (REPO-R91, ADR-0045). The core embeds this repository as a
+# submodule and compiles this file and every copy beside it in, so a stack installs
+# offline. Contract:
+# https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/bundle.md
 #
-# One [[plugin]] table per first-party plugin, ordered by id:
+# [[profile]], [[form]], [[wiring]] and [[removed]] are about the whole stack, and
+# no plugin manifest says them (ARCH-R265, ARCH-R268).
 #
-#   id        the plugin's `[plugin].id`. Its manifest is copied byte for byte
-#             to bundle/plugins/<id>.toml.
-#   origin    the plugin's repository, as an https URL.
-#   release   the tag the release train cut there, without the `v`. The copy's
-#             adapter service (the one that `speaks`) is tagged at it.
-#   revision  the full 40-hex commit whose plugin.toml names the image that
-#             tag published: the merge of the plugin's pin pull request, never
-#             the tag, because the tag precedes the digest it publishes.
-#   manifest  the sha256 digest of plugin.toml at that revision, written
-#             `sha256:<64 hex>`.
-#   fills     the capabilities the plugin fills by default.
+# One [[plugin]] table per first-party plugin, last in the file, ordered by id:
 #
-# The train moves `release`, `revision`, `manifest` and the copy (OPS-R86);
-# `origin` and `fills` are a person's choice. registry/bundle.py holds every
-# copy to its origin at the pinned revision (REPO-R92).
+#   id            the plugin's `[plugin].id`, and the id of the service that takes
+#                 the part's place.
+#   origin        the plugin's repository, as an https URL.
+#   release       the tag the release train cut there, without the `v`, named only
+#                 where the revision was tagged. Every image the plugin builds is
+#                 tagged at it.
+#   revision      the full 40-hex commit whose tree is pinned, on the origin's
+#                 default branch.
+#   manifest      the sha256 digest of plugin.toml at that revision, written
+#                 `sha256:<64 hex>`.
+#   tree          the sha256 digest of the plugin's tree at that revision
+#                 (ARCH-R267). bundle/plugins/<id>/ holds that tree, each file at
+#                 its path in the plugin's repository.
+#   fills         the capabilities the plugin fills by default.
+#   stage         `assembled`, a stack service lemonfiber builds into the stack it
+#                 ships, or `installed` through the plugin path.
+#   profile       the profile every service of the plugin sits in.
+#   last_release  the upstream's latest release, YYYY-MM-DD.
+#
+# The train moves `release`, `revision`, `manifest`, `tree` and the copy of a plugin
+# that builds an image (OPS-R86). A plugin that builds none, and every other field,
+# moves by a person's pull request. registry/bundle.py holds every copy to its origin
+# at the pinned revision (REPO-R92).
 
-schema = 1
+schema = 2
 
-plugin = []
+# The profiles: one per role a service plays, each the Compose profile its services
+# are written into.
+
+[[profile]]
+id          = "search"
+name        = "Indexers"
+description = "Finding things"
+
+[[profile]]
+id          = "usenet"
+name        = "Usenet"
+description = "Usenet downloading"
+protocol    = "usenet"
+
+[[profile]]
+id          = "torrent"
+name        = "Torrents"
+description = "Torrent downloading, VPN-isolated"
+protocol    = "torrent"
+
+[[profile]]
+id          = "tv"
+name        = "Television"
+description = "TV automation"
+
+[[profile]]
+id          = "movies"
+name        = "Movies"
+description = "Film automation"
+
+[[profile]]
+id          = "music"
+name        = "Music"
+description = "Music automation"
+
+[[profile]]
+id          = "books"
+name        = "Books"
+description = "Book and audiobook automation"
+
+[[profile]]
+id          = "subs"
+name        = "Subtitles"
+description = "Subtitle automation"
+
+[[profile]]
+id          = "media"
+name        = "Library"
+description = "Serving what you have"
+
+[[profile]]
+id          = "tuning"
+name        = "Tuning"
+description = "Quality profiles and extraction"
+
+[[profile]]
+id          = "dash"
+name        = "Dashboard"
+description = "A page linking everything"
+
+[[profile]]
+id          = "proxy"
+name        = "Proxy"
+description = "Friendly hostnames"
+
+# The forms: named slices of the stack, each the whole closure of profiles it starts.
+
+[[form]]
+id          = "search"
+name        = "Search"
+description = "Find things. Nothing else runs."
+profiles    = ["search"]
+
+[[form]]
+id          = "dl"
+name        = "Download"
+description = "You have a link — fetch it."
+profiles    = ["usenet", "torrent"]
+
+[[form]]
+id          = "hunt"
+name        = "Hunt"
+description = "Search and grab, manually."
+profiles    = ["search", "usenet", "torrent"]
+
+[[form]]
+id          = "tv"
+name        = "TV"
+description = "Search, download and automate television"
+profiles    = ["search", "usenet", "torrent", "tv", "subs"]
+
+[[form]]
+id          = "movies"
+name        = "Movies"
+description = "Search, download and automate film"
+profiles    = ["search", "usenet", "torrent", "movies", "subs"]
+
+[[form]]
+id          = "music"
+name        = "Music"
+description = "Search, download and automate music"
+profiles    = ["search", "usenet", "torrent", "music"]
+
+[[form]]
+id          = "books"
+name        = "Books"
+description = "Search, download and automate books and audiobooks"
+profiles    = ["search", "usenet", "torrent", "books"]
+
+[[form]]
+id          = "auto"
+name        = "Auto"
+description = "Everything automated, nothing served"
+profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "tuning"]
+
+[[form]]
+id          = "library"
+name        = "Library"
+description = "Serve what exists. Requires no third-party accounts."
+profiles    = ["media"]
+
+[[form]]
+id          = "full"
+name        = "Full"
+description = "The lot."
+profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "media", "tuning", "dash"]
+
+[[form]]
+id          = "proxy"
+name        = "Proxy"
+description = "Friendly hostnames. Layers onto any other form."
+profiles    = ["proxy"]
+
+# The stack's choices of filler and its links by name, each with why. Every other
+# ask is the asking plugin's own [[ask]].
+
+[[wiring]]
+by        = "bindery"
+asks      = "indexer.search"
+filled_by = "prowlarr"
+why       = "Two services here answer as an indexer and this asks for one of them. Prowlarr is the stack's choice because it is the one the book *arr can pull a keyed feed from; NZBHydra2 searches Usenet only. Change it and everything that asked follows."
+
+[[wiring]]
+by        = "unpackerr"
+to        = "sonarr"
+why       = "The image is configured per application — UN_SONARR_0_URL and its key — and what it knows is Sonarr, not whatever curates a library. The link is spelled in the service's own terms, so it is about that service."
+
+[[wiring]]
+by        = "unpackerr"
+to        = "radarr"
+why       = "The same, in Radarr's terms."
+
+[[wiring]]
+by        = "unpackerr"
+to        = "lidarr"
+why       = "The same, in Lidarr's terms."
+
+[[wiring]]
+by        = "door"
+to        = "jellyfin"
+why       = "It asks Jellyfin's own question, an item fetched with the session a request presents, and passes what it lets through to Jellyfin's own routes, which it names path by path. What it guards is Jellyfin, not whatever serves media."
+
+# The services the catalogue no longer carries, why each went, and what took its
+# job over.
+
+[[removed]]
+id          = "readarr"
+removed_in  = "0.1.0"
+reason      = "Discontinued upstream in 2025. Its repository is archived, so the pin could only ever age."
+replaced_by = "bindery"
+
+[[plugin]]
+id           = "audiobookshelf"
+origin       = "https://github.com/lemonfiber/plugin-audiobookshelf"
+revision     = "25a2d501d539186958400eb17f744904b5894452"
+manifest     = "sha256:89e3d26e1127ea8c5a5b83296c6deeeb8efe07bdc46f8cab88a793e28ffd3071"
+tree         = "sha256:becb3861248290a720487013c1046846e29a320886c5c777844dc9596c5c3f62"
+fills        = ["media.serve"]
+stage        = "assembled"
+profile      = "media"
+last_release = "2026-09-29"
+
+[[plugin]]
+id           = "bazarr"
+origin       = "https://github.com/lemonfiber/plugin-bazarr"
+revision     = "7073d1ce4e2e5b2d56f8f8771b24f9f15c3f0a25"
+manifest     = "sha256:ed3310249214c80d5d1f643bf529dfa6439ab47a95cea2254ccfd33adccec44f"
+tree         = "sha256:97ea342386afd588a73de314028ec88e8abebe6f8e42ad42743212b6f5bfecfd"
+fills        = ["subtitles.fetch"]
+stage        = "assembled"
+profile      = "subs"
+last_release = "2026-09-26"
+
+[[plugin]]
+id           = "bindery"
+origin       = "https://github.com/lemonfiber/plugin-bindery"
+revision     = "d48d6f8a979e4ec677dfcb2684df9f2277398ed0"
+manifest     = "sha256:04b87c4f1135dafb85834f78a1e8bb6f474b414aa76fb5ee03f3d0e328da0611"
+tree         = "sha256:e68a3e353fcc33f84dd3a11c3d5cb3b945dfc9b21ec0969863fbb0634d90177b"
+fills        = ["library.curate"]
+stage        = "assembled"
+profile      = "books"
+last_release = "2026-10-08"
+
+[[plugin]]
+id           = "caddy"
+origin       = "https://github.com/lemonfiber/plugin-caddy"
+revision     = "ace145c864b8b1ddff7722f64500bf97a5cc409c"
+manifest     = "sha256:bf580453d3864ff6f929e7402497fdd5fd1313829b2827cdd63ddea003b627bb"
+tree         = "sha256:fd2f635655f2f487f627e6aa3bae57c1f88ea9284945e3e62527f1d1c6e69279"
+fills        = []
+stage        = "assembled"
+profile      = "proxy"
+last_release = "2026-10-03"
+
+[[plugin]]
+id           = "calibre-web-automated"
+origin       = "https://github.com/lemonfiber/plugin-calibre-web-automated"
+revision     = "286b3b34e4bde0a71e0338a1074f4f942e14624e"
+manifest     = "sha256:616bb81174325de5922016812b08cb67a6d143bf8c6f01be8fa558b27e2ceee7"
+tree         = "sha256:bf4702888249321e89cd2b95def920e4e44af189b4cb08adb06d8c17a7078145"
+fills        = ["media.serve"]
+stage        = "assembled"
+profile      = "media"
+last_release = "2026-02-04"
+
+[[plugin]]
+id           = "door"
+origin       = "https://github.com/lemonfiber/plugin-door"
+revision     = "49badefe685d7c2bf1ba7de88995bcc38155f81b"
+manifest     = "sha256:671d23f1200f74e175d33d78a6bc818fc536cc55b62298316aa1b28746dc25a5"
+tree         = "sha256:9b3794c8f99cd425597227e54508b7e418aaa4969a564208df2b875a8a4d9b6c"
+fills        = []
+stage        = "assembled"
+profile      = "media"
+last_release = "2026-10-03"
+
+[[plugin]]
+id           = "flaresolverr"
+origin       = "https://github.com/lemonfiber/plugin-flaresolverr"
+revision     = "b60a0fae63e112a18914d9ea416ba71b54f69998"
+manifest     = "sha256:12770d0de8d29caeda8f95d427fd90c54e588cca4a5e6ff5fd2eef97ae604bfd"
+tree         = "sha256:a3a0fd91310e178f565c04d121a72ca3cc460afe0a244e4547e25ce1ba2107e5"
+fills        = ["indexer.proxy"]
+stage        = "assembled"
+profile      = "search"
+last_release = "2026-09-12"
+
+[[plugin]]
+id           = "gluetun"
+origin       = "https://github.com/lemonfiber/plugin-gluetun"
+revision     = "e7f634ac8ef4b7e4e5dc0d8c085e761bbf93adaf"
+manifest     = "sha256:22005779ebae7e8dab5893f18148f0d0bc1180b6e138f5ea173d417dd149e167"
+tree         = "sha256:5ff49426f92b987e7484a66d4ec328cdf473f74957cc3150e3298b4dd3b0048e"
+fills        = ["network.egress-guard"]
+stage        = "assembled"
+profile      = "torrent"
+last_release = "2026-07-30"
+
+[[plugin]]
+id           = "homepage"
+origin       = "https://github.com/lemonfiber/plugin-homepage"
+revision     = "d4037a80d1b95e09e6c9d6d65f984ea5dfd68df8"
+manifest     = "sha256:7a8e61f237c26108f8004e36d092404b9e1e5f4d19985c48532420e1bacb1a51"
+tree         = "sha256:333b8ab5e25e2ace35fcaeab49bf01739886461cb68a4a584df5bf9624005622"
+fills        = []
+stage        = "assembled"
+profile      = "dash"
+last_release = "2026-09-17"
+
+[[plugin]]
+id           = "jellyfin"
+origin       = "https://github.com/lemonfiber/plugin-jellyfin"
+revision     = "90067731c7c950babd701a6cee48237415015dfd"
+manifest     = "sha256:81dd8e02e051dd0ec3562bf92585dd0e169f0e67494e10d188d269f0070c9e3e"
+tree         = "sha256:34468da4a34e52c55f96f9b194e19a127ac0fb7b61323680fc832d0714742d15"
+fills        = ["identity.source", "media.serve"]
+stage        = "installed"
+profile      = "media"
+last_release = "2026-09-15"
+
+[[plugin]]
+id           = "lidarr"
+origin       = "https://github.com/lemonfiber/plugin-lidarr"
+revision     = "db81009865bfd752a2e160446d78432737587cf6"
+manifest     = "sha256:43632181cde12ca6c071ce7bdb7eabab1a6460fa6fa4cd64d5e7fc74648aa9ce"
+tree         = "sha256:d33114c0fd8e7470d6f7e5d1d19e80bcd3d9c1d0da37072b040bc1747921a372"
+fills        = ["library.curate"]
+stage        = "assembled"
+profile      = "music"
+last_release = "2025-11-16"
+
+[[plugin]]
+id           = "navidrome"
+origin       = "https://github.com/lemonfiber/plugin-navidrome"
+revision     = "d52ff052e4476d623de60db53e03973bcbf022f8"
+manifest     = "sha256:28cb773921cf630bcbaceb7ed358d0fc81b24739184cafc974d2874bb3a7c270"
+tree         = "sha256:66e3e5c9ccb41bcb235225d8b8eb50e6fb607aa5879c314ae75be22e031f34e3"
+fills        = ["media.serve"]
+stage        = "assembled"
+profile      = "media"
+last_release = "2026-09-24"
+
+[[plugin]]
+id           = "nzbhydra2"
+origin       = "https://github.com/lemonfiber/plugin-nzbhydra2"
+revision     = "665637116870fd9eb375abc0ad4b2497739ffeaf"
+manifest     = "sha256:586118dfeb6e10511491d1de2c97e2ce5c94b06f629f37c2bfaa0ac7542d5adb"
+tree         = "sha256:fd44c147dc3d30dd3809b308c760c383e19afae12bee1ce54639ce85f0d892e3"
+fills        = ["indexer.search"]
+stage        = "assembled"
+profile      = "search"
+last_release = "2026-09-24"
+
+[[plugin]]
+id           = "prowlarr"
+origin       = "https://github.com/lemonfiber/plugin-prowlarr"
+revision     = "8d20f2c293a056bec320a9db904ea52d993db015"
+manifest     = "sha256:09d97b45fcb9a0556af18f7e4f7040d5ee1bb71c5b9ea4a679d499b286da20dc"
+tree         = "sha256:099808213800f934a33a225a3eb14dc3d09dcff195740ef5d8a64ecaf2112ddf"
+fills        = ["indexer.search"]
+stage        = "assembled"
+profile      = "search"
+last_release = "2026-09-16"
+
+[[plugin]]
+id           = "qbittorrent"
+origin       = "https://github.com/lemonfiber/plugin-qbittorrent"
+revision     = "9fc7aebbd192cef62463a0bc4608d9a31de2459d"
+manifest     = "sha256:d5d961a045493c4ebbae4b4f80c75f69481a654b94f5583295ff13c231920170"
+tree         = "sha256:916cce579fd0522d72d63d56f67c763da4b1d4ea927cb0ced8dae3d986adfd9a"
+fills        = ["download.torrent"]
+stage        = "assembled"
+profile      = "torrent"
+last_release = "2026-09-28"
+
+[[plugin]]
+id           = "radarr"
+origin       = "https://github.com/lemonfiber/plugin-radarr"
+revision     = "8898a5f23d78bfad21ed89c720c990325b54538c"
+manifest     = "sha256:7bcb8a71900840bb28405bed7fc628b721cd569cf666b4d7cae3f9d9c8d889f9"
+tree         = "sha256:745bbb88d008f5d6d5e953609982c486949dfb3ff847856e1e3737b5bfd8d52b"
+fills        = ["library.curate"]
+stage        = "assembled"
+profile      = "movies"
+last_release = "2026-09-16"
+
+[[plugin]]
+id           = "sabnzbd"
+origin       = "https://github.com/lemonfiber/plugin-sabnzbd"
+revision     = "58685f5253c4456cceee2e3e6667489f4ef209fe"
+manifest     = "sha256:48fa033fce4a91dfa0a6d153bb1b2caec9e767e00a160bdbbb3dbcda7037dad7"
+tree         = "sha256:6de0facb8c6c9009dbb7501acd59bc49063b47e3bbe1a8f03542431bb73a49d3"
+fills        = ["download.usenet"]
+stage        = "assembled"
+profile      = "usenet"
+last_release = "2026-09-08"
+
+[[plugin]]
+id           = "seerr"
+origin       = "https://github.com/lemonfiber/plugin-seerr"
+revision     = "28e50faed565a53e935ebf13775db96d8b8ce5c7"
+manifest     = "sha256:e52ceca0dee279a5e8f00ae010513ea46951d0fecb5eb7c1734cb96c58fd65c4"
+tree         = "sha256:bba5b79c03ebae0a8ccab38138a5d9aed4e6daff1b4556db5192666cca7539fb"
+fills        = ["request.intake"]
+stage        = "assembled"
+profile      = "media"
+last_release = "2026-09-28"
+
+[[plugin]]
+id           = "sonarr"
+origin       = "https://github.com/lemonfiber/plugin-sonarr"
+revision     = "524368923c45d5305b47d036374300054ef04552"
+manifest     = "sha256:52e9eb162d08af6f819e8a8044e695442b2c6e77e3b7c21b0f098bce0a44cb7a"
+tree         = "sha256:0257934321371c1b34e77bbbb4ebab1bf2e503478eb0fae86f854904ec2e3e67"
+fills        = ["library.curate"]
+stage        = "assembled"
+profile      = "tv"
+last_release = "2026-09-16"
+
+[[plugin]]
+id           = "unpackerr"
+origin       = "https://github.com/lemonfiber/plugin-unpackerr"
+revision     = "3e128ca34e12bf1fa47b3ad745a49901d90a4eed"
+manifest     = "sha256:8469a53be675633e57c33b5fcb64586cc2a52be1c6e4c0ad33b147f99d736509"
+tree         = "sha256:446a73bc36c6ad498a440616b0dfa7dd2f591ade2264148313fbd4d980f0079a"
+fills        = []
+stage        = "assembled"
+profile      = "tuning"
+last_release = "2026-08-31"

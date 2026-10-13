@@ -1,0 +1,45 @@
+schema_version = 1
+
+[plugin]
+id          = "door"
+name        = "Door"
+version     = "0.18.0"
+description = "Lets the household reach Jellyfin, and lets an item's stream or picture out only to someone allowed to see it"
+without_it  = "Jellyfin answers on this machine only, and nothing else in the house can play from it"
+upstream    = "https://github.com/caddyserver/caddy"
+license     = "Apache-2.0"
+forms       = ["library", "full"]
+
+[[service]]
+id          = "door"
+name        = "Door"
+image       = "ghcr.io/lemonfiber/door"
+digest      = "sha256:e102269cb82244a6df88809ba29b69498dedbdd5636faf210c653db99b8ac34a"
+tag         = "main-2f5df712aa2f"
+port        = 8096
+bind        = "lan"
+health      = { kind = "tcp", timeout_s = 30 }
+criticality = "important"
+memory_mib  = 50
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It asks Jellyfin, beside it, whether the session a request presents may see the item it asks for, and fetches no certificate: it serves the one lemonfiber writes beside its configuration."
+config_path = "/etc/caddy"
+config_ro   = true
+tmpfs       = ["/data", "/config"]
+user_mode   = "uid"
+replaces    = "door"
+
+[[service.publish]]
+port = 8920
+
+[[proof]]
+id      = "door.refuses-an-id-in-braces"
+title   = "A stream asked for with an id in braces is refused at the door"
+fixture = "recordings/door/stream-id-in-braces.json"
+why     = """
+Jellyfin reads an id in braces as the same item, and the door cannot ask
+Jellyfin whether a session may see an id written that way, so the door refuses
+it itself without asking anything behind it. The refusal is the pass.
+"""
+request = { method = "GET", path = "/Videos/%7Bdeadbeef-0000-0000-0000-000000000000%7D/stream?static=true" }
+expect  = { status = 403 }

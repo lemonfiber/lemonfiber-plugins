@@ -1,0 +1,51 @@
+schema_version = 1
+
+[plugin]
+id          = "caddy"
+name        = "Caddy"
+version     = "0.18.0"
+description = "Friendly hostnames instead of ports"
+without_it  = "Use localhost:8989 and friends"
+upstream    = "https://github.com/caddyserver/caddy"
+license     = "Apache-2.0"
+forms       = ["proxy"]
+
+[[service]]
+id          = "caddy"
+name        = "Caddy"
+image       = "ghcr.io/lemonfiber/caddy"
+digest      = "sha256:abf300a5a2ac443be47df8b8b1369dbfed94ffede32d97196ed8baea3503ba2d"
+tag         = "main-f90430f39aab"
+port        = 80
+bind        = "lan"
+listens     = 8080
+health      = { kind = "tcp", timeout_s = 30 }
+criticality = "optional"
+memory_mib  = 50
+reaches     = ""
+asks_for    = "Nothing. It answers names on this machine and forwards to the services beside it; no certificate is fetched, because nothing here is published to the internet."
+replaces    = "caddy"
+
+[[service.publish]]
+port    = 443
+listens = 8443
+
+[[service.mount]]
+from = "Caddyfile"
+to   = "/etc/caddy/Caddyfile"
+ro   = true
+
+[service.env]
+DOMAIN = { setting = "domain", default = "home.local" }
+
+[[proof]]
+id      = "caddy.redirects-plain-http"
+title   = "A household name asked for over plain HTTP is sent to HTTPS"
+fixture = "recordings/caddy/plain-http-is-redirected.json"
+why     = """
+Caddy answers every household name it serves with a permanent redirect to HTTPS at
+the same name and no port, which is 443, the port lemonfiber publishes its 8443 on.
+A plain-HTTP answer of anything else would mean a name served without TLS.
+"""
+request = { method = "GET", path = "/" }
+expect  = { status = 308 }

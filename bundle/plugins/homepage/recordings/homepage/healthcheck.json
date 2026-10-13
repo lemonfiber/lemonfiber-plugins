@@ -1,0 +1,13 @@
+{
+  "recorded_from": "ghcr.io/gethomepage/homepage@sha256:a0b71c8e757298d02560186bab9fbe3fc2d375c523a62cc1019177b37e48aa28",
+  "note": "Its own health check, asked for presenting nothing on a dashboard holding the stack's starting configuration. An answer is the pass: up is what Homepage says once it has read its configuration and serves the dashboard.",
+  "request": {
+    "method": "GET",
+    "path": "/api/healthcheck"
+  },
+  "response": {
+    "status": 200,
+    "json": null,
+    "body_starts_with": "up"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "recorded_from": "docker.io/jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db",
+  "note": "The libraries of a Jellyfin nobody has given one.",
+  "request": {
+    "method": "POST",
+    "path": "/lemonfiber/identity.source/v1/libraries",
+    "accept": "application/json"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": [
+      {
+        "id": "1071671e7bffa0532e930debee501d2e",
+        "name": "Playlists"
+      }
+    ]
+  }
+}

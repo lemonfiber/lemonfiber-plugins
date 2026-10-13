@@ -1,0 +1,21 @@
+{
+  "recorded_from": "docker.io/jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db",
+  "note": "When the one key filed under that name was made and last used.",
+  "request": {
+    "method": "POST",
+    "path": "/lemonfiber/media.serve/v1/dated",
+    "accept": "application/json"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": [
+      {
+        "created": "2026-10-10T22:50:08.0390141Z",
+        "last_used": "0001-01-01T00:00:00.0000000Z"
+      }
+    ]
+  }
+}

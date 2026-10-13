@@ -13,10 +13,11 @@ runs it on every pull request, so a malformed manifest is refused before a revie
 it rather than after.
 
 Every verdict is lemonfiber's own. `.github/reader/reader.py`, the template's harness
-byte for byte, fetches the release this catalogue's `targets.toml` names and asks it
-`lemonfiber plugin claims`: the schema, the capability vocabulary and the extension
-points that release publishes, the rules that read a manifest whole — a probe left
-unbound, a recording not in the revision, a recipe reaching an address or carrying a
+byte for byte, fetches the release this catalogue's `targets.toml` names, or builds the
+commit of lemonfiber's `main` it names while no release reads what the bundled plugins
+declare (`REPO-R56`), and asks it `lemonfiber plugin claims`: the schema, the capability
+vocabulary and the extension points that build publishes, the rules that read a manifest
+whole — a probe left unbound, a recording not in the revision, a recipe reaching an address or carrying a
 value no pair permits — and every probe, proof and contributed check against its
 recording. Nothing here describes the format (`F10-R2`).
 
@@ -41,12 +42,15 @@ recording, the constraint, what the answer held there and the reason.
 `--template` asks the same of the template an author starts from (`F10-R7`). It is not
 registered and must not be — the README says why — but *does it still validate and prove
 unmodified against the commands this catalogue runs* is a question about the format
-rather than about one plugin, and it has to be asked somewhere.
+rather than about one plugin, and it has to be asked somewhere. While this catalogue's
+`targets.toml` names a commit, the template is asked of the lemonfiber its own
+`targets.toml` names, because it is what a third-party author copies (`REPO-R56`).
 
 Run:  python3 registry/check.py
       python3 registry/check.py --only komga
       python3 registry/check.py --template
-Needs: git, and the network to fetch the release and the registered revisions.
+Needs: git, the network to fetch the release and the registered revisions, and cargo
+where `targets.toml` names a commit.
 Exit 0 = every subject holds, 1 = one does not, 2 = this could not be asked.
 """
 
@@ -59,6 +63,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -73,6 +78,9 @@ CARRIED_DIRS = ("fixtures",)
 
 # Where the author's `targets.toml` is kept beside the catalogue's own.
 THEIRS = "targets.theirs.toml"
+
+# The lemonfiber this catalogue targets (`REPO-R56`).
+OURS = ROOT / "targets.toml"
 
 HARNESS = ROOT / ".github" / "reader"
 sys.path.insert(0, str(HARNESS))
@@ -135,21 +143,25 @@ def fetched(origin: str, revision: str, into: pathlib.Path) -> str | None:
     return None
 
 
-def assembled(source: pathlib.Path, into: pathlib.Path, carried: list[str] | None = None) -> str | None:
+def assembled(
+    source: pathlib.Path, into: pathlib.Path, carried: list[str] | None = None, targets: pathlib.Path = OURS
+) -> str | None:
     """This catalogue's programs, and that plugin's data, in one tree.
 
-    The direction is the point. The harness, the release it fetched and the release this
-    catalogue targets are copied *in* from here; the manifest, the recordings and the
-    author's own `targets.toml` are copied *in* from there, the last under another name so
-    that the release asked is this catalogue's; nothing crosses the other way and nothing
-    executable crosses from there at all.
+    The direction is the point. The harness, the lemonfiber it fetched or built and the
+    `targets.toml` it is asked under are copied *in* from here; the manifest, the recordings
+    and the author's own `targets.toml` are copied *in* from there, the last under another
+    name so that the lemonfiber asked is the one `targets` names; nothing crosses the other
+    way and nothing executable crosses from there at all.
 
     `carried` names the files of a bundled plugin's tree to copy in place of `fixtures/`:
-    its starting files, the recordings its manifest names and its conformance.
+    its starting files, the recordings its manifest names and its conformance. `targets`
+    is the `targets.toml` the reader is asked under: this catalogue's, or the template's
+    own where `asked_under_its_own` says so.
     """
     shutil.copytree(HARNESS, into / ".github" / "reader")
     shutil.copytree(reader.CACHE, into / reader.CACHE.name)
-    shutil.copy2(ROOT / "targets.toml", into / "targets.toml")
+    shutil.copy2(targets, into / "targets.toml")
     for name in CARRIED:
         found = source / name
         if not found.is_file():
@@ -172,29 +184,64 @@ class Unaskable(Exception):
     """Something this run needed was not there, which is not a fault in a plugin."""
 
 
+def target() -> reader.Target:
+    """The release, or the full commit of lemonfiber's `main`, this catalogue's `targets.toml`
+    names (`REPO-R56`), or why it names neither."""
+    try:
+        return reader.targeted()
+    except (reader.Unasked, OSError, tomllib.TOMLDecodeError) as unnamed:
+        raise Unaskable(f"this catalogue's targets.toml names no lemonfiber to ask: {unnamed}") from unnamed
+
+
+def asked_under_its_own(template: bool) -> bool:
+    """Whether the template is asked under its own `targets.toml` rather than this catalogue's.
+
+    It is while this catalogue targets a commit of lemonfiber's `main`, which it names only
+    because no release reads what the bundled plugins declare (`REPO-R56`); the template
+    is what a third-party author copies, and is held to the lemonfiber it names itself.
+    """
+    return template and target().commit
+
+
+def fetched_for(targets: pathlib.Path) -> str | None:
+    """The lemonfiber `targets` names, fetched or built into `.lemonfiber/`, or why not."""
+    kept = reader.TARGETS
+    reader.TARGETS = targets
+    try:
+        reader.binary()
+    except (reader.Unasked, OSError, tomllib.TOMLDecodeError) as absent:
+        return f"the lemonfiber its targets.toml names could not be fetched or built: {absent}"
+    finally:
+        reader.TARGETS = kept
+    return None
+
+
+def described(named: reader.Target) -> str:
+    """The lemonfiber a target names, as a run reports it."""
+    return str(named) if named.commit else f"lemonfiber {named.name}"
+
+
 def a_reader_is_here() -> str:
-    """The release this catalogue targets, fetched and verified, before anything is judged.
+    """The lemonfiber this catalogue targets, fetched and verified or built, before anything
+    is judged, and how it is reported.
 
     Raised rather than returned: a registration nothing could ask about is unproven, and
-    reporting no faults would read as clear. The checks run from a release, so a
-    `targets.toml` here naming a commit of lemonfiber's `main` is refused before anything
-    is built.
+    reporting no faults would read as clear. A release is fetched and held to its
+    published digest; a commit is held to lemonfiber's `main` and built from source, once,
+    into `.lemonfiber/`.
     """
+    named = target()
     try:
-        target = reader.targeted()
-        if target.commit:
-            raise Unaskable(f"this catalogue's targets.toml names {target}; its checks run from a release")
         reader.binary()
-        return target.name
     except (reader.Unasked, OSError) as absent:
-        raise Unaskable(f"the release this catalogue targets could not be fetched: {absent}") from absent
+        raise Unaskable(f"{described(named)}, which this catalogue targets, could not be fetched or built: "
+                        f"{absent}") from absent
+    return described(named)
 
 
 def release(where: pathlib.Path) -> str | None:
     """The lemonfiber a `targets.toml` names — a release, or a commit of lemonfiber's
     `main` — or nothing if it names neither."""
-    import tomllib
-
     try:
         read = tomllib.loads(where.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
@@ -205,7 +252,7 @@ def release(where: pathlib.Path) -> str | None:
     return read.get(reader.RELEASE_KEY)
 
 
-def targeted(theirs: pathlib.Path) -> str:
+def targeted(theirs: pathlib.Path, asked: pathlib.Path = OURS) -> str:
     """Which release the author proved against, against the one these checks ran.
 
     Two different facts, and `targets.toml` says so: the plugin's is the author's
@@ -213,7 +260,7 @@ def targeted(theirs: pathlib.Path) -> str:
     not a fault — a plugin proved against an older release may be perfectly good —
     but it is the thing a reviewer most wants told rather than left to notice.
     """
-    ours = release(ROOT / "targets.toml")
+    ours = release(asked)
     said = release(theirs)
     if said is None:
         return "its targets.toml names neither a lemonfiber release nor a commit"
@@ -236,17 +283,24 @@ def declared_in(report: pathlib.Path) -> list[str]:
     ]
 
 
-def one(plugin: dict) -> tuple[bool, list[str]]:
-    """One registration, and everything that has to hold for it."""
+def one(plugin: dict, its_own: bool = False) -> tuple[bool, list[str]]:
+    """One registration, or the template, and everything that has to hold for it; asked
+    under its own `targets.toml` where `its_own`, and this catalogue's otherwise."""
     with tempfile.TemporaryDirectory() as box:
         source = pathlib.Path(box) / "source"
         why = fetched(plugin["origin"], plugin["revision"], source)
         if why is not None:
             return False, [f"the revision named could not be fetched: {why}"]
-        return holds(source)
+        targets = source / "targets.toml" if its_own else OURS
+        why = fetched_for(targets) if its_own else None
+        if why is not None:
+            return False, [why]
+        return holds(source, targets=targets)
 
 
-def holds(source: pathlib.Path, carried: list[str] | None = None) -> tuple[bool, list[str]]:
+def holds(
+    source: pathlib.Path, carried: list[str] | None = None, targets: pathlib.Path = OURS
+) -> tuple[bool, list[str]]:
     """Everything that has to hold for a revision already fetched into `source`, carrying
     `carried` in place of `fixtures/` where it names a bundled plugin's tree."""
     said: list[str] = []
@@ -254,7 +308,7 @@ def holds(source: pathlib.Path, carried: list[str] | None = None) -> tuple[bool,
         work = pathlib.Path(box) / "work"
         work.mkdir()
 
-        why = assembled(source, work, carried)
+        why = assembled(source, work, carried, targets)
         if why is not None:
             return False, [why]
 
@@ -265,7 +319,7 @@ def holds(source: pathlib.Path, carried: list[str] | None = None) -> tuple[bool,
         held = ran(sys.executable, str(work / ".github/reader/reader.py"), "manifest", at=work)
         if held.returncode != 0:
             return False, [held.stdout.strip() or held.stderr.strip()]
-        said.append("the release refuses nothing about this manifest")
+        said.append("lemonfiber refuses nothing about this manifest")
 
         proved = ran(sys.executable, str(work / ".github/reader/reader.py"), "proofs", at=work)
         if proved.returncode != 0:
@@ -276,7 +330,7 @@ def holds(source: pathlib.Path, carried: list[str] | None = None) -> tuple[bool,
         except (OSError, ValueError, KeyError) as unread:
             return False, [f"the proofs ran and left no report that can be read: {unread}"]
 
-        said.append(targeted(work / THEIRS))
+        said.append(targeted(work / THEIRS, targets))
     return True, said
 
 
@@ -312,15 +366,20 @@ def main() -> int:
             return 0
 
     try:
-        version = a_reader_is_here()
+        its_own = asked_under_its_own(args.template)
+        version = described(target()) if its_own else a_reader_is_here()
     except Unaskable as unasked:
         print(f"::error::{unasked}")
         return 2
-    print(f"Asked of lemonfiber {version}, the release this catalogue targets.\n")
+    if its_own:
+        print(f"This catalogue targets {version}; the template is asked of the lemonfiber its own "
+              "targets.toml names (REPO-R56).\n")
+    else:
+        print(f"Asked of {version}, which this catalogue targets.\n")
 
     refused = 0
     for plugin in found:
-        held, said = one(plugin)
+        held, said = one(plugin, its_own)
         mark = "ok  " if held else "FAIL"
         print(f"  {mark} {plugin['id']} @ {plugin['revision'][:12]}")
         for line in said:
