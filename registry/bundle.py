@@ -39,7 +39,8 @@ Run:  python3 registry/bundle.py
       python3 registry/bundle.py --offline
       python3 registry/bundle.py --apply jellyfin <commit> --origin <url> [--carry < bundle.toml]
       python3 registry/bundle.py --self-test
-Needs: git, and the network to fetch the release and the pinned revisions.
+Needs: git, the network to fetch the release and the pinned revisions, and cargo where
+`targets.toml` names a commit.
 Exit 0 = the bundle holds or was moved, 1 = it does not or could not be, 2 = this
 could not be asked.
 """
@@ -777,7 +778,7 @@ def checked(offline: bool = False) -> int:
     except check.Unaskable as unasked:
         print(f"::error::{unasked}")
         return 2
-    print(f"Asked of lemonfiber {version}, the release this catalogue targets.\n")
+    print(f"Asked of {version}, which this catalogue targets.\n")
     found = offline_problems(bundle, held)
     general = found.pop("", [])
     for line in general:

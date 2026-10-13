@@ -1,0 +1,16 @@
+{
+  "recorded_from": "ghcr.io/hotio/unpackerr@sha256:724c702e81727e3d90c42cf2b3d900674203906a6d135ba07416c9a3f9f67fbb",
+  "note": "Its metrics, asked for presenting nothing on an instance with no download client connected. An answer in Prometheus's text format is the pass: it is the web server Unpackerr starts when its metrics are turned on, and the one place it answers with anything about its work.",
+  "request": {
+    "method": "GET",
+    "path": "/metrics"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/plain; version=0.0.4; charset=utf-8; escaping=underscores"
+    },
+    "json": null,
+    "body_starts_with": "# HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles."
+  }
+}

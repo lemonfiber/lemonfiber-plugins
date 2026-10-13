@@ -1,0 +1,48 @@
+schema_version = 1
+
+[plugin]
+id          = "unpackerr"
+name        = "Unpackerr"
+version     = "1.0.0"
+description = "Extracts archived releases so they can be imported"
+without_it  = "Some downloads never import"
+upstream    = "https://github.com/Unpackerr/unpackerr"
+license     = "MIT"
+forms       = ["auto", "full"]
+
+[[service]]
+id          = "unpackerr"
+name        = "Unpackerr"
+image       = "ghcr.io/hotio/unpackerr"
+digest      = "sha256:724c702e81727e3d90c42cf2b3d900674203906a6d135ba07416c9a3f9f67fbb"
+tag         = "release-0.15.2"
+listens     = 5656
+health      = { kind = "container" }
+criticality = "enhancing"
+memory_mib  = 50
+reaches     = ""
+asks_for    = "Nothing. It watches the download directories and extracts archived releases where it finds them, entirely on this machine."
+takes_data  = true
+user_mode   = "puid-env"
+replaces    = "unpackerr"
+
+[service.env]
+UMASK                    = { setting = "unpackerr:umask", default = "002" }
+UN_WEBSERVER_METRICS     = "true"
+UN_WEBSERVER_LISTEN_ADDR = "0.0.0.0:5656"
+UN_SONARR_0_URL          = { url_of = "library.curate", files = "tv", native = "servarr" }
+UN_RADARR_0_URL          = { url_of = "library.curate", files = "movies", native = "servarr" }
+UN_LIDARR_0_URL          = { url_of = "library.curate", files = "music", native = "servarr" }
+
+[[proof]]
+id      = "unpackerr.metrics"
+title   = "Unpackerr answers its metrics in Prometheus's text format"
+request = { method = "GET", path = "/metrics" }
+expect  = { status = 200, content_type = "text/plain; version=0.0.4", body_starts_with = "# HELP go_gc_duration_seconds" }
+fixture = "recordings/unpackerr/metrics.json"
+why     = """
+Unpackerr answers nothing else over HTTP. Its metrics server, turned on by
+its declaration, is the one place it says anything about its work, and the
+exposition format is what says the answer is Unpackerr's and not an empty
+port.
+"""

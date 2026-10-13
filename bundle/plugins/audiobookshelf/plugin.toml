@@ -1,0 +1,49 @@
+schema_version = 1
+
+[plugin]
+id          = "audiobookshelf"
+name        = "Audiobookshelf"
+version     = "1.0.0"
+description = "Listening to audiobooks, with progress synced"
+without_it  = "No audiobook player"
+upstream    = "https://github.com/advplyr/audiobookshelf"
+license     = "GPL-3.0-only"
+forms       = ["library", "full"]
+
+[[service]]
+id          = "audiobookshelf"
+name        = "Audiobookshelf"
+image       = "ghcr.io/advplyr/audiobookshelf"
+digest      = "sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b"
+tag         = "2.37.1"
+port        = 13378
+bind        = "lan"
+listens     = 80
+health      = { kind = "http", path = "/healthcheck", timeout_s = 90 }
+criticality = "enhancing"
+memory_mib  = 200
+reaches     = "audiobook metadata providers"
+asks_for    = "Reads covers, chapters and descriptions for the audiobooks in your library when you ask it to."
+provides    = ["media.serve"]
+api         = { kind = "audiobookshelf", key_source = "generated" }
+takes_data  = true
+replaces    = "audiobookshelf"
+
+[[service.mount]]
+from = "metadata"
+to   = "/metadata"
+
+[[claim]]
+capability = "media.serve"
+
+[[claim.probe]]
+id      = "guarded"
+request = { method = "GET", path = "/api/libraries" }
+expect  = { status = 401 }
+fixture = "recordings/audiobookshelf/media-serve-guarded.json"
+
+[[claim.probe]]
+id      = "catalogue"
+request = { method = "GET", path = "/api/libraries" }
+expect  = { status = 200, json_types = { libraries = "list" } }
+fixture = "recordings/audiobookshelf/media-serve-catalogue.json"

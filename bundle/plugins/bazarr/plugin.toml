@@ -1,0 +1,50 @@
+schema_version = 1
+
+[plugin]
+id          = "bazarr"
+name        = "Bazarr"
+version     = "1.0.0"
+description = "Finds and downloads subtitles"
+without_it  = "No automatic subtitles"
+upstream    = "https://github.com/morpheus65535/bazarr"
+license     = "GPL-3.0-only"
+forms       = ["tv", "movies", "auto", "full"]
+
+[[service]]
+id          = "bazarr"
+name        = "Bazarr"
+image       = "lscr.io/linuxserver/bazarr"
+digest      = "sha256:8b30e81c4aec2991f469e78fae8afaa89ecc9b21a80e3897f50427216b55470c"
+tag         = "v1.6.2-ls366"
+port        = 6767
+bind        = "loopback"
+listens     = 6767
+health      = { kind = "http", path = "/", timeout_s = 90 }
+criticality = "enhancing"
+memory_mib  = 250
+reaches     = "the subtitle providers you enable"
+asks_for    = "Searches for subtitles matching what is in your library, signing in where a provider requires an account."
+provides    = ["subtitles.fetch"]
+api         = { kind = "bazarr", key_source = "config-yaml", path = "/config/config/config.yaml" }
+takes_data  = true
+user_mode   = "puid-env"
+replaces    = "bazarr"
+
+[[ask]]
+capability = "library.curate"
+each       = true
+
+[[claim]]
+capability = "subtitles.fetch"
+
+[[claim.probe]]
+id      = "guarded"
+request = { method = "GET", path = "/api/system/status" }
+expect  = { status = 401 }
+fixture = "recordings/bazarr/subtitles-fetch-guarded.json"
+
+[[claim.probe]]
+id      = "status"
+request = { method = "GET", path = "/api/system/status" }
+expect  = { status = 200, json_types = { "/data" = "dict", "/data/bazarr_version" = "str" } }
+fixture = "recordings/bazarr/subtitles-fetch-status.json"

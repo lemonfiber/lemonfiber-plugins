@@ -1,0 +1,53 @@
+schema_version = 1
+
+[plugin]
+id          = "sonarr"
+name        = "Sonarr"
+version     = "1.0.0"
+description = "Watches for new episodes and fetches them"
+without_it  = "Find and download episodes yourself"
+upstream    = "https://github.com/Sonarr/Sonarr"
+license     = "GPL-3.0-only"
+forms       = ["tv", "auto", "full"]
+
+[[service]]
+id          = "sonarr"
+name        = "Sonarr"
+image       = "lscr.io/linuxserver/sonarr"
+digest      = "sha256:f247545d23ba8b233d6604575347e48a623fe6ad75dda02348bf81917f3b5c06"
+tag         = "4.0.20.3014-ls326"
+port        = 8989
+bind        = "loopback"
+listens     = 8989
+health      = { kind = "http", path = "/ping", timeout_s = 90 }
+criticality = "core"
+memory_mib  = 300
+reaches     = "television metadata providers"
+asks_for    = "Reads series, season and episode information, artwork and air dates for what is in your library and what you add to it."
+provides    = ["library.curate"]
+api         = { kind = "servarr", key_source = "config-xml", path = "/config/config.xml", version = 3 }
+takes_data  = true
+user_mode   = "puid-env"
+media_types = ["tv"]
+replaces    = "sonarr"
+
+[[ask]]
+capability = "download.usenet"
+
+[[ask]]
+capability = "download.torrent"
+
+[[claim]]
+capability = "library.curate"
+
+[[claim.probe]]
+id      = "guarded"
+request = { method = "GET", path = "/api/v3/wanted/missing" }
+expect  = { status = 401 }
+fixture = "recordings/sonarr/library-curate-guarded.json"
+
+[[claim.probe]]
+id      = "wanted"
+request = { method = "GET", path = "/api/v3/wanted/missing" }
+expect  = { status = 200, json_types = { records = "list", totalRecords = "int" } }
+fixture = "recordings/sonarr/library-curate-wanted.json"

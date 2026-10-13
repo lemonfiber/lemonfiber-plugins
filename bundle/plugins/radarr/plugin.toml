@@ -1,0 +1,53 @@
+schema_version = 1
+
+[plugin]
+id          = "radarr"
+name        = "Radarr"
+version     = "1.0.0"
+description = "Watches for films and fetches them"
+without_it  = "Find and download films yourself"
+upstream    = "https://github.com/Radarr/Radarr"
+license     = "GPL-3.0-only"
+forms       = ["movies", "auto", "full"]
+
+[[service]]
+id          = "radarr"
+name        = "Radarr"
+image       = "lscr.io/linuxserver/radarr"
+digest      = "sha256:c984533510abe0219a70e80d15bd0d212b7df21baa0913759c4ce6cc9092240b"
+tag         = "5.28.0.10274-ls286"
+port        = 7878
+bind        = "loopback"
+listens     = 7878
+health      = { kind = "http", path = "/ping", timeout_s = 90 }
+criticality = "core"
+memory_mib  = 300
+reaches     = "film metadata providers"
+asks_for    = "Reads titles, release dates and artwork for the films in your library and the ones you add."
+provides    = ["library.curate"]
+api         = { kind = "servarr", key_source = "config-xml", path = "/config/config.xml", version = 3 }
+takes_data  = true
+user_mode   = "puid-env"
+media_types = ["movies"]
+replaces    = "radarr"
+
+[[ask]]
+capability = "download.usenet"
+
+[[ask]]
+capability = "download.torrent"
+
+[[claim]]
+capability = "library.curate"
+
+[[claim.probe]]
+id      = "guarded"
+request = { method = "GET", path = "/api/v3/wanted/missing" }
+expect  = { status = 401 }
+fixture = "recordings/radarr/library-curate-guarded.json"
+
+[[claim.probe]]
+id      = "wanted"
+request = { method = "GET", path = "/api/v3/wanted/missing" }
+expect  = { status = 200, json_types = { records = "list", totalRecords = "int" } }
+fixture = "recordings/radarr/library-curate-wanted.json"

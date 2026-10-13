@@ -1,0 +1,13 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/caddy@sha256:abf300a5a2ac443be47df8b8b1369dbfed94ffede32d97196ed8baea3503ba2d",
+  "note": "The front page asked for over plain HTTP, presenting nothing. Caddy answers every name it serves with a permanent redirect to HTTPS at the same name and no port, which is 443, the port lemonfiber publishes its 8443 on.",
+  "request": {
+    "method": "GET",
+    "path": "/"
+  },
+  "response": {
+    "status": 308,
+    "json": null,
+    "body_starts_with": ""
+  }
+}

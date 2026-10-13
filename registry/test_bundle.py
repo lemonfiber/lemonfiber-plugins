@@ -56,6 +56,8 @@ fronts = "jellyfin"
 
 OPENING = "schema = 1\n\n"
 
+A_COMMIT = "5e3ef10f7037f6a53d5bfd2cf87ed1c69cbc4387"
+
 
 def bundle_of(*pins: dict) -> str:
     return OPENING + bundle.rendered(list(pins))
@@ -727,11 +729,82 @@ def tree_apply() -> list[Case]:
     ]
 
 
+def target_shapes() -> list[Case]:
+    """`check.target` takes a release or a full commit of lemonfiber's main, and refuses
+    anything else (`REPO-R56`)."""
+    commit = A_COMMIT
+    said = {
+        "a release taken": ('lemonfiber = "0.17.0"\n', False),
+        "a full commit of main taken": (f'commit = "{commit}"\n', False),
+        "a short commit refused": (f'commit = "{commit[:12]}"\n', True),
+        "a commit in capitals refused": (f'commit = "{commit.upper()}"\n', True),
+        "a release and a commit both refused": (f'lemonfiber = "0.17.0"\ncommit = "{commit}"\n', True),
+        "neither a release nor a commit refused": ('note = "nothing"\n', True),
+        "a release that is not text refused": ("lemonfiber = 17\n", True),
+        "a targets.toml that is not TOML refused": ("lemonfiber = \n", True),
+    }
+    cases: list[Case] = []
+    kept = check.reader.TARGETS
+    with tempfile.TemporaryDirectory() as box:
+        check.reader.TARGETS = pathlib.Path(box) / "targets.toml"
+        try:
+            for what, (text, refused) in said.items():
+                check.reader.TARGETS.write_text(text, encoding="utf-8")
+                cases.append((what, refused, refuses(check.target, check.Unaskable)))
+        finally:
+            check.reader.TARGETS = kept
+    named = check.reader.Target(commit, commit=True)
+    cases.append(("a commit reported as main's", True, check.described(named) == f"lemonfiber's main at {commit}"))
+    cases.append(("a release reported by its number", True,
+                  check.described(check.reader.Target("0.17.0", commit=False)) == "lemonfiber 0.17.0"))
+    return cases
+
+
+def template_targets() -> list[Case]:
+    """The template is asked under its own `targets.toml` while this catalogue targets a
+    commit, and under this catalogue's otherwise; a registration always under this
+    catalogue's (`REPO-R56`)."""
+    commit = f'commit = "{A_COMMIT}"\n'
+    release = 'lemonfiber = "0.16.0"\n'
+    cases: list[Case] = []
+    kept = check.reader.TARGETS, check.reader.CACHE
+    with tempfile.TemporaryDirectory() as box:
+        root = pathlib.Path(box)
+        check.reader.TARGETS, check.reader.CACHE = root / "ours.toml", root / "cache"
+        check.reader.CACHE.mkdir()
+        try:
+            for ours, template_own in ((commit, True), (release, False)):
+                check.reader.TARGETS.write_text(ours, encoding="utf-8")
+                said = "a commit" if template_own else "a release"
+                asked = "its own" if template_own else "this catalogue's"
+                cases.append((f"the template asked under {asked} targets.toml where this catalogue targets {said}",
+                              template_own, check.asked_under_its_own(True)))
+                cases.append((f"a registration asked under this catalogue's where it targets {said}",
+                              False, check.asked_under_its_own(False)))
+            source = root / "source"
+            source.mkdir()
+            (source / "plugin.toml").write_text('schema_version = 1\n', encoding="utf-8")
+            (source / "targets.toml").write_text(release, encoding="utf-8")
+            check.reader.TARGETS.write_text(commit, encoding="utf-8")
+            for which, targets, expected in (("its own", source / "targets.toml", release),
+                                             ("this catalogue's", check.reader.TARGETS, commit)):
+                work = root / f"work-{len(cases)}"
+                work.mkdir()
+                check.assembled(source, work, [], targets)
+                cases.append((f"the reader is handed {which} targets.toml", True,
+                              (work / "targets.toml").read_text(encoding="utf-8") == expected
+                              and (work / check.THEIRS).read_text(encoding="utf-8") == release))
+        finally:
+            check.reader.TARGETS, check.reader.CACHE = kept
+    return cases
+
+
 def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(),
-                                *stack_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply()):
+                                *stack_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(), *target_shapes(),
+                                *template_targets()):
         print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")
         failures += expected != got
     print("\nself-test passed." if not failures else f"\n{failures} rule(s) did not refuse.")

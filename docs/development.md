@@ -268,14 +268,19 @@ the problem is the registration or the plugin.
 | `entries` | Every entry says what an entry may say: a plugin id that matches its filename, an `https` origin with no credentials, a full commit, no field this registry does not read, and no origin registered twice under two names. Its own rules are self-tested first, so a green run is a run whose gate still refuses things. |
 | `harness` | `.github/reader/` is byte-identical to `plugin-template`'s. A registry holding its own fork of the harness would be a second opinion about what a manifest means, and plugin repositories would go green against a rule this one had dropped. |
 | `template` | The template an author starts from, held to those same commands: it validates and proves unmodified, or this repository says so. The byte-diff above answers whether the two harnesses agree; this answers whether the template still passes them. Neither of the other gates asks it — a byte-diff fires on a change to the harness and the template's own CI fires on a commit there, and neither fires when this repository moves to a release that reads the template differently. |
-| `plugins` | Each registered revision is fetched, and out of the data in it the release this repository targets is asked `lemonfiber plugin claims`: the manifest against the schema, capability vocabulary and extension points that release publishes, every declared reach checked statically, and every probe, proof and contributed check against that plugin's own recorded responses. |
+| `plugins` | Each registered revision is fetched, and out of the data in it the lemonfiber this repository targets is asked `lemonfiber plugin claims`: the manifest against the schema, capability vocabulary and extension points that build publishes, every declared reach checked statically, and every probe, proof and contributed check against that plugin's own recorded responses. |
 
-They are asked of the lemonfiber release this
-repository's [`targets.toml`](../targets.toml) names, fetched by
-`.github/reader/reader.py` and checked against its published digest, and they
-compare that release with the one each plugin's own `targets.toml` names,
-reporting a difference rather than refusing on it. A capability in
-`[requires]` that release does not offer a plugin is reported by it and not
+They are asked of the lemonfiber this repository's
+[`targets.toml`](../targets.toml) names (`REPO-R56`): a release, fetched by
+`.github/reader/reader.py` and checked against its published digest, or, while
+no release reads what the bundled plugins declare, a full commit of
+lemonfiber's `main`, held to `main` and built from source once into
+`.lemonfiber/`. Once that release is published, `targets.toml` names it
+instead. While it names a commit, the template is asked of the lemonfiber its
+own `targets.toml` names, because it is what a third-party author copies. They
+compare that build with the one each plugin's own `targets.toml`
+names, reporting a difference rather than refusing on it. A capability in
+`[requires]` that build does not offer a plugin is reported by it and not
 refused here, as in every plugin repository.
 
 **Nothing from a registered repository is executed.** The manifest,
@@ -300,7 +305,7 @@ python3 registry/check.py --template    # the template, held to the same
 ```
 
 `check.py` needs `git` and the network, to fetch the release and the registered
-revisions.
+revisions, and `cargo` where `targets.toml` names a commit.
 
 ## Why `plugin-template` is not registered here
 

@@ -1,0 +1,50 @@
+schema_version = 1
+
+[plugin]
+id          = "qbittorrent"
+name        = "qBittorrent"
+version     = "1.0.0"
+description = "Downloads the torrents everything else asks for"
+without_it  = "No torrent downloads"
+upstream    = "https://github.com/qbittorrent/qBittorrent"
+license     = "GPL-2.0-only"
+forms       = ["dl", "hunt", "tv", "movies", "music", "books", "auto", "full"]
+
+[[service]]
+id          = "qbittorrent"
+name        = "qBittorrent"
+image       = "lscr.io/linuxserver/qbittorrent"
+digest      = "sha256:b522f9f4b769f8f36d49d22d5eb6a92e9aa18904c6a1830b1439df511ec21983"
+tag         = "5.2.4_v2.0.15-ls479"
+port        = 8081
+bind        = "loopback"
+listens     = 8081
+health      = { kind = "http", path = "/api/v2/app/version", timeout_s = 60 }
+criticality = "core"
+memory_mib  = 200
+reaches     = "trackers and peers, through the tunnel"
+asks_for    = "Announces to a torrent's trackers and exchanges data with peers, which is what a torrent client is; all of it inside gluetun's network, so it stops when the tunnel does."
+provides    = ["download.torrent"]
+api         = { kind = "qbittorrent", key_source = "generated" }
+takes_data  = true
+user_mode   = "puid-env"
+network     = { via = "network.egress-guard" }
+replaces    = "qbittorrent"
+
+[service.env]
+WEBUI_PORT = 8081
+
+[[claim]]
+capability = "download.torrent"
+
+[[claim.probe]]
+id      = "guarded"
+request = { method = "GET", path = "/api/v2/torrents/info" }
+expect  = { status = 403 }
+fixture = "recordings/qbittorrent/download-torrent-guarded.json"
+
+[[claim.probe]]
+id      = "queue"
+request = { method = "GET", path = "/api/v2/torrents/info" }
+expect  = { status = 200, json_array_min = 0 }
+fixture = "recordings/qbittorrent/download-torrent-queue.json"

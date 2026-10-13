@@ -1,0 +1,44 @@
+schema_version = 1
+
+[plugin]
+id          = "calibre-web-automated"
+name        = "Calibre-Web-Automated"
+version     = "1.0.0"
+description = "Reading and organising your ebook library"
+without_it  = "No ebook reader"
+upstream    = "https://github.com/crocodilestick/Calibre-Web-Automated"
+license     = "GPL-3.0-only"
+forms       = ["library", "full"]
+
+[[service]]
+id          = "calibre-web-automated"
+name        = "Calibre-Web-Automated"
+image       = "crocodilestick/calibre-web-automated"
+digest      = "sha256:577e846f104fd21453ef306eefb4a95dd95b3b9ddd2463a150944494284da0fd"
+tag         = "V3.1.4"
+port        = 8083
+bind        = "lan"
+health      = { kind = "http", path = "/", timeout_s = 90 }
+criticality = "enhancing"
+memory_mib  = 300
+reaches     = "book metadata providers"
+asks_for    = "Reads covers and descriptions for the ebooks in your library when you ask it to."
+provides    = ["media.serve"]
+takes_data  = true
+user_mode   = "puid-env"
+replaces    = "calibre-web-automated"
+
+[[claim]]
+capability = "media.serve"
+
+[[claim.probe]]
+id      = "guarded"
+request = { method = "GET", path = "/opds" }
+expect  = { status = 401 }
+fixture = "recordings/calibre-web-automated/media-serve-guarded.json"
+
+[[claim.probe]]
+id      = "catalogue"
+request = { method = "GET", path = "/ajax/listbooks" }
+expect  = { status = 200, json_types = { rows = "list", total = "int" } }
+fixture = "recordings/calibre-web-automated/media-serve-catalogue.json"
