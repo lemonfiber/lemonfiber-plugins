@@ -193,6 +193,11 @@ to        = "lidarr"
 why       = "The same, in Lidarr's terms."
 
 [[wiring]]
+by        = "decline"
+to        = "jellyfin"
+why       = "It makes three of Jellyfin's own calls, reading an account and its activity log and writing the account's policy back disabled, with a key lemonfiber minted for it alone. What it acts on is Jellyfin, not whatever serves identity."
+
+[[wiring]]
 by        = "door"
 to        = "jellyfin"
 why       = "It asks Jellyfin's own question, an item fetched with the session a request presents, and passes what it lets through to Jellyfin's own routes, which it names path by path. What it guards is Jellyfin, not whatever serves media."
@@ -262,11 +267,23 @@ profile      = "media"
 last_release = "2026-02-04"
 
 [[plugin]]
+id           = "decline"
+origin       = "https://github.com/lemonfiber/lemonfiber-decline"
+release      = "0.17.0"
+revision     = "2d72d0161fc8c5ecd51ce4b4c0a26d4ff90f6702"
+manifest     = "sha256:d53e2023c1a45387890a942e26078811073989e673ce82ab916f992d47a3b37c"
+tree         = "sha256:f6d3326f9dc0f1404282ec1b7f89ceceffc2242c7bc614444c2889a05a450791"
+fills        = []
+stage        = "assembled"
+profile      = "media"
+last_release = "2026-10-06"
+
+[[plugin]]
 id           = "door"
 origin       = "https://github.com/lemonfiber/plugin-door"
-revision     = "af23a760b4d39b11e5f6ef6e04d82b5db3e5687e"
-manifest     = "sha256:671d23f1200f74e175d33d78a6bc818fc536cc55b62298316aa1b28746dc25a5"
-tree         = "sha256:f93fd2ba0c27d40d6606abc884cb55656944007db54d691ab4c9afcf5385542e"
+revision     = "7965594a275417ca3668060015ba1a9263a9f050"
+manifest     = "sha256:64c07f8c351b43a7f4ab3d3513095a3ce720c9239877b974b586c777682af287"
+tree         = "sha256:7ae2fc60ef8713d1d5faf4f5e6e98a3d4d5600309a890a6f66e95258329a8121"
 fills        = []
 stage        = "assembled"
 profile      = "media"
