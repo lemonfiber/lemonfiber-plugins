@@ -49,3 +49,16 @@ A plain-HTTP answer of anything else would mean a name served without TLS.
 """
 request = { method = "GET", path = "/" }
 expect  = { status = 308 }
+
+[[proof]]
+id      = "caddy.version"
+title   = "The image's own Caddy says which release it is"
+run     = { args = ["caddy", "version"] }
+expect  = { exit = 0, stdout_starts_with = "v2.11.6 " }
+fixture = "recordings/caddy/version.json"
+why     = """
+Every other proof here is a status the configuration chose, which a port proxy
+or another server could give as well. Run as the image's own command, Caddy
+names the release it was built from, which says the image is the Caddy this
+part is built on, at the release its Dockerfile pins.
+"""
