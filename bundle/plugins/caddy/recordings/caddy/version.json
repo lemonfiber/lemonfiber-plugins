@@ -1,0 +1,8 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/caddy@sha256:abf300a5a2ac443be47df8b8b1369dbfed94ffede32d97196ed8baea3503ba2d",
+  "note": "The pinned image's own Caddy, run as the operator's user with no network, names its release.",
+  "run": {
+    "args": ["caddy", "version"]
+  },
+  "result": {"exit": 0, "stdout_starts_with": "v2.11.6 h1:sWxeamdlCZvcH4qeDz8bB0mdxgfYTeqV7HxOjXyIRas=\n"}
+}

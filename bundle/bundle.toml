@@ -193,6 +193,16 @@ to        = "lidarr"
 why       = "The same, in Lidarr's terms."
 
 [[wiring]]
+by        = "recyclarr"
+to        = "sonarr"
+why       = "It writes Sonarr-shaped quality profiles from Sonarr-shaped guides, into a section of its own configuration named for the service. Nothing about it generalises to a library curator."
+
+[[wiring]]
+by        = "recyclarr"
+to        = "radarr"
+why       = "The same, in Radarr's terms."
+
+[[wiring]]
 by        = "decline"
 to        = "jellyfin"
 why       = "It makes three of Jellyfin's own calls, reading an account and its activity log and writing the account's policy back disabled, with a key lemonfiber minted for it alone. What it acts on is Jellyfin, not whatever serves identity."
@@ -247,9 +257,9 @@ last_release = "2026-10-08"
 [[plugin]]
 id           = "caddy"
 origin       = "https://github.com/lemonfiber/plugin-caddy"
-revision     = "ace145c864b8b1ddff7722f64500bf97a5cc409c"
-manifest     = "sha256:bf580453d3864ff6f929e7402497fdd5fd1313829b2827cdd63ddea003b627bb"
-tree         = "sha256:fd2f635655f2f487f627e6aa3bae57c1f88ea9284945e3e62527f1d1c6e69279"
+revision     = "259b36928637846cf4964d9cd168c0ddb9a8ec21"
+manifest     = "sha256:6373db23c240ef7545d996e0a66835593470a342f397ba6e2cd9a8ba9742f3b4"
+tree         = "sha256:920f6dd714930605347be8ac2dcc38a95e8aa848a52fcccd380b685ff673820f"
 fills        = []
 stage        = "assembled"
 profile      = "proxy"
@@ -281,9 +291,9 @@ last_release = "2026-10-06"
 [[plugin]]
 id           = "door"
 origin       = "https://github.com/lemonfiber/plugin-door"
-revision     = "7965594a275417ca3668060015ba1a9263a9f050"
-manifest     = "sha256:64c07f8c351b43a7f4ab3d3513095a3ce720c9239877b974b586c777682af287"
-tree         = "sha256:7ae2fc60ef8713d1d5faf4f5e6e98a3d4d5600309a890a6f66e95258329a8121"
+revision     = "2b11e72e90b9c5a11feb9076d122ff40200ab92c"
+manifest     = "sha256:3165cee9bfd0bbbd20af7df13bada71306964a9fc7fe932a2c97149ed5482af2"
+tree         = "sha256:7fcb8d42427be7bfa9d08a8d5fa25adaf6eac4f8c344a72908c77185a1250ab6"
 fills        = []
 stage        = "assembled"
 profile      = "media"
@@ -325,9 +335,9 @@ last_release = "2026-09-17"
 [[plugin]]
 id           = "jellyfin"
 origin       = "https://github.com/lemonfiber/plugin-jellyfin"
-revision     = "90067731c7c950babd701a6cee48237415015dfd"
-manifest     = "sha256:81dd8e02e051dd0ec3562bf92585dd0e169f0e67494e10d188d269f0070c9e3e"
-tree         = "sha256:34468da4a34e52c55f96f9b194e19a127ac0fb7b61323680fc832d0714742d15"
+revision     = "f60af67b09242c2993cc1b2c218cf76df84b31a9"
+manifest     = "sha256:ec29384e66798be74f24b3c74c7d25e1419f772aadfda1150905bf812e108693"
+tree         = "sha256:c7f1fa41d81d5e1bdc472d3fad8662276d6d3ed09d2787f552b9e1233ce71ff1"
 fills        = ["identity.source", "media.serve"]
 stage        = "installed"
 profile      = "media"
@@ -398,6 +408,17 @@ fills        = ["library.curate"]
 stage        = "assembled"
 profile      = "movies"
 last_release = "2026-09-16"
+
+[[plugin]]
+id           = "recyclarr"
+origin       = "https://github.com/lemonfiber/plugin-recyclarr"
+revision     = "e60d5d6a3b4160bf422a4cb71f299561660f72c7"
+manifest     = "sha256:5329672f931bcd15c892621abca8ef904f475a446a68ddff91b24cd1b3165792"
+tree         = "sha256:9c0bdd0feebbb3d8a9ec17e0bcde0b6cae7da4eba091ca6b877cb564fe3cc2b2"
+fills        = []
+stage        = "assembled"
+profile      = "tuning"
+last_release = "2026-10-05"
 
 [[plugin]]
 id           = "sabnzbd"
