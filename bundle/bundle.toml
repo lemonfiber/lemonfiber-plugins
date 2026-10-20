@@ -180,7 +180,7 @@ why       = "Two services here answer as an indexer and this asks for one of the
 [[wiring]]
 by        = "door"
 asks      = "media.serve"
-filled_by = "jellyfin"
+filled_by = "jellyfin-adapter"
 why       = "Four services here serve media and the guarded door fronts one of them. Jellyfin is the stack's choice because it is the media server whose declaration the door enforces, and the one a household's players reach through the door. Change it and the door guards what fills it instead."
 
 [[wiring]]
