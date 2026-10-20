@@ -32,6 +32,12 @@ SERVER_COUNTRIES             = { setting = "gluetun:countries", default = "Nethe
 VPN_PORT_FORWARDING          = { setting = "gluetun:port-forwarding", default = "off" }
 VPN_PORT_FORWARDING_PROVIDER = { setting = "gluetun:provider", default = "" }
 PORT_FORWARD_ONLY            = { setting = "gluetun:port-forwarding", default = "off" }
+WIREGUARD_PRIVATE_KEY        = { secret = "wireguard-key" }
+
+[[secret]]
+id  = "wireguard-key"
+of  = "gluetun"
+why = "Dial the tunnel to your VPN provider, which knows this machine by the key"
 
 [[claim]]
 capability = "network.egress-guard"
