@@ -421,6 +421,17 @@ profile      = "tuning"
 last_release = "2026-10-05"
 
 [[plugin]]
+id           = "request-gate"
+origin       = "https://github.com/lemonfiber/lemonfiber-request-gate"
+revision     = "5256d43f4b7634c689ad20c5d76c3af1020219c9"
+manifest     = "sha256:f315578d5602d77b5f1d208a0480503067b2768ea424be6480ec566f87c6bf9c"
+tree         = "sha256:2236d08ca90b9891bd95f7d751ffaf187f747badb644e9875a616ca5870ffb5b"
+fills        = []
+stage        = "assembled"
+profile      = "media"
+last_release = "2026-10-06"
+
+[[plugin]]
 id           = "sabnzbd"
 origin       = "https://github.com/lemonfiber/plugin-sabnzbd"
 revision     = "58685f5253c4456cceee2e3e6667489f4ef209fe"
