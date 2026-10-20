@@ -33,6 +33,12 @@ replaces    = "audiobookshelf"
 from = "metadata"
 to   = "/metadata"
 
+[[ask]]
+capability = "proxy.front"
+
+[[ask]]
+capability = "dashboard.show"
+
 [[claim]]
 capability = "media.serve"
 

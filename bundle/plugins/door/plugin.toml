@@ -28,6 +28,7 @@ config_ro   = true
 tmpfs       = ["/data", "/config"]
 user_mode   = "uid"
 replaces    = "door"
+provides    = ["stream.guard"]
 
 [[service.publish]]
 port = 8920
@@ -56,3 +57,18 @@ or another server could give as well. Run as the image's own command, Caddy
 names the release it was built from, which says the image is the Caddy this
 part is built on, at the release its Dockerfile pins.
 """
+
+[[ask]]
+capability = "media.serve"
+
+[[ask]]
+capability = "proxy.front"
+
+[[claim]]
+capability = "stream.guard"
+
+[[claim.probe]]
+id      = "refuses"
+request = { method = "GET", path = "/Videos/%7Bdeadbeef-0000-0000-0000-000000000000%7D/stream?static=true" }
+expect  = { status = 403 }
+fixture = "recordings/door/stream-guard-refuses.json"

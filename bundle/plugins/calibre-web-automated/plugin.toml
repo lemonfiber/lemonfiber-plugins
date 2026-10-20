@@ -28,6 +28,9 @@ takes_data  = true
 user_mode   = "puid-env"
 replaces    = "calibre-web-automated"
 
+[[ask]]
+capability = "proxy.front"
+
 [[claim]]
 capability = "media.serve"
 

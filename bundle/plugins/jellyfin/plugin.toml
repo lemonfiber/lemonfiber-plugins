@@ -99,3 +99,7 @@ publishing the household's library to every device that can reach it.
 """
 request = { method = "GET", path = "/Items" }
 expect  = { status = 401 }
+
+[[ask]]
+service    = "jellyfin"
+capability = "dashboard.show"

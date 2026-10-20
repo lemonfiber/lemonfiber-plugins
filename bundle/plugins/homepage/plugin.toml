@@ -26,6 +26,7 @@ asks_for    = "Nothing beyond this machine. It reads the other services' own API
 config_path = "/app/config"
 user_mode   = "puid-env"
 replaces    = "homepage"
+provides    = ["dashboard.show"]
 
 [service.env]
 HOMEPAGE_ALLOWED_HOSTS = { setting = "homepage:allowed-hosts", default = "localhost:3000" }
@@ -53,3 +54,15 @@ why     = """
 What makes the page the stack's is the list of services it links, read from
 the starting configuration. An empty list would be a dashboard of nothing.
 """
+
+[[ask]]
+capability = "proxy.front"
+
+[[claim]]
+capability = "dashboard.show"
+
+[[claim.probe]]
+id      = "shows"
+request = { method = "GET", path = "/api/services" }
+expect  = { status = 200, json_array_min = 0 }
+fixture = "recordings/homepage/dashboard-show-shows.json"

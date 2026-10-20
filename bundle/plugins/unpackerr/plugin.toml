@@ -25,6 +25,7 @@ asks_for    = "Nothing. It watches the download directories and extracts archive
 takes_data  = true
 user_mode   = "puid-env"
 replaces    = "unpackerr"
+provides    = ["archive.extract"]
 
 [service.env]
 UMASK                    = { setting = "unpackerr:umask", default = "002" }
@@ -64,3 +65,12 @@ its declaration, is the one place it says anything about its work, and the
 exposition format is what says the answer is Unpackerr's and not an empty
 port.
 """
+
+[[claim]]
+capability = "archive.extract"
+
+[[claim.probe]]
+id      = "working"
+request = { method = "GET", path = "/metrics" }
+expect  = { status = 200, content_type = "text/plain; version=0.0.4", body_starts_with = "# HELP " }
+fixture = "recordings/unpackerr/archive-extract-working.json"

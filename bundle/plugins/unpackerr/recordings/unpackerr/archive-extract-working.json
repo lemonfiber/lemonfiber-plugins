@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/hotio/unpackerr@sha256:724c702e81727e3d90c42cf2b3d900674203906a6d135ba07416c9a3f9f67fbb",
+  "note": "What it is working on, asked for presenting nothing on an instance with no curator connected. An answer in Prometheus's text format is the pass: it is where Unpackerr counts what it has queued, is extracting and has handed back, served by the web server its declaration turns on, and it names no curator's key.",
+  "request": {"method": "GET", "path": "/metrics"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "text/plain; version=0.0.4; charset=utf-8; escaping=underscores"},
+    "body_starts_with": "# HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.\n# TYPE go_gc_duration_seconds summary\ngo_gc_duration_seconds{quantile=\"0\"} 0\ngo_gc_duration_seconds{quantile=\"0.25\"} 0\ngo_gc_duration_seconds{quantile=\"0.5\"} 0\ngo_gc_duration_seconds{quantile=\"0.75\"} 0\ngo_gc_duration_seconds{quantile=\"1\"} 0\ngo_gc_duration_seconds_sum 0\ngo_gc_duration_seconds_count 0\n# HELP go_gc_gogc_percent Heap size target percentage configured by the user, otherwise 100. This value is set by the GOGC environment variable, and the runtime/debug.SetGCPercent function. Sourced from /gc/gogc:percent.\n# TYPE go_gc_gogc_percent gauge\ngo_gc_gogc_percent 100\n# HELP go_gc_gomemlimit_bytes Go runtime memory limit configured by the user, otherwise math.MaxInt64. This value is set by the GOMEMLIMIT environment variable, and the runtime/debug.SetMemoryLimit function. Sourced from /gc/gomemlimit:bytes.\n# TYPE go_gc_gomemlimit_bytes gauge\ngo_gc_gomemlimit_bytes 9.223372036854776e+18\n# HE"
+  }
+}
