@@ -14,8 +14,8 @@ forms       = ["proxy"]
 id          = "caddy"
 name        = "Caddy"
 image       = "ghcr.io/lemonfiber/caddy"
-digest      = "sha256:abf300a5a2ac443be47df8b8b1369dbfed94ffede32d97196ed8baea3503ba2d"
-tag         = "main-f90430f39aab"
+digest      = "sha256:dd64ac74c6800d3445072406c3d2e982b530c9be5de747d05c68b50f87301b5a"
+tag         = "main-22eef6b30f45"
 port        = 80
 bind        = "lan"
 listens     = 8080
@@ -25,15 +25,22 @@ memory_mib  = 50
 reaches     = ""
 asks_for    = "Nothing. It answers names on this machine and forwards to the services beside it; no certificate is fetched, because nothing here is published to the internet."
 replaces    = "caddy"
+provides    = ["proxy.front"]
+user_mode   = "uid"
+config_path = "/etc/caddy"
+config_ro   = true
 
 [[service.publish]]
 port    = 443
 listens = 8443
 
 [[service.mount]]
-from = "Caddyfile"
-to   = "/etc/caddy/Caddyfile"
-ro   = true
+from = "data"
+to   = "/data"
+
+[[service.mount]]
+from = "config"
+to   = "/config"
 
 [service.env]
 DOMAIN = { setting = "domain", default = "home.local" }
@@ -54,7 +61,7 @@ expect  = { status = 308 }
 id      = "caddy.version"
 title   = "The image's own Caddy says which release it is"
 run     = { args = ["caddy", "version"] }
-expect  = { exit = 0, stdout_starts_with = "v2.11.6 " }
+expect  = { exit = 0, stdout_starts_with = "v2.11.7 " }
 fixture = "recordings/caddy/version.json"
 why     = """
 Every other proof here is a status the configuration chose, which a port proxy
@@ -62,3 +69,12 @@ or another server could give as well. Run as the image's own command, Caddy
 names the release it was built from, which says the image is the Caddy this
 part is built on, at the release its Dockerfile pins.
 """
+
+[[claim]]
+capability = "proxy.front"
+
+[[claim.probe]]
+id      = "redirects"
+request = { method = "GET", path = "/" }
+expect  = { status = 308 }
+fixture = "recordings/caddy/proxy-front-redirects.json"

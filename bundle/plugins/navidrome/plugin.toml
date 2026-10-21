@@ -33,6 +33,9 @@ ND_MUSICFOLDER             = "/data/media/music"
 ND_DATAFOLDER              = "/config"
 ND_ENABLEINSIGHTSCOLLECTOR = "false"
 
+[[ask]]
+capability = "dashboard.show"
+
 [[claim]]
 capability = "media.serve"
 
