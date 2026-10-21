@@ -253,7 +253,7 @@ tree         = "sha256:8e4c7ea9c79c695e48b217389917cb9deb9347b6d16a3247c8131365b
 fills        = ["library.curate"]
 stage        = "assembled"
 profile      = "books"
-last_release = "2026-10-08"
+last_release = "2026-10-18"
 
 [[plugin]]
 id           = "caddy"
