@@ -1,13 +1,6 @@
 {
   "recorded_from": "ghcr.io/lemonfiber/door@sha256:bb78c5b83612d5ad038be38da1ceb05c541c2502cdd95720ebbb1db3e1be0a55",
   "note": "A stream asked for with an id in braces, presenting nothing. Jellyfin also reads braces as an id, and the door cannot ask Jellyfin about one, so the door refuses it itself, without asking anything behind it. The refusal is the pass.",
-  "request": {
-    "method": "GET",
-    "path": "/Videos/%7Bdeadbeef-0000-0000-0000-000000000000%7D/stream?static=true"
-  },
-  "response": {
-    "status": 403,
-    "json": null,
-    "body_starts_with": ""
-  }
+  "request": {"method": "GET", "path": "/Videos/%7Bdeadbeef-0000-0000-0000-000000000000%7D/stream?static=true"},
+  "response": {"status": 403}
 }

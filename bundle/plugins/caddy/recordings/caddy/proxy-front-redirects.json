@@ -1,0 +1,6 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/caddy@sha256:dd64ac74c6800d3445072406c3d2e982b530c9be5de747d05c68b50f87301b5a",
+  "note": "The front page asked for over plain HTTP, presenting nothing, with the stack's starting configuration. Caddy answers every name, whatever the path, with a permanent redirect to HTTPS at the same name, which is the pass: no port proxy sends a caller elsewhere.",
+  "request": {"method": "GET", "path": "/"},
+  "response": {"status": 308}
+}

@@ -1,4 +1,4 @@
-#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/e4312fc4389490bd21e4f7c2b5c6201ecee4b303/contract/plugin-manifest.schema.json
+#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/7343ad109f993c0459be32d5876bed1aa7f6b42e/contract/plugin-manifest.schema.json
 # Jellyfin, as a first-party lemonfiber plugin (ADR-0041, ADR-0042).
 #
 # Contract: https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/plugin-manifest.md
@@ -99,3 +99,7 @@ publishing the household's library to every device that can reach it.
 """
 request = { method = "GET", path = "/Items" }
 expect  = { status = 401 }
+
+[[ask]]
+service    = "jellyfin"
+capability = "dashboard.show"
