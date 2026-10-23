@@ -22,7 +22,7 @@ health      = { kind = "tcp", timeout_s = 30 }
 criticality = "important"
 memory_mib  = 50
 reaches     = ""
-asks_for    = "Nothing beyond this machine. It asks Jellyfin, beside it, whether the session a request presents may see the item it asks for, and fetches no certificate: it serves the one lemonfiber writes beside its configuration."
+asks_for    = "Nothing beyond this machine. It asks Jellyfin, beside it, whether the session a request presents may see the item it asks for, asks lemonfiber's pass service, beside it, whether the pass a live stream's request carries is good for that live stream, and fetches no certificate: it serves the one lemonfiber writes beside its configuration."
 config_path = "/etc/caddy"
 config_ro   = true
 tmpfs       = ["/data", "/config"]
@@ -43,6 +43,20 @@ Jellyfin whether a session may see an id written that way, so the door refuses
 it itself without asking anything behind it. The refusal is the pass.
 """
 request = { method = "GET", path = "/Videos/%7Bdeadbeef-0000-0000-0000-000000000000%7D/stream?static=true" }
+expect  = { status = 403 }
+
+[[proof]]
+id      = "door.refuses-a-live-stream-without-a-pass"
+title   = "A live stream's file asked for without a pass is refused at the door"
+fixture = "recordings/door/live-stream-without-a-pass.json"
+why     = """
+Jellyfin serves a live stream's file without asking who is there, and no question
+about an item covers it. The door passes one on only where the pass service
+confirms the pass it carries, and refuses it where the pass service says anything
+else or does not answer. Asked of a door with no pass service beside it, a live
+stream's file presenting no pass is refused. The refusal is the pass.
+"""
+request = { method = "GET", path = "/LiveTv/LiveStreamFiles/deadbeef000000000000000000000000/stream.ts" }
 expect  = { status = 403 }
 
 [[proof]]

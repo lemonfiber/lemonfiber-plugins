@@ -1,0 +1,6 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/door@sha256:bb78c5b83612d5ad038be38da1ceb05c541c2502cdd95720ebbb1db3e1be0a55",
+  "note": "A live stream's file asked for presenting no pass, on a fresh door holding a throwaway certificate and with no pass service beside it. The door passes a live stream's file on only where the pass service confirms its pass, so it refuses this one without anything reaching Jellyfin. The refusal is the pass.",
+  "request": {"method": "GET", "path": "/LiveTv/LiveStreamFiles/deadbeef000000000000000000000000/stream.ts"},
+  "response": {"status": 403}
+}
