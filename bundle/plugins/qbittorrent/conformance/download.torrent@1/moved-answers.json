@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/qbittorrent@sha256:97333cc1ccf903e0bbcd8eb67e3332e4970e9c1ecabe145e499e9c0847ebcaed",
+  "note": "What it has moved since it started, which is all it keeps, and says so.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.torrent/v1/moved", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {"down": 0, "since_start": true, "up": 0}
+  }
+}

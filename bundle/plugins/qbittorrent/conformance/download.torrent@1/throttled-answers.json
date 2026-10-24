@@ -1,0 +1,14 @@
+{
+  "recorded_from": "lscr.io/linuxserver/qbittorrent@sha256:97333cc1ccf903e0bbcd8eb67e3332e4970e9c1ecabe145e499e9c0847ebcaed",
+  "note": "The rates a fresh qBittorrent is held to: none, and no schedule.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.torrent/v1/throttled", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {
+      "hours": null,
+      "rates": {"down": null, "up": null},
+      "uploads": true
+    }
+  }
+}

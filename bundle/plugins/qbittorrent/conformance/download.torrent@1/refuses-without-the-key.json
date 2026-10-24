@@ -1,0 +1,6 @@
+{
+  "recorded_from": "lscr.io/linuxserver/qbittorrent@sha256:97333cc1ccf903e0bbcd8eb67e3332e4970e9c1ecabe145e499e9c0847ebcaed",
+  "note": "Asked without the plugin's key: the kit refuses it before the adapter is reached.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.torrent/v1/transfers", "accept": "application/json"},
+  "response": {"status": 401}
+}

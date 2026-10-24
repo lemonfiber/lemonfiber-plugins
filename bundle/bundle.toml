@@ -391,11 +391,11 @@ last_release = "2026-09-16"
 [[plugin]]
 id           = "qbittorrent"
 origin       = "https://github.com/lemonfiber/plugin-qbittorrent"
-revision     = "f89fce08e67273d8d6dc392d34aba39881a5f8a5"
-manifest     = "sha256:1c880864e9743288cd3a969febdf5c40a7bed0b6eaa84346cb18b73904bef5a2"
-tree         = "sha256:c5758fe6672559c95cc412677854dab72a977ab3846efdba63db2e15e299f16e"
+revision     = "1c96efff77fb83f80d4130934bb01475bab1f334"
+manifest     = "sha256:df168badfc92359afbec928a498afdce3b761ec48ffcefe21ac9f1aa310d5b61"
+tree         = "sha256:9f6fa86d941888e6f98d36cd513278aec24399329c872bf3221678288671279b"
 fills        = ["download.torrent"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "torrent"
 last_release = "2026-09-28"
 

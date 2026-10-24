@@ -24,30 +24,56 @@ criticality = "core"
 memory_mib  = 200
 reaches     = "trackers and peers, through the tunnel"
 asks_for    = "Announces to a torrent's trackers and exchanges data with peers, which is what a torrent client is; all of it inside gluetun's network, so it stops when the tunnel does."
-provides    = ["download.torrent"]
-api         = { kind = "qbittorrent", key_source = "generated" }
 takes_data  = true
 user_mode   = "puid-env"
 network     = { via = "network.egress-guard" }
+native      = "qbittorrent"
 replaces    = "qbittorrent"
 
 [service.env]
 WEBUI_PORT = 8081
 
+[[service]]
+id          = "qbittorrent-adapter"
+name        = "qBittorrent adapter"
+image       = "ghcr.io/lemonfiber/qbittorrent-adapter"
+digest      = "sha256:0bedcb5c729c60bda37f8e52e35662268587f13f9fbed6c765fcd7f9da805bd2"
+tag         = "main-ab6c86e066f0"
+criticality = "core"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's download.torrent contract by signing in to qBittorrent, beside it, with the account lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["download.torrent@1"]
+fronts      = "qbittorrent"
+provides    = ["download.torrent"]
+upstream    = { username = { secret = "upstream-username" }, password = { secret = "upstream-password" } }
+
+[[secret]]
+id     = "upstream-username"
+of     = "qbittorrent"
+minted = true
+why    = "The name of the web UI account the adapter in front of qBittorrent signs in as"
+
+[[secret]]
+id     = "upstream-password"
+of     = "qbittorrent"
+minted = true
+why    = "The password of that account, which qBittorrent keeps only as a hash"
+
+[[proof]]
+id      = "qbittorrent.guarded"
+service = "qbittorrent"
+title   = "qBittorrent lists its torrents to nobody signed in"
+fixture = "recordings/qbittorrent/torrents-guarded.json"
+why     = """
+The torrents name what the household is downloading. Only the adapter asks,
+signed in with the account lemonfiber minted, so a qBittorrent that listed them
+to a caller presenting nothing would be telling every device that can reach it.
+"""
+request = { method = "GET", path = "/api/v2/torrents/info" }
+expect  = { status = 403, body_starts_with = "Forbidden" }
+
 [[ask]]
+service    = "qbittorrent"
 capability = "dashboard.show"
-
-[[claim]]
-capability = "download.torrent"
-
-[[claim.probe]]
-id      = "guarded"
-request = { method = "GET", path = "/api/v2/torrents/info" }
-expect  = { status = 403 }
-fixture = "recordings/qbittorrent/download-torrent-guarded.json"
-
-[[claim.probe]]
-id      = "queue"
-request = { method = "GET", path = "/api/v2/torrents/info" }
-expect  = { status = 200, json_array_min = 0 }
-fixture = "recordings/qbittorrent/download-torrent-queue.json"
