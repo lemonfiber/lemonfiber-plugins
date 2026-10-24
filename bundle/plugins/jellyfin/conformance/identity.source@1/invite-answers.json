@@ -1,29 +1,23 @@
 {
   "recorded_from": "docker.io/jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db",
   "note": "An invitation: an account made with no password.",
-  "request": {
-    "method": "POST",
-    "path": "/lemonfiber/identity.source/v1/invite",
-    "accept": "application/json"
-  },
+  "request": {"method": "POST", "path": "/lemonfiber/identity.source/v1/invite", "accept": "application/json"},
   "response": {
     "status": 200,
-    "headers": {
-      "content-type": "application/json"
-    },
+    "headers": {"content-type": "application/json"},
     "json": {
-      "id": "d474eecfb21241e2a36da7313d6c8acb",
-      "name": "ana",
-      "claimed": false,
       "access": {
+        "administrator": false,
+        "age_limit": null,
+        "disabled": false,
         "every_library": true,
         "libraries": [],
-        "age_limit": null,
-        "unrated": "let-through",
-        "administrator": false,
-        "disabled": false
+        "unrated": "let-through"
       },
-      "last_seen": null
+      "claimed": false,
+      "id": "<redacted>",
+      "last_seen": null,
+      "name": "conformance-member"
     }
   }
 }

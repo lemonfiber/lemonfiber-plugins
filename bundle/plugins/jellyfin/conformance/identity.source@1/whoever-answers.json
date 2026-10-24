@@ -1,19 +1,10 @@
 {
   "recorded_from": "docker.io/jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db",
   "note": "The administrator's name and password, proving who they are. The access token is written as REDACTED.",
-  "request": {
-    "method": "POST",
-    "path": "/lemonfiber/identity.source/v1/whoever",
-    "accept": "application/json"
-  },
+  "request": {"method": "POST", "path": "/lemonfiber/identity.source/v1/whoever", "accept": "application/json"},
   "response": {
     "status": 200,
-    "headers": {
-      "content-type": "application/json"
-    },
-    "json": {
-      "id": "4e9720a0ad864adb8a59b7735d2a7086",
-      "token": "REDACTED"
-    }
+    "headers": {"content-type": "application/json"},
+    "json": {"id": "<redacted>", "token": "<redacted>"}
   }
 }

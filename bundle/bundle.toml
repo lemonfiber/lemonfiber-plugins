@@ -336,9 +336,9 @@ last_release = "2026-09-17"
 [[plugin]]
 id           = "jellyfin"
 origin       = "https://github.com/lemonfiber/plugin-jellyfin"
-revision     = "7bd1b20dabf265d221596d85d215440d1452413a"
-manifest     = "sha256:c3f26606fe585c5fbb2d926bec0c49a16aac7d87d75932ec839cc2a93c1a9b35"
-tree         = "sha256:a474c5327a1d0b190e8eb9da977e00e1532305deb76fdfd35d92c3681264536b"
+revision     = "58fffca7f20fb72afc4e297da1447562834253b1"
+manifest     = "sha256:4bbfb32846115ea5316ce07d012dd309a6e62644bda5d25f7ddb030186662710"
+tree         = "sha256:38b72b80703d8fd8323ce10c393715ceae7d4616194700cd3b3f2236df936636"
 fills        = ["identity.source", "media.serve"]
 stage        = "installed"
 profile      = "media"
@@ -435,11 +435,11 @@ last_release = "2026-10-06"
 [[plugin]]
 id           = "sabnzbd"
 origin       = "https://github.com/lemonfiber/plugin-sabnzbd"
-revision     = "ccfbfa6cc90662e474dc3af1989c8ad73e108a8b"
-manifest     = "sha256:4b3ae6dc5001b965e94d90779982ba72d1380b718753554632816208b680f279"
-tree         = "sha256:1e8403f5b2e8dd5512a470bb18f8e1cae20856d5799646796e60309ff14f6107"
+revision     = "963bdfc39710073496a293c56b3a94fb2b6a9389"
+manifest     = "sha256:d8118fe5a108702c80b93e9e48ed4c3228925339d8ccb5fddf0c9796d20ec8c6"
+tree         = "sha256:456d66b6b0cf245ac44ff1c5b82766803d7e1b1325123d766715bfa2017d605a"
 fills        = ["download.usenet"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "usenet"
 last_release = "2026-09-08"
 
