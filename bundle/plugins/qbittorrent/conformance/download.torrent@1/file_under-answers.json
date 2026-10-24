@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/qbittorrent@sha256:97333cc1ccf903e0bbcd8eb67e3332e4970e9c1ecabe145e499e9c0847ebcaed",
+  "note": "A category filed under the folder the case names, with torrents managed automatically.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.torrent/v1/file_under", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

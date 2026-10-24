@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/qbittorrent@sha256:97333cc1ccf903e0bbcd8eb67e3332e4970e9c1ecabe145e499e9c0847ebcaed",
+  "note": "A torrent it does not hold, refused as the contract declares.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.torrent/v1/stop_seeding", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "the client is holding 0 completed downloads called conformance-torrent", "type": "refused"}
+  }
+}
