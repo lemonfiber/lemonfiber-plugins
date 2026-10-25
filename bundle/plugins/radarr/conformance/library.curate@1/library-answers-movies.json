@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/radarr@sha256:c984533510abe0219a70e80d15bd0d212b7df21baa0913759c4ce6cc9092240b",
+  "note": "The films a fresh Radarr holds: none.",
+  "request": {"method": "POST", "path": "/lemonfiber/library.curate/v1/library", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": []
+  }
+}

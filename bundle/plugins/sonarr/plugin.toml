@@ -24,33 +24,70 @@ criticality = "core"
 memory_mib  = 300
 reaches     = "television metadata providers"
 asks_for    = "Reads series, season and episode information, artwork and air dates for what is in your library and what you add to it."
-provides    = ["library.curate"]
-api         = { kind = "servarr", key_source = "config-xml", path = "/config/config.xml", version = 3 }
 takes_data  = true
 user_mode   = "puid-env"
 media_types = ["tv"]
+native      = "servarr"
 replaces    = "sonarr"
 
+[service.env]
+SONARR__AUTH__APIKEY = { secret = "upstream-key" }
+
+[[service]]
+id          = "sonarr-adapter"
+name        = "Sonarr adapter"
+image       = "ghcr.io/lemonfiber/sonarr-adapter"
+digest      = "sha256:6c7c672e8f8c48df5f2413903a09910acb6c924bb877e93ce219500014cfa49c"
+tag         = "main-717eba276c34"
+criticality = "core"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's library.curate contract by calling Sonarr, beside it, with the key lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["library.curate@1"]
+fronts      = "sonarr"
+provides    = ["library.curate"]
+upstream    = { api_key = { secret = "upstream-key" } }
+
+[[secret]]
+id     = "upstream-key"
+of     = "sonarr"
+minted = true
+why    = "The key Sonarr answers its API to, which the adapter in front of it presents"
+
+[[proof]]
+id      = "sonarr.answers"
+service = "sonarr"
+title   = "Sonarr says it answers to anybody"
+fixture = "recordings/sonarr/ping-answers.json"
+why     = """
+The adapter's readiness is this answer, which it asks without a key, so the
+pinned image has to give it to a caller presenting nothing.
+"""
+request = { method = "GET", path = "/ping" }
+expect  = { status = 200, json = { status = "OK" } }
+
+[[proof]]
+id      = "sonarr.guarded"
+service = "sonarr"
+title   = "Sonarr shows what it wants to nobody presenting nothing"
+fixture = "recordings/sonarr/wanted-guarded.json"
+why     = """
+What Sonarr wants names what the household watches. Only the adapter asks, with
+the key lemonfiber minted, so a Sonarr that answered it to a caller presenting
+nothing would be telling every device that can reach it.
+"""
+request = { method = "GET", path = "/api/v3/wanted/missing" }
+expect  = { status = 401 }
+
 [[ask]]
+service    = "sonarr"
 capability = "download.usenet"
 
 [[ask]]
+service    = "sonarr"
 capability = "download.torrent"
 
 [[ask]]
+service    = "sonarr"
 capability = "dashboard.show"
-
-[[claim]]
-capability = "library.curate"
-
-[[claim.probe]]
-id      = "guarded"
-request = { method = "GET", path = "/api/v3/wanted/missing" }
-expect  = { status = 401 }
-fixture = "recordings/sonarr/library-curate-guarded.json"
-
-[[claim.probe]]
-id      = "wanted"
-request = { method = "GET", path = "/api/v3/wanted/missing" }
-expect  = { status = 200, json_types = { records = "list", totalRecords = "int" } }
-fixture = "recordings/sonarr/library-curate-wanted.json"

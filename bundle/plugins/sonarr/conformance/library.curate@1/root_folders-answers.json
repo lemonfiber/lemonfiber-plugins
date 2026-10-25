@@ -1,0 +1,12 @@
+{
+  "recorded_from": "lscr.io/linuxserver/sonarr@sha256:dffc730adcb8b4f4342792fbb27fcad9c62fb8660523f2aeb082416980d7fe0c",
+  "note": "That folder, read back with the id Sonarr gave it.",
+  "request": {"method": "POST", "path": "/lemonfiber/library.curate/v1/root_folders", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": [
+      {"id": "1", "path": "/data/conformance"}
+    ]
+  }
+}

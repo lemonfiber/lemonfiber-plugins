@@ -24,33 +24,70 @@ criticality = "core"
 memory_mib  = 300
 reaches     = "film metadata providers"
 asks_for    = "Reads titles, release dates and artwork for the films in your library and the ones you add."
-provides    = ["library.curate"]
-api         = { kind = "servarr", key_source = "config-xml", path = "/config/config.xml", version = 3 }
 takes_data  = true
 user_mode   = "puid-env"
 media_types = ["movies"]
+native      = "servarr"
 replaces    = "radarr"
 
+[service.env]
+RADARR__AUTH__APIKEY = { secret = "upstream-key" }
+
+[[service]]
+id          = "radarr-adapter"
+name        = "Radarr adapter"
+image       = "ghcr.io/lemonfiber/radarr-adapter"
+digest      = "sha256:b73a12e2f19ef9d2cf8078f836fe1c30e4b10d46e6b171d0418b3298094b3e12"
+tag         = "main-588abf26c392"
+criticality = "core"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's library.curate contract by calling Radarr, beside it, with the key lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["library.curate@1"]
+fronts      = "radarr"
+provides    = ["library.curate"]
+upstream    = { api_key = { secret = "upstream-key" } }
+
+[[secret]]
+id     = "upstream-key"
+of     = "radarr"
+minted = true
+why    = "The key Radarr answers its API to, which the adapter in front of it presents"
+
+[[proof]]
+id      = "radarr.answers"
+service = "radarr"
+title   = "Radarr says it answers to anybody"
+fixture = "recordings/radarr/ping-answers.json"
+why     = """
+The adapter's readiness is this answer, which it asks without a key, so the
+pinned image has to give it to a caller presenting nothing.
+"""
+request = { method = "GET", path = "/ping" }
+expect  = { status = 200, json = { status = "OK" } }
+
+[[proof]]
+id      = "radarr.guarded"
+service = "radarr"
+title   = "Radarr shows what it wants to nobody presenting nothing"
+fixture = "recordings/radarr/wanted-guarded.json"
+why     = """
+What Radarr wants names what the household watches. Only the adapter asks, with
+the key lemonfiber minted, so a Radarr that answered it to a caller presenting
+nothing would be telling every device that can reach it.
+"""
+request = { method = "GET", path = "/api/v3/wanted/missing" }
+expect  = { status = 401 }
+
 [[ask]]
+service    = "radarr"
 capability = "download.usenet"
 
 [[ask]]
+service    = "radarr"
 capability = "download.torrent"
 
 [[ask]]
+service    = "radarr"
 capability = "dashboard.show"
-
-[[claim]]
-capability = "library.curate"
-
-[[claim.probe]]
-id      = "guarded"
-request = { method = "GET", path = "/api/v3/wanted/missing" }
-expect  = { status = 401 }
-fixture = "recordings/radarr/library-curate-guarded.json"
-
-[[claim.probe]]
-id      = "wanted"
-request = { method = "GET", path = "/api/v3/wanted/missing" }
-expect  = { status = 200, json_types = { records = "list", totalRecords = "int" } }
-fixture = "recordings/radarr/library-curate-wanted.json"
