@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/advplyr/audiobookshelf@sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b",
+  "note": "Audiobookshelf shows a key only once, when it is minted, so the keys filed under a name are unsupported.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/filed_as", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "Audiobookshelf shows a key only once, when it is minted", "type": "unsupported"}
+  }
+}

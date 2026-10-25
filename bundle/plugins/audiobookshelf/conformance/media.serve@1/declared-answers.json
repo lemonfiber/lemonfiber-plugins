@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/advplyr/audiobookshelf@sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b",
+  "note": "No guard of lemonfiber's stands in front of Audiobookshelf for a member, so this is unsupported.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/declared", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "Audiobookshelf serves no member through a guard of lemonfiber's", "type": "unsupported"}
+  }
+}

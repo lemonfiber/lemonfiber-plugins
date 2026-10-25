@@ -1,0 +1,12 @@
+{
+  "recorded_from": "ghcr.io/advplyr/audiobookshelf@sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b",
+  "note": "When the key just minted was made, and that it has not been used.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/dated", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": [
+      {"created": "2026-10-25T17:36:09.487Z", "last_used": null}
+    ]
+  }
+}

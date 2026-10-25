@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/nzbhydra2@sha256:3cdcea6fc97861bb30ef2551884f1c371e08a884c2f75230c7a3a2e14c5f0516",
+  "note": "Not asked: the case reads an application from the applications case, which was answered unsupported.",
+  "request": {"method": "POST", "path": "/lemonfiber/indexer.search/v1/test_application", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "indexer.search@1/applications-answers was answered unsupported", "type": "unsupported"}
+  }
+}
