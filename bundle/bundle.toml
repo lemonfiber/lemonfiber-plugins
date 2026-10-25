@@ -174,7 +174,7 @@ profiles    = ["proxy"]
 [[wiring]]
 by        = "bindery"
 asks      = "indexer.search"
-filled_by = "prowlarr"
+filled_by = "prowlarr-adapter"
 why       = "Two services here answer as an indexer and this asks for one of them. Prowlarr is the stack's choice because it is the one the book *arr can pull a keyed feed from; NZBHydra2 searches Usenet only. Change it and everything that asked follows."
 
 [[wiring]]
@@ -347,11 +347,11 @@ last_release = "2026-09-15"
 [[plugin]]
 id           = "lidarr"
 origin       = "https://github.com/lemonfiber/plugin-lidarr"
-revision     = "aaa8296208ffe3db8e60391257823695d998c1d1"
-manifest     = "sha256:63ce8c2df6962bc918dec9b6c5d62a78f9a8291f4d6c7f33728083f23290dcbb"
-tree         = "sha256:6ac0d1f2bfea9e6f2cd3a9a48c51c5bb2b9c2f8c47a0020d2c70b9d2105838bd"
+revision     = "55c32ee51944907941968d596b1e6c4882ca6538"
+manifest     = "sha256:50b6e7bc0383788119a034f260f391a5d4714cf160ce5ff459941d3fe4afe905"
+tree         = "sha256:d457afdc052d790793f1ecea4f42f43d91b9bd780bc65321695677cc18a29c1b"
 fills        = ["library.curate"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "music"
 last_release = "2025-11-16"
 
@@ -380,11 +380,11 @@ last_release = "2026-09-24"
 [[plugin]]
 id           = "prowlarr"
 origin       = "https://github.com/lemonfiber/plugin-prowlarr"
-revision     = "1b56bb4a804991e884ffc496fbbcf11c12d3c76b"
-manifest     = "sha256:a3baca9ca728d73611e1455cdbf777f836f272550e471143af773e8194d5627d"
-tree         = "sha256:aa247b71fe73490b3e398f428a21575e40e4f95ff0bdb4753dd5c584fcf0618c"
+revision     = "6a4dda28683d44dce5fc7a46d133b126bad69e32"
+manifest     = "sha256:66baf7de67633cc7b114a89e9403b978b49eb6a2bfe48de1de7b970f7ca642c2"
+tree         = "sha256:236d25cc7c979b7101eb8a6592eecfc12b4245de8873d7f8304ba8d9a4d67bb9"
 fills        = ["indexer.search"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "search"
 last_release = "2026-09-16"
 
@@ -402,11 +402,11 @@ last_release = "2026-09-28"
 [[plugin]]
 id           = "radarr"
 origin       = "https://github.com/lemonfiber/plugin-radarr"
-revision     = "0067d5229f1429ddcdb8bd9722560d493a8ee30f"
-manifest     = "sha256:bd95f06f531e7800087bb7e4aac69b38bd470de7c904bf3dda9d1e529cb7a062"
-tree         = "sha256:ef0bdfe387c3049242075ef73dc0d158c1090cb86b25e0378a4f96a3adf60c31"
+revision     = "338ed89381c5f20850233855e890c81405df8127"
+manifest     = "sha256:cc75e9fe3072151581863791f0b4d3c03f75820439e2b14efd50fbc349182779"
+tree         = "sha256:bca64d67d2bec54570d01ea286009f99b7e8886db600bb273a7df91a0dec14db"
 fills        = ["library.curate"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "movies"
 last_release = "2026-09-16"
 
@@ -446,22 +446,22 @@ last_release = "2026-09-08"
 [[plugin]]
 id           = "seerr"
 origin       = "https://github.com/lemonfiber/plugin-seerr"
-revision     = "d5191a676c96420b4db8bf3d58b18eef9a3d6b80"
-manifest     = "sha256:5f0dc54a99c8b872b49d3a8ae049dc4b9ae2e402b024b021fbd6d5feaa5d8dbc"
-tree         = "sha256:73bcde3aa3f3e146d2ca87925460a5acee2a8bee8238fa9ab7812e837a79bc24"
+revision     = "a5bbf3278ba3637ac2fb368142d075acf6e30618"
+manifest     = "sha256:4c2d91938a14271f2c80e49f7065513ff4b355972d33de2232b8d7e224d0b55a"
+tree         = "sha256:11eaf19ac3a95c0fd8d399cb1609141de3a9d6b8bf5b32a5b7fbda8eafdcd571"
 fills        = ["request.intake"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "media"
 last_release = "2026-09-28"
 
 [[plugin]]
 id           = "sonarr"
 origin       = "https://github.com/lemonfiber/plugin-sonarr"
-revision     = "eea99b2b83a7dcd51d6a77dfb71d40568fdd1ffc"
-manifest     = "sha256:aa5387bd50242574dc0f0ec9719203c679af294d5cbee45a69f51f8473f23b88"
-tree         = "sha256:0737975bf9b3af1d81360a0be427cae4995b278d7119099f0b33b4e8ff94c9c7"
+revision     = "be526d03be034d6800696aa2ff84cb1f343ea25b"
+manifest     = "sha256:84dae4f551aad3c49875cb9a9b5a733ca4d31a0b4fd109c5574e6785615289ac"
+tree         = "sha256:52fec47280065316beac4888033d792d8e1452a95dea6cd7e60431e151ea94b3"
 fills        = ["library.curate"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "tv"
 last_release = "2026-09-16"
 

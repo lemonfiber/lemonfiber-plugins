@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/radarr@sha256:c984533510abe0219a70e80d15bd0d212b7df21baa0913759c4ce6cc9092240b",
+  "note": "A term looked up with Radarr's catalogue refusing every connection: Radarr's own words for it, carried.",
+  "request": {"method": "POST", "path": "/lemonfiber/library.curate/v1/lookup", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": []
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "recorded_from": "lscr.io/linuxserver/sonarr@sha256:dffc730adcb8b4f4342792fbb27fcad9c62fb8660523f2aeb082416980d7fe0c",
+  "note": "The quality profiles a fresh Sonarr holds.",
+  "request": {"method": "POST", "path": "/lemonfiber/library.curate/v1/quality_profiles", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": [
+      {"id": 1, "name": "Any"},
+      {"id": 2, "name": "SD"},
+      {"id": 3, "name": "HD-720p"},
+      {"id": 4, "name": "HD-1080p"},
+      {"id": 5, "name": "Ultra-HD"},
+      {"id": 6, "name": "HD - 720p/1080p"}
+    ]
+  }
+}
