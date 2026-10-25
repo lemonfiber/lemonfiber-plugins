@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/bazarr@sha256:c1673816321156b904af9b7e6415ea547ae9622e4acc375358f1e1eb9ed1e904",
+  "note": "What a fresh Bazarr holds for the television curator: nothing switched on and no key.",
+  "request": {"method": "POST", "path": "/lemonfiber/subtitles.fetch/v1/watching", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {"enabled": false, "host": "127.0.0.1", "keyed": false, "port": 8989}
+  }
+}

@@ -1,0 +1,5 @@
+# Bazarr writes the rest of this file itself on first start. Only the key its API
+# answers to is set here: the one lemonfiber minted for this plugin, which it hands
+# the adapter in front of Bazarr.
+auth:
+  apikey: {{secret:upstream-key}}
