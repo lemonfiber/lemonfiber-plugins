@@ -24,30 +24,51 @@ criticality = "enhancing"
 memory_mib  = 250
 reaches     = "the subtitle providers you enable"
 asks_for    = "Searches for subtitles matching what is in your library, signing in where a provider requires an account."
-provides    = ["subtitles.fetch"]
-api         = { kind = "bazarr", key_source = "config-yaml", path = "/config/config/config.yaml" }
 takes_data  = true
 user_mode   = "puid-env"
 replaces    = "bazarr"
 
+[[service]]
+id          = "bazarr-adapter"
+name        = "Bazarr adapter"
+image       = "ghcr.io/lemonfiber/bazarr-adapter"
+digest      = "sha256:1f66c90b895c307652c0a17bc9c192050e65834b5a9d3472c77641a15e38f5f5"
+tag         = "main-a847697e156c"
+criticality = "enhancing"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's subtitles.fetch contract by calling Bazarr, beside it, with the key lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["subtitles.fetch@1"]
+fronts      = "bazarr"
+provides    = ["subtitles.fetch"]
+upstream    = { api_key = { secret = "upstream-key" } }
+
+[[secret]]
+id     = "upstream-key"
+of     = "bazarr"
+minted = true
+why    = "The key Bazarr answers its API to, which the adapter in front of it presents"
+
+[[proof]]
+id      = "bazarr.guarded"
+service = "bazarr"
+title   = "Bazarr shows its own state to nobody presenting nothing"
+fixture = "recordings/bazarr/status-guarded.json"
+why     = """
+Bazarr holds subtitle-provider accounts and a path into the library. Only the
+adapter asks it, with the key lemonfiber minted, so a Bazarr that answered its
+state to a caller presenting nothing would be telling every device that can
+reach it.
+"""
+request = { method = "GET", path = "/api/system/status" }
+expect  = { status = 401, json_types = { message = "str" } }
+
 [[ask]]
+service    = "bazarr"
 capability = "library.curate"
 each       = true
 
 [[ask]]
+service    = "bazarr"
 capability = "dashboard.show"
-
-[[claim]]
-capability = "subtitles.fetch"
-
-[[claim.probe]]
-id      = "guarded"
-request = { method = "GET", path = "/api/system/status" }
-expect  = { status = 401 }
-fixture = "recordings/bazarr/subtitles-fetch-guarded.json"
-
-[[claim.probe]]
-id      = "status"
-request = { method = "GET", path = "/api/system/status" }
-expect  = { status = 200, json_types = { "/data" = "dict", "/data/bazarr_version" = "str" } }
-fixture = "recordings/bazarr/subtitles-fetch-status.json"

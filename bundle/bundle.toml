@@ -236,11 +236,11 @@ last_release = "2026-09-29"
 [[plugin]]
 id           = "bazarr"
 origin       = "https://github.com/lemonfiber/plugin-bazarr"
-revision     = "b4d50394c1fe740a7495df0cba5b13ca130aadc4"
-manifest     = "sha256:5262b4d7537d3989d65d9591d96abda122ce41078ea68f178fa4b85fff0c51a4"
-tree         = "sha256:e60b4448bfbb991f1e251885c5e51e557e4009d840c5d0774a3145ca7da002c0"
+revision     = "778284650c19f8799fe290f58916381676fb3148"
+manifest     = "sha256:8b0cdc72d778cd642e42f9edd8076e587231f322122cdee77c42651ffe80b314"
+tree         = "sha256:587380cb9b37e20a244a031c937498f9c8eb0feb1b09bdb106ef7ad377bb6036"
 fills        = ["subtitles.fetch"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "subs"
 last_release = "2026-09-26"
 

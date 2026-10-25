@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/bazarr@sha256:c1673816321156b904af9b7e6415ea547ae9622e4acc375358f1e1eb9ed1e904",
+  "note": "The television curator watched: its switch, its address and its key written in one form.",
+  "request": {"method": "POST", "path": "/lemonfiber/subtitles.fetch/v1/watch", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}
