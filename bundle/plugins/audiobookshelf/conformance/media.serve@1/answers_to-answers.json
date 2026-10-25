@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/advplyr/audiobookshelf@sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b",
+  "note": "Audiobookshelf answers to the key just minted, presented alone.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/answers_to", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "recorded_from": "ghcr.io/advplyr/audiobookshelf@sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b",
+  "note": "What Audiobookshelf says to anybody about itself, on an instance the adapter has claimed: its first run has made a root.",
+  "request": {"method": "GET", "path": "/status"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json; charset=utf-8"},
+    "json": {
+      "app": "audiobookshelf",
+      "authFormData": {"authLoginCustomMessage": ""},
+      "authMethods": ["local"],
+      "isInit": true,
+      "language": "en-us",
+      "serverVersion": "2.37.1"
+    }
+  }
+}

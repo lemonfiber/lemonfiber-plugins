@@ -24,23 +24,48 @@ criticality = "enhancing"
 memory_mib  = 400
 reaches     = "the Usenet indexers you configured"
 asks_for    = "Searches several indexers at once and merges what they answer, with the keys you gave it."
-provides    = ["indexer.search"]
-api         = { kind = "nzbhydra2", key_source = "config-yaml", path = "/config/nzbhydra.yml" }
 takes_data  = true
 user_mode   = "puid-env"
 replaces    = "nzbhydra2"
 
-[[claim]]
-capability = "indexer.search"
+[[service]]
+id          = "nzbhydra2-adapter"
+name        = "NZBHydra2 adapter"
+image       = "ghcr.io/lemonfiber/nzbhydra2-adapter"
+digest      = "sha256:784ac2fa0df7be043a8f1ddf63aba19a7f6d8743224ae3d2f30b0ea341800bfb"
+tag         = "main-9d879a0cdb1e"
+criticality = "enhancing"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's owner.claim and indexer.search contracts by calling NZBHydra2, beside it, as the administrator lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["owner.claim@1", "indexer.search@1"]
+fronts      = "nzbhydra2"
+provides    = ["indexer.search"]
+upstream    = { username = { secret = "admin-username" }, password = { secret = "admin-password" } }
 
-[[claim.probe]]
-id      = "guarded"
-request = { method = "GET", path = "/internalapi/config" }
-expect  = { status = 401 }
-fixture = "recordings/nzbhydra2/indexer-search-guarded.json"
+[[secret]]
+id     = "admin-username"
+of     = "nzbhydra2"
+minted = true
+why    = "The name of the administrator NZBHydra2 is claimed for, which the adapter in front of it signs in as"
 
-[[claim.probe]]
-id      = "indexers"
+[[secret]]
+id     = "admin-password"
+of     = "nzbhydra2"
+minted = true
+why    = "The password of the administrator NZBHydra2 is claimed for, which the adapter in front of it signs in with"
+
+[[proof]]
+id      = "nzbhydra2.guarded"
+service = "nzbhydra2"
+title   = "A claimed NZBHydra2 shows its configuration to nobody presenting nothing"
+fixture = "recordings/nzbhydra2/config-guarded.json"
+why     = """
+NZBHydra2's configuration holds every indexer's key and the administrator it was
+claimed for. Once claimed, only the adapter reads it, signed in as that
+administrator, so a NZBHydra2 that answered it to a caller presenting nothing
+would be handing those keys to every device that can reach it.
+"""
 request = { method = "GET", path = "/internalapi/config" }
-expect  = { status = 200, json_types = { indexers = "list" } }
-fixture = "recordings/nzbhydra2/indexer-search-indexers.json"
+expect  = { status = 401, body_starts_with = "<!doctype html><html lang=\"en\"><head><title>HTTP Status 401" }
