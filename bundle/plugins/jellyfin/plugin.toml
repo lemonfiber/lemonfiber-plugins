@@ -1,4 +1,4 @@
-#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/c76afcb4d84f093cbb28cde90b9f2231ffcde0cd/contract/plugin-manifest.schema.json
+#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/ba363fd8d2f40a21dcecadd99095d37136c5c755/contract/plugin-manifest.schema.json
 # Jellyfin, as a first-party lemonfiber plugin (ADR-0041, ADR-0042).
 #
 # Contract: https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/plugin-manifest.md
@@ -51,8 +51,8 @@ to   = "/cache"
 id          = "jellyfin-adapter"
 name        = "Jellyfin adapter"
 image       = "ghcr.io/lemonfiber/jellyfin-adapter"
-digest      = "sha256:3fbc32603ca45e6a2552803fd30edb6c1e8a36d10cdb8c6e3370af3861392990"
-tag         = "main-62dd4e4dffea"
+digest      = "sha256:ac70ae955563dce69c7b3b48fd92551b765eb0fd7738360a85740726e6e9d49e"
+tag         = "main-73e04fcad5f8"
 criticality = "important"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's media.serve and identity.source contracts by calling Jellyfin, beside it, with the key lemonfiber minted for it."
@@ -61,6 +61,7 @@ listens     = 8080
 speaks      = ["media.serve@1", "identity.source@1"]
 fronts      = "jellyfin"
 provides    = ["media.serve", "identity.source"]
+media_types = ["movies", "tv"]
 
 [[proof]]
 id      = "jellyfin.identifies"
