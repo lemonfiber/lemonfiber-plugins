@@ -37,8 +37,8 @@ SONARR__AUTH__APIKEY = { secret = "upstream-key" }
 id          = "sonarr-adapter"
 name        = "Sonarr adapter"
 image       = "ghcr.io/lemonfiber/sonarr-adapter"
-digest      = "sha256:043852ec100b9b6f0d685c5e8666b9408f5421500ed017a2550be0dcc4ac5718"
-tag         = "main-9e00e6e68cb4"
+digest      = "sha256:fb213d7470330f47ba7588055dc04545e9656a0be501195f9338bf7522d642f4"
+tag         = "main-1579b9e63bfa"
 criticality = "core"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's library.curate contract by calling Sonarr, beside it, with the key lemonfiber minted for it."
@@ -54,6 +54,7 @@ id     = "upstream-key"
 of     = "sonarr"
 minted = true
 why    = "The key Sonarr answers its API to, which the adapter in front of it presents"
+carried_from = { file = "/config/config.xml", format = "xml", key = "Config.ApiKey" }
 
 [[proof]]
 id      = "sonarr.answers"
