@@ -17,4 +17,4 @@
 # asks it about every registration and every pinned plugin, so every verdict it
 # reports is this build's own.
 
-commit = "7c1274003776ddf7b87fde9d352c110ce3917846"
+commit = "c0523e91c56bd5b4fdcf4de1c695f9a9a652e98b"
