@@ -358,11 +358,11 @@ last_release = "2025-11-16"
 [[plugin]]
 id           = "navidrome"
 origin       = "https://github.com/lemonfiber/plugin-navidrome"
-revision     = "04487aee8083a8a8bb87e19fb64bcaef91c8728a"
-manifest     = "sha256:68b33733e13d7b017eb7801537b546d14e239802b332a5697b9caaa1a218ce4b"
-tree         = "sha256:0e717fc2d36ed6136dfe1681f51c1baea5493919a2242c931ca4e66568c3076b"
+revision     = "7288f966abd13528e9076e85ec53d4c5be97aa4e"
+manifest     = "sha256:a80ac81b666a80549bba30d4af976889df6aa0557817223142300bbdabbdc5ee"
+tree         = "sha256:f58fb9e96c4a03f7cd5fc977ffa404abe02e7681f7dc4d78337c9446f2253f64"
 fills        = ["media.serve"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "media"
 last_release = "2026-09-24"
 

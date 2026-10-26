@@ -23,7 +23,6 @@ criticality = "enhancing"
 memory_mib  = 100
 reaches     = "music metadata providers, and the background collection its sign-in page draws from"
 asks_for    = "Reads artist images, biographies and similar-artist lists for the music in your library — Deezer and ListenBrainz, neither of which needs an account of yours. Its anonymous usage report is the one thing it would send about this machine, and the compose entry turns that off rather than leaving it on."
-provides    = ["media.serve"]
 takes_data  = true
 user_mode   = "uid"
 replaces    = "navidrome"
@@ -33,20 +32,47 @@ ND_MUSICFOLDER             = "/data/media/music"
 ND_DATAFOLDER              = "/config"
 ND_ENABLEINSIGHTSCOLLECTOR = "false"
 
+[[service]]
+id          = "navidrome-adapter"
+name        = "Navidrome adapter"
+image       = "ghcr.io/lemonfiber/navidrome-adapter"
+digest      = "sha256:f215969d576d225b9361d1b1a9de6ed616ec9fdb07c30131d451859c8fba2293"
+tag         = "main-1dbd7880750a"
+criticality = "enhancing"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's owner.claim and media.serve contracts by calling Navidrome, beside it, as the administrator lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["owner.claim@1", "media.serve@1"]
+fronts      = "navidrome"
+provides    = ["media.serve"]
+upstream    = { username = { secret = "admin-username" }, password = { secret = "admin-password" } }
+
+[[secret]]
+id     = "admin-username"
+of     = "navidrome"
+minted = true
+why    = "The name of the administrator Navidrome's first run makes, which the adapter in front of it signs in as"
+
+[[secret]]
+id     = "admin-password"
+of     = "navidrome"
+minted = true
+why    = "The password of the administrator Navidrome's first run makes, which the adapter in front of it signs in with"
+
+[[proof]]
+id      = "navidrome.guarded"
+service = "navidrome"
+title   = "Navidrome shows its albums to nobody presenting nothing"
+fixture = "recordings/navidrome/albums-guarded.json"
+why     = """
+A music server on the household network that answered this would be
+publishing the household's library to every device that can reach it. Only the
+adapter asks it, signed in as the administrator lemonfiber minted.
+"""
+request = { method = "GET", path = "/api/album" }
+expect  = { status = 401, json = { error = "Not authenticated" } }
+
 [[ask]]
+service    = "navidrome"
 capability = "dashboard.show"
-
-[[claim]]
-capability = "media.serve"
-
-[[claim.probe]]
-id      = "guarded"
-request = { method = "GET", path = "/api/album" }
-expect  = { status = 401 }
-fixture = "recordings/navidrome/media-serve-guarded.json"
-
-[[claim.probe]]
-id      = "catalogue"
-request = { method = "GET", path = "/api/album" }
-expect  = { status = 200, json_array_min = 0 }
-fixture = "recordings/navidrome/media-serve-catalogue.json"
