@@ -46,6 +46,7 @@ listens     = 8080
 speaks      = ["owner.claim@1", "media.serve@1"]
 fronts      = "navidrome"
 provides    = ["media.serve"]
+media_types = ["music"]
 upstream    = { username = { secret = "admin-username" }, password = { secret = "admin-password" } }
 
 [[secret]]
