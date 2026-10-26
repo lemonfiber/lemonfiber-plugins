@@ -5,6 +5,6 @@
   "response": {
     "status": 200,
     "headers": {"content-type": "application/json; charset=utf-8"},
-    "json": {"Id": "30e6a32ac62342a7bea03d4233119c5b", "LocalAddress": "http://<redacted>:8096", "OperatingSystem": "", "ProductName": "Jellyfin Server", "ServerName": "<redacted>", "StartupWizardCompleted": true, "Version": "10.11.11"}
+    "json": {"Id": "cb401fa896c14f6c995d39fcdbb46a37", "LocalAddress": "http://<redacted>:8096", "OperatingSystem": "", "ProductName": "Jellyfin Server", "ServerName": "<redacted>", "StartupWizardCompleted": true, "Version": "10.11.11"}
   }
 }

@@ -37,8 +37,8 @@ RADARR__AUTH__APIKEY = { secret = "upstream-key" }
 id          = "radarr-adapter"
 name        = "Radarr adapter"
 image       = "ghcr.io/lemonfiber/radarr-adapter"
-digest      = "sha256:324c63b08909c992a687c523988ecebae3fdae48965a12a3bd2f1969698b7685"
-tag         = "main-31cc15eb6c7c"
+digest      = "sha256:15bed06c175d3ffd6340778947565dfd1226ce1cf579cc034c007f6bffc13636"
+tag         = "main-f239c037a8db"
 criticality = "core"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's library.curate contract by calling Radarr, beside it, with the key lemonfiber minted for it."
@@ -54,6 +54,7 @@ id     = "upstream-key"
 of     = "radarr"
 minted = true
 why    = "The key Radarr answers its API to, which the adapter in front of it presents"
+carried_from = { file = "/config/config.xml", format = "xml", key = "Config.ApiKey" }
 
 [[proof]]
 id      = "radarr.answers"

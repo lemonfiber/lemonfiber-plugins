@@ -32,8 +32,8 @@ replaces    = "bazarr"
 id          = "bazarr-adapter"
 name        = "Bazarr adapter"
 image       = "ghcr.io/lemonfiber/bazarr-adapter"
-digest      = "sha256:1f66c90b895c307652c0a17bc9c192050e65834b5a9d3472c77641a15e38f5f5"
-tag         = "main-a847697e156c"
+digest      = "sha256:8c7e628137286f39d6d9e780289f74f326221a4c60a18258886e54df9b14669e"
+tag         = "main-16428a6e306f"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's subtitles.fetch contract by calling Bazarr, beside it, with the key lemonfiber minted for it."
@@ -49,6 +49,7 @@ id     = "upstream-key"
 of     = "bazarr"
 minted = true
 why    = "The key Bazarr answers its API to, which the adapter in front of it presents"
+carried_from = { file = "/config/config/config.yaml", format = "yaml", key = "auth.apikey" }
 
 [[proof]]
 id      = "bazarr.guarded"
