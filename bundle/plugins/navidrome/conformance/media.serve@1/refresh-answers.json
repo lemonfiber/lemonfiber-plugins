@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/navidrome/navidrome@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+  "note": "Navidrome reads its library afresh as a whole, never one item, so this is unsupported.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/refresh", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "Navidrome reads its library afresh as a whole, never one item", "type": "unsupported"}
+  }
+}

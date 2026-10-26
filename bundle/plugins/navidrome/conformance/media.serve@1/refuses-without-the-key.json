@@ -1,0 +1,6 @@
+{
+  "recorded_from": "ghcr.io/navidrome/navidrome@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+  "note": "Asked without the plugin's key: the kit refuses it before the adapter is reached.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/signed_in", "accept": "application/json"},
+  "response": {"status": 401}
+}

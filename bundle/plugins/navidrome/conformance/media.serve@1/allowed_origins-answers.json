@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/navidrome/navidrome@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+  "note": "Navidrome holds no list of origins a browser may read it from, so this is unsupported.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/allowed_origins", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "Navidrome holds no list of origins a browser may read it from", "type": "unsupported"}
+  }
+}

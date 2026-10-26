@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/navidrome/navidrome@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+  "note": "Not asked: the case names a member, read from identity.source@1, which Navidrome does not speak.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/progressed", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "it speaks no identity.source@1, which identity.source@1/household-answers is a case of", "type": "unsupported"}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/navidrome/navidrome@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+  "note": "A scan of the library started; a fresh Navidrome has nothing to find.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/rescan", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

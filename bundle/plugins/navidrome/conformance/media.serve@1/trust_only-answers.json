@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/navidrome/navidrome@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+  "note": "Navidrome is told the addresses it trusts to name the client by its environment, and cannot be asked, so this is unsupported.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/trust_only", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "Navidrome is told the addresses it trusts to name the client by its environment, and cannot be asked", "type": "unsupported"}
+  }
+}
