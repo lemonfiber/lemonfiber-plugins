@@ -25,6 +25,7 @@ memory_mib  = 200
 reaches     = "audiobook metadata providers"
 asks_for    = "Reads covers, chapters and descriptions for the audiobooks in your library when you ask it to."
 takes_data  = true
+native      = "audiobookshelf"
 replaces    = "audiobookshelf"
 
 [[service.mount]]
@@ -35,8 +36,8 @@ to   = "/metadata"
 id          = "audiobookshelf-adapter"
 name        = "Audiobookshelf adapter"
 image       = "ghcr.io/lemonfiber/audiobookshelf-adapter"
-digest      = "sha256:6dce311454e46a22e5b288549119a81f2707e3ce2079a02a5d1c152bb24f10b4"
-tag         = "main-328895daa5d7"
+digest      = "sha256:31fbc9cdc9f7d7df25a95ffc5374060fe8fcb893c7ee233264d82cb528dca3f1"
+tag         = "main-3c349a2e38c1"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's owner.claim and media.serve contracts by calling Audiobookshelf, beside it, as the root account lemonfiber minted for it."
