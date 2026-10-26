@@ -26,14 +26,15 @@ reaches     = "the Usenet indexers you configured"
 asks_for    = "Searches several indexers at once and merges what they answer, with the keys you gave it."
 takes_data  = true
 user_mode   = "puid-env"
+native      = "nzbhydra2"
 replaces    = "nzbhydra2"
 
 [[service]]
 id          = "nzbhydra2-adapter"
 name        = "NZBHydra2 adapter"
 image       = "ghcr.io/lemonfiber/nzbhydra2-adapter"
-digest      = "sha256:784ac2fa0df7be043a8f1ddf63aba19a7f6d8743224ae3d2f30b0ea341800bfb"
-tag         = "main-9d879a0cdb1e"
+digest      = "sha256:3e03a4102a455a5f1ef44cf3985e2c1c97058753cdb347af8e45d50d140d31ca"
+tag         = "main-95bbd33b687b"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's owner.claim and indexer.search contracts by calling NZBHydra2, beside it, as the administrator lemonfiber minted for it."
