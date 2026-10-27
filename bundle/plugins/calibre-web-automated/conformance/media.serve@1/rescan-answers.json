@@ -1,0 +1,10 @@
+{
+  "recorded_from": "crocodilestick/calibre-web-automated@sha256:577e846f104fd21453ef306eefb4a95dd95b3b9ddd2463a150944494284da0fd",
+  "note": "The library looked over again; a fresh Calibre-Web-Automated has nothing to find.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/rescan", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "recorded_from": "crocodilestick/calibre-web-automated@sha256:577e846f104fd21453ef306eefb4a95dd95b3b9ddd2463a150944494284da0fd",
+  "note": "Calibre-Web-Automated plays nothing: what it holds is read, so this is unsupported.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/playing", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "Calibre-Web-Automated plays nothing: what it holds is read", "type": "unsupported"}
+  }
+}
