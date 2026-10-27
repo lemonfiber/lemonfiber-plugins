@@ -1,0 +1,10 @@
+{
+  "recorded_from": "crocodilestick/calibre-web-automated@sha256:577e846f104fd21453ef306eefb4a95dd95b3b9ddd2463a150944494284da0fd",
+  "note": "Not asked: the case names a member, read from identity.source@1, which Calibre-Web-Automated does not speak.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/signed_in", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "it speaks no identity.source@1, which identity.source@1/household-answers is a case of", "type": "unsupported"}
+  }
+}
