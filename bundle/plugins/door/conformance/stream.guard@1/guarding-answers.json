@@ -1,0 +1,63 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/door@sha256:e8fa70c407ba25320f0a8606681837b6bdc1cecad7c4b649639de32afebb2def",
+  "note": "The envelope the door is guarding with, read back after it was applied: the case's declaration, upstream, pass service and proxy, as applied.",
+  "request": {"method": "POST", "path": "/lemonfiber/stream.guard/v1/guarding", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {
+      "adapter": null,
+      "declared": {
+        "bytes": [
+          {
+            "exempt": ["^/items/playing/bytes$"],
+            "item": "^[0-9a-f]{32}$",
+            "naming": [
+              {"held": "refused", "parameter": "other"},
+              {
+                "held": {
+                  "asked": {"shape": "^[0-9a-f]{32}$"}
+                },
+                "parameter": "source"
+              }
+            ],
+            "pattern": "^/items/(?P<item>[^/]+)/bytes$"
+          }
+        ],
+        "live": [
+          {"pattern": "^/live/(?P<stream>[^/]+)/", "stream": "^[0-9a-f]{32}$"}
+        ],
+        "locations": {"backdrop": "{base}/items/{item}/backdrop", "poster": "{base}/items/{item}/poster", "stream": "{base}/items/{item}/bytes"},
+        "ports": {"encrypted": null, "internal_tls": null, "upstream": 80},
+        "question": {
+          "answers": {
+            "may": [
+              {"from": 200, "to": 299}
+            ],
+            "may_not": [
+              {"from": 404, "to": 404}
+            ],
+            "no_session": [
+              {"from": 401, "to": 401}
+            ],
+            "not_from_there": [
+              {"from": 403, "to": 403}
+            ]
+          },
+          "method": "get",
+          "path": "/items/{item}",
+          "to": "upstream"
+        },
+        "refused": ["^/everything/picture$"],
+        "token": {
+          "parameters": [],
+          "presented": "as-is",
+          "shape": "^[0-9a-f]{32}$"
+        }
+      },
+      "pass": "http://conformance-pass/pass",
+      "proxy": "127.0.0.1",
+      "upstream": "http://conformance-upstream"
+    }
+  }
+}
