@@ -16,7 +16,8 @@ name        = "Gluetun"
 image       = "qmcgaw/gluetun"
 digest      = "sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027"
 tag         = "v3.41.3"
-health      = { kind = "container" }
+listens     = 8000
+health      = { kind = "http", path = "/v1/vpn/status", timeout_s = 60 }
 criticality = "critical"
 memory_mib  = 50
 reaches     = "your VPN provider's servers"
@@ -26,18 +27,59 @@ shape       = "egress-guard"
 replaces    = "gluetun"
 
 [service.env]
-VPN_SERVICE_PROVIDER         = { setting = "gluetun:provider", default = "" }
-VPN_TYPE                     = "wireguard"
-SERVER_COUNTRIES             = { setting = "gluetun:countries", default = "Netherlands" }
-VPN_PORT_FORWARDING          = { setting = "gluetun:port-forwarding", default = "off" }
-VPN_PORT_FORWARDING_PROVIDER = { setting = "gluetun:provider", default = "" }
-PORT_FORWARD_ONLY            = { setting = "gluetun:port-forwarding", default = "off" }
-WIREGUARD_PRIVATE_KEY        = { secret = "wireguard-key" }
+VPN_TYPE                = { setting = "gluetun:vpn-type", default = "wireguard", recorded_with = "wireguard", one_of = ["wireguard", "openvpn"] }
+SERVER_COUNTRIES        = { setting = "gluetun:countries", default = "Netherlands" }
+VPN_PORT_FORWARDING     = { setting = "gluetun:port-forwarding", default = "off", one_of = ["off", { values = ["on"], needs = { "gluetun:provider" = ["perfect privacy", "private internet access", "privatevpn", "protonvpn"] } }] }
+PORT_FORWARD_ONLY       = { setting = "gluetun:port-forwarding", default = "off", needs = { "gluetun:provider" = ["private internet access", "protonvpn"] } }
+WIREGUARD_ADDRESSES     = { setting = "gluetun:addresses", default = "", recorded_with = "10.64.0.2/32", needs = { "gluetun:vpn-type" = ["wireguard"] } }
+WIREGUARD_ENDPOINT_IP   = { setting = "gluetun:endpoint-ip", default = "", recorded_with = "192.0.2.1", needs = { "gluetun:provider" = ["custom"] } }
+WIREGUARD_ENDPOINT_PORT = { setting = "gluetun:endpoint-port", default = "", recorded_with = "51820", needs = { "gluetun:provider" = ["custom"] } }
+WIREGUARD_PUBLIC_KEY    = { setting = "gluetun:endpoint-key", default = "", recorded_with = "minted", needs = { "gluetun:provider" = ["custom"] } }
+WIREGUARD_PRIVATE_KEY   = { secret = "wireguard-key" }
+WIREGUARD_PRESHARED_KEY = { secret = "wireguard-preshared-key" }
+OPENVPN_USER            = { secret = "openvpn-user" }
+OPENVPN_PASSWORD        = { secret = "openvpn-password" }
+
+[service.env.VPN_SERVICE_PROVIDER]
+setting       = "gluetun:provider"
+default       = ""
+recorded_with = "custom"
+one_of        = [
+    "fastestvpn", "ivpn", "mullvad", "nordvpn", "protonvpn", "surfshark", "windscribe",
+    { values = ["airvpn", "custom"], needs = { "gluetun:vpn-type" = ["wireguard"] } },
+    { values = [
+        "expressvpn", "giganews", "hidemyass", "ipvanish", "perfect privacy", "privado",
+        "private internet access", "privatevpn", "purevpn", "slickvpn", "torguard", "vyprvpn",
+    ], needs = { "gluetun:vpn-type" = ["openvpn"] } },
+]
 
 [[secret]]
-id  = "wireguard-key"
-of  = "gluetun"
-why = "Dial the tunnel to your VPN provider, which knows this machine by the key"
+id            = "wireguard-key"
+of            = "gluetun"
+why           = "Dial the tunnel to your VPN provider, which knows this machine by the key"
+recorded_with = "minted"
+needs         = { "gluetun:vpn-type" = ["wireguard"] }
+
+[[secret]]
+id            = "wireguard-preshared-key"
+of            = "gluetun"
+why           = "Dial AirVPN's tunnel, which asks for the key it shares with this machine beside its own"
+recorded_with = "minted"
+needs         = { "gluetun:vpn-type" = ["wireguard"], "gluetun:provider" = ["airvpn"] }
+
+[[secret]]
+id            = "openvpn-user"
+of            = "gluetun"
+why           = "Sign in to your VPN provider, which knows your account by this name"
+recorded_with = "minted"
+needs         = { "gluetun:vpn-type" = ["openvpn"] }
+
+[[secret]]
+id            = "openvpn-password"
+of            = "gluetun"
+why           = "Sign in to your VPN provider with your account's password"
+recorded_with = "minted"
+needs         = { "gluetun:vpn-type" = ["openvpn"] }
 
 [[claim]]
 capability = "network.egress-guard"
