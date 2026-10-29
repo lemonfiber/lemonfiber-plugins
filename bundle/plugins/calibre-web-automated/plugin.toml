@@ -41,6 +41,7 @@ listens     = 8080
 speaks      = ["owner.claim@1", "media.serve@1"]
 fronts      = "calibre-web-automated"
 provides    = ["media.serve"]
+media_types = ["books"]
 upstream    = { username = { secret = "admin-username" }, password = { secret = "admin-password" } }
 
 [[secret]]
