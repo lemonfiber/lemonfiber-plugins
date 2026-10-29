@@ -45,7 +45,7 @@
         {"pattern": "(?i)^(?:/emby|/mediabrowser)?/LiveTv/LiveStreamFiles/(?P<stream>[^/]+)/stream\\.", "stream": "^[0-9a-f]{32}$"}
       ],
       "locations": {"backdrop": "{base}/Items/{item}/Images/Backdrop", "poster": "{base}/Items/{item}/Images/Primary", "stream": "{base}/Videos/{item}/master.m3u8?MediaSourceId={item}&VideoCodec=h264,hevc&AudioCodec=aac,mp3,ac3,eac3&SegmentContainer=mp4"},
-      "ports": {"encrypted": 8920, "upstream": 8096},
+      "ports": {"encrypted": 8920, "internal_tls": 8920, "upstream": 8096},
       "question": {
         "answers": {
           "may": [

@@ -1,0 +1,6 @@
+{
+  "recorded_from": "docker.io/jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db",
+  "note": "The internal TLS port turned on with the throwaway certificate lemonfiber wrote into Jellyfin's configuration: the network settings are written and read back, and Jellyfin loads a certificate only when it starts, so it is in force once Jellyfin restarts.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/serve_tls", "accept": "application/json"},
+  "response": {"status": 205}
+}
