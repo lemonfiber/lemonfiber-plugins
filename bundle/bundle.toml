@@ -269,9 +269,9 @@ last_release = "2026-10-03"
 [[plugin]]
 id           = "calibre-web-automated"
 origin       = "https://github.com/lemonfiber/plugin-calibre-web-automated"
-revision     = "379949b253fd7a51dcf328edc0925d6fb1435751"
-manifest     = "sha256:5e66c973f3bb2ce89f319aee8645e81b9a32e7eed8c91844cd51f2c69656e766"
-tree         = "sha256:79229211672033a7e61bd1a062444af8f64864db08fe72ad2d92b917e8bf3520"
+revision     = "b0dfb4f4ba1d00cfff15aa19445688a7eddff592"
+manifest     = "sha256:018e8af2a76e5dfd377b77b3654c2b0f13ba733035c32e4d47e43d05632d06e2"
+tree         = "sha256:4820961ada255ab3b057299098b41cc0bba482c5e94ca95ae391e7e13e079257"
 fills        = ["media.serve"]
 stage        = "installed"
 profile      = "media"
