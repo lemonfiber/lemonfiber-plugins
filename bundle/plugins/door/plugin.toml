@@ -4,34 +4,41 @@ schema_version = 1
 id          = "door"
 name        = "Door"
 version     = "0.18.0"
-description = "Lets the household reach Jellyfin, and lets an item's stream or picture out only to someone allowed to see it"
-without_it  = "Jellyfin answers on this machine only, and nothing else in the house can play from it"
-upstream    = "https://github.com/caddyserver/caddy"
-license     = "Apache-2.0"
+description = "Lets the household reach the media server, and lets an item's stream or picture out only to someone allowed to see it"
+without_it  = "The media server answers on this machine only, and nothing else in the house can play from it"
+upstream    = "https://github.com/lemonfiber/lemonfiber-door"
+license     = "Hippocratic-3.0"
 forms       = ["library", "full"]
 
 [[service]]
 id          = "door"
 name        = "Door"
 image       = "ghcr.io/lemonfiber/door"
-digest      = "sha256:bb78c5b83612d5ad038be38da1ceb05c541c2502cdd95720ebbb1db3e1be0a55"
-tag         = "main-0c3ae0d8a425"
+digest      = "sha256:e8fa70c407ba25320f0a8606681837b6bdc1cecad7c4b649639de32afebb2def"
+tag         = "main-5b65b742fdf9"
 port        = 8096
 bind        = "lan"
 health      = { kind = "tcp", timeout_s = 30 }
 criticality = "important"
 memory_mib  = 50
 reaches     = ""
-asks_for    = "Nothing beyond this machine. It asks Jellyfin, beside it, whether the session a request presents may see the item it asks for, asks lemonfiber's pass service, beside it, whether the pass a live stream's request carries is good for that live stream, and fetches no certificate: it serves the one lemonfiber writes beside its configuration."
-config_path = "/etc/caddy"
+asks_for    = "Nothing beyond this machine. It asks the media server, beside it, whether the session a request presents may see the item it asks for, asks lemonfiber's pass service, beside it, whether the pass a live stream's request carries is good for that live stream, and fetches no certificate: it serves the one lemonfiber writes into its configuration, which it only reads."
+config_path = "/config"
 config_ro   = true
-tmpfs       = ["/data", "/config"]
+posture     = "confined"
 user_mode   = "uid"
 replaces    = "door"
 provides    = ["stream.guard"]
+listens     = 8096
+contract    = 8081
+speaks      = ["stream.guard@1"]
 
 [[service.publish]]
 port = 8920
+
+[[service.mount]]
+from = "state"
+to   = "/state"
 
 [[proof]]
 id      = "door.refuses-an-id-in-braces"
@@ -61,15 +68,14 @@ expect  = { status = 403 }
 
 [[proof]]
 id      = "door.version"
-title   = "The image's own Caddy says which release it is"
-run     = { args = ["caddy", "version"] }
-expect  = { exit = 0, stdout_starts_with = "v2.11.6 " }
+title   = "The image's own program says which release it is"
+run     = { args = ["version"] }
+expect  = { exit = 0, stdout_starts_with = "lemonfiber-door " }
 fixture = "recordings/door/version.json"
 why     = """
-Every other proof here is a status the configuration chose, which a port proxy
-or another server could give as well. Run as the image's own command, Caddy
-names the release it was built from, which says the image is the Caddy this
-part is built on, at the release its Dockerfile pins.
+Every other proof here is a status the door chose, which a port proxy or another
+server could give as well. Run as the image's own program, the door names the
+release it was built as, which says the image is lemonfiber-door's.
 """
 
 [[ask]]
@@ -77,12 +83,3 @@ capability = "media.serve"
 
 [[ask]]
 capability = "proxy.front"
-
-[[claim]]
-capability = "stream.guard"
-
-[[claim.probe]]
-id      = "refuses"
-request = { method = "GET", path = "/Videos/%7Bdeadbeef-0000-0000-0000-000000000000%7D/stream?static=true" }
-expect  = { status = 403 }
-fixture = "recordings/door/stream-guard-refuses.json"

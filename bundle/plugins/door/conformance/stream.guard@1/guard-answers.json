@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/door@sha256:e8fa70c407ba25320f0a8606681837b6bdc1cecad7c4b649639de32afebb2def",
+  "note": "The case's envelope applied: the door checks it, keeps it under /state and answers that it holds it.",
+  "request": {"method": "POST", "path": "/lemonfiber/stream.guard/v1/guard", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

@@ -292,11 +292,11 @@ last_release = "2026-10-06"
 [[plugin]]
 id           = "door"
 origin       = "https://github.com/lemonfiber/plugin-door"
-revision     = "c49b900e621b57dc54fbfb488f5db0572451e6a7"
-manifest     = "sha256:a8300ba721011341b8293a6cf1ee7cc181f5ee5d2d7111f7934dc26e2fcfc19f"
-tree         = "sha256:adcf14ca0646e60fc632ea0afdad3ac116285efe44fb69ce48f5f4d05183622a"
+revision     = "6aa242c06b35dd15fe64a1f4ab153714e02fd076"
+manifest     = "sha256:7ac150e0eac1bef3aab1d2f76367a94263a2129c00d179b39d47c3844d07c295"
+tree         = "sha256:2d019deb3b4d8c84772f89175cb7196ea1c758b2b297cf317c1931874edc1f38"
 fills        = ["stream.guard"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "media"
 last_release = "2026-10-03"
 
