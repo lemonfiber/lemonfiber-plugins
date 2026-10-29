@@ -229,7 +229,7 @@ def own_files() -> dict[str, str]:
 
 
 def built_files() -> dict[str, str]:
-    """The built-part variant: the bundled-part's files, a Dockerfile and a prepare script."""
+    """The built-part variant: the bundled-part's files and a Dockerfile."""
     plugin = tomllib.loads(OWN)
     files = {path: text for path, text in own_files().items() if path not in ("README.md", "AGENTS.md")}
     marks = {path: b"" for path in ("config/own/own.ini", "recordings/own/r.json")}
@@ -238,7 +238,6 @@ def built_files() -> dict[str, str]:
                      + convert.readme(plugin["plugin"], plugin["service"][0], marks, True),
         "AGENTS.md": convert.agents(plugin["plugin"], True),
         "Dockerfile": "FROM scratch\n",
-        "posture/prepare": "#!/bin/sh\nexit 0\n",
         ".github/workflows/image.yml": "name: image\n",
     })
     return files
@@ -484,9 +483,8 @@ def built_cases() -> list[Case]:
     undigested = ran(changed("services/part.toml", f'digest = "sha256:{"a" * 64}"\n', ""), template_files(), variant=convert.BUILT)
     return [
         ("the built-part variant writes a part whose image lemonfiber builds", True, code == 0 and not refused),
-        ("it takes the variant's image workflow, and not its Dockerfile or prepare script", True,
-         held.get("Dockerfile", b"") != b"FROM scratch\n" and ".github/workflows/image.yml" in held
-         and not any(path.startswith("posture/") for path in held)),
+        ("it takes the variant's image workflow, and not its Dockerfile", True,
+         held.get("Dockerfile", b"") != b"FROM scratch\n" and ".github/workflows/image.yml" in held),
         ("it writes a Dockerfile from the image, tag and digest the stack pins", True,
          upstream[4].get("Dockerfile") == f"FROM lscr.io/linuxserver/part:1.2.3@sha256:{'a' * 64}\n".encode()),
         ("its README says the image is built here and the train tags it", True,
@@ -571,12 +569,15 @@ def round_trip_cases() -> list[Case]:
     manifest = tomllib.loads(convert.written(tomllib.loads(OWN)))
     odd = {"schema_version": 1, "plugin": {"id": "x"},
            "service": [{"id": "x", "env": {"A B": {"setting": "x:y", "default": "q\"uote\n"}},
+                        "certificate": {"key": "key.pem", "certificate": "certificate.pem", "names": ["x"]},
                         "publish": [{"port": 1}, {"port": 2, "listens": 3}]}],
            "claim": [{"capability": "c", "probe": [{"id": "p", "expect": {"json": {"a": [1, True]}}}]}]}
     return [
         ("a manifest reads back as what it was written from", True, manifest == tomllib.loads(OWN)),
         ("quoted keys, a section, arrays of tables and nested values read back", True,
          tomllib.loads(convert.written(odd)) == odd),
+        ("a certificate is written as a section of its own", True,
+         "[service.certificate]" in convert.written(odd)),
     ]
 
 

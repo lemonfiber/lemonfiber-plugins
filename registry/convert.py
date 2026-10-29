@@ -69,7 +69,6 @@ VARIANT = "bundled-part"
 BUILT = "built-part"
 VARIANTS = (VARIANT, BUILT)
 DOCKERFILE = "Dockerfile"
-POSTURE = "posture/"
 READER = ".github/reader/reader.py"
 PROOFS = "proofs.json"
 TARGETS = "targets.toml"
@@ -81,9 +80,9 @@ CARRIED = (
     "id", "name", "image", "digest", "tag", "port", "bind", "listens", "publish", "health",
     "criticality", "memory_mib", "mem_limit_mib", "reaches", "asks_for", "provides", "api",
     "takes_data", "config_path", "config_ro", "mount", "tmpfs", "user_mode", "posture",
-    "network", "shape", "media_types", "replaces", "env",
+    "network", "shape", "media_types", "replaces", "env", "certificate",
 )
-SECTIONS = ("env",)
+SECTIONS = ("env", "certificate")
 TO_PLUGIN = {"describes": "description", "without_it": "without_it", "upstream": "upstream",
              "license": "license"}
 PLUGIN_ORDER = ("id", "name", "version", "description", "without_it", "upstream", "license", "forms")
@@ -93,7 +92,7 @@ QUIET_WHEN_FALSE = ("host_managed",)
 ASK_KEYS = {"by", "asks", "each", "filled_by", "why"}
 LINK_KEYS = {"by", "to", "why"}
 
-PART_PATHS = (MANIFEST, PROOFS, f"{tree.CONFIG}/", f"{RECORDINGS}/", POSTURE, DOCKERFILE)
+PART_PATHS = (MANIFEST, PROOFS, f"{tree.CONFIG}/", f"{RECORDINGS}/", DOCKERFILE)
 WRITTEN = (README, AGENTS)
 KEPT = (
     ".editorconfig", ".githooks/", ".markdownlint.jsonc", "typos.toml", "LICENSE", "CLAUDE.md",
@@ -523,9 +522,9 @@ def agents(plugin: dict, builds: bool = False) -> str:
         "- **Every service declares `reaches` and `asks_for`** (`ARCH-R270`).",
         "- **No Python here.** The reader is spec's `first-party-plugin` workflow's.",
         *(["- **The image is built here** (`OPS-R90`). The `Dockerfile` builds it from",
-           "  its upstream's, and it runs under the posture its manifest declares (`ARCH-R250`);",
-           "  `posture/prepare`, where there is one, gives it what lemonfiber writes at",
-           "  install. Its pin moves on the release app's rolling pull request."] if builds else
+           "  its upstream's, and it runs under the posture its manifest declares (`ARCH-R250`).",
+           "  A certificate it serves with is declared in `plugin.toml` and made by",
+           "  lemonfiber (`ARCH-R356`). Its pin moves on the release app's rolling pull request."] if builds else
           [f"- **The image is {name}'s own**, so this repository is never tagged. Moving",
            "  the digest means recording every response again against the new image in",
            "  the same change, and committing the `proofs.json` the checks write."]),
