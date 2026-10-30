@@ -26,14 +26,31 @@ asks_for    = "Nothing beyond this machine. It reads the other services' own API
 config_path = "/app/config"
 user_mode   = "puid-env"
 replaces    = "homepage"
-provides    = ["dashboard.show"]
 
 [service.env]
 HOMEPAGE_ALLOWED_HOSTS = { setting = "homepage:allowed-hosts", default = "localhost:3000" }
 HOMEPAGE_VAR_LAN_HOST  = { setting = "lan-host", default = "localhost" }
 
+[[service]]
+id            = "homepage-adapter"
+name          = "Homepage adapter"
+image         = "ghcr.io/lemonfiber/homepage-adapter"
+digest        = "sha256:94641ed7b7136a8eecf36c29fa4899bdf953c7e3525d9676419b9e9e49151be6"
+tag           = "main-f057622d1f6a"
+criticality   = "optional"
+reaches       = ""
+asks_for      = "Nothing beyond this machine. It answers lemonfiber's dashboard.show contract by writing the groups and widgets lemonfiber hands it into the two files Homepage, beside it, reads."
+config_path   = "/config"
+listens       = 8080
+speaks        = ["dashboard.show@1"]
+fronts        = "homepage"
+provides      = ["dashboard.show"]
+shares_config = "/homepage"
+posture       = "confined"
+
 [[proof]]
 id      = "homepage.healthy"
+service = "homepage"
 title   = "Homepage says it is up once it has read its configuration"
 request = { method = "GET", path = "/api/healthcheck" }
 expect  = { status = 200, body_starts_with = "up" }
@@ -46,6 +63,7 @@ status alone could not say of a client-routed page.
 
 [[proof]]
 id      = "homepage.services"
+service = "homepage"
 title   = "Homepage lists the groups of services its configuration names"
 request = { method = "GET", path = "/api/services" }
 expect  = { status = 200, content_type = "application/json", json_array_min = 1 }
@@ -56,16 +74,8 @@ the starting configuration. An empty list would be a dashboard of nothing.
 """
 
 [[ask]]
+service    = "homepage"
 capability = "proxy.front"
-
-[[claim]]
-capability = "dashboard.show"
-
-[[claim.probe]]
-id      = "shows"
-request = { method = "GET", path = "/api/services" }
-expect  = { status = 200, json_array_min = 0 }
-fixture = "recordings/homepage/dashboard-show-shows.json"
 
 [[wiring]]
 service  = "homepage"

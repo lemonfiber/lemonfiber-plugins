@@ -325,11 +325,11 @@ last_release = "2026-07-30"
 [[plugin]]
 id           = "homepage"
 origin       = "https://github.com/lemonfiber/plugin-homepage"
-revision     = "9b0af9eae6cffcadfdfe626f32f09abb0e249ab8"
-manifest     = "sha256:39828f9b780260cd877f05fcdc52c791fac5bb27a1dde6a48f09ef686b2a564e"
-tree         = "sha256:935f77f5522dca6b10bb12238a73c496ff28180475e48ae6f6b4af3260a28898"
+revision     = "97fa97538f58cd34d2fc12715699b648ccbdccb4"
+manifest     = "sha256:5c36594e9b80832d3c79d8a2b4bbae29b29ba9e362b52c4341fe89c5c6c3ae81"
+tree         = "sha256:7b4d9198f5605f63ed90e7a03f0b285cf9e9a997a73e50d1d419293f6c50507a"
 fills        = ["dashboard.show"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "dash"
 last_release = "2026-09-17"
 
