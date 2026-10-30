@@ -799,12 +799,63 @@ def template_targets() -> list[Case]:
     return cases
 
 
+UPSTREAM_DIGEST = "sha256:" + "3a" * 32
+BUILT_ON_UPSTREAM = f"FROM docker.io/jellyfin/jellyfin:10.10.7@{UPSTREAM_DIGEST}\nUSER 1000:1000\n".encode()
+BUILT_ON_A_BASE = f"FROM gcr.io/distroless/static@{UPSTREAM_DIGEST}\n".encode()
+
+
+def first_pins() -> list[Case]:
+    """A built part's revision still running what its `Dockerfile` builds on is neither moved to
+    nor held: only one running the image it builds reaches the bundle (ARCH-R285)."""
+    read = bundle.read(stack_of(PINS))
+    with tempfile.TemporaryDirectory() as box:
+        root = pathlib.Path(box)
+        trees = {name: {**TREES["jellyfin"], "Dockerfile": dockerfile} for name, dockerfile in (
+            ("upstream", BUILT_ON_UPSTREAM), ("base", BUILT_ON_A_BASE),
+            ("untagged", b"FROM docker.io/jellyfin/jellyfin\n"))}
+        laid(root / "trees", {**trees, "none": TREES["jellyfin"]})
+        unshipped = {name: parts.unshipped_problems("jellyfin", bundle.parsed(TREES["jellyfin"]["plugin.toml"]),
+                                                    root / "trees" / name)
+                     for name in ("upstream", "base", "untagged", "none")}
+        own = bundle.parsed(TREES["jellyfin"]["plugin.toml"].replace(
+            b'image = "docker.io/jellyfin/jellyfin"', b'image = "ghcr.io/lemonfiber/jellyfin"'))
+        refused_move = refuses(lambda: bundle.moved_tree(PINS["jellyfin"], "f" * 40, root / "trees" / "upstream", read))
+        moved_beside_a_base, _ = bundle.moved_tree(PINS["jellyfin"], "f" * 40, root / "trees" / "base", read)
+        revision = committed(root / "origin", trees["upstream"])
+        laid(root / "held", {"jellyfin": TREES["jellyfin"]})
+        pinned = {**PINS["jellyfin"], "revision": revision}
+        kept, check.holds = check.holds, lambda source, carried=None: (True, [])
+        try:
+            with served(root / "origin", PINS["jellyfin"]["origin"]), contextlib.redirect_stderr(io.StringIO()):
+                held, said = bundle.held_to_origin(pinned, root / "held" / "jellyfin")
+        finally:
+            check.holds = kept
+    return [
+        ("the last FROM names the image, its flags, tag, digest and stage aside", True,
+         [parts.built_on(text) for text in (
+             f"FROM rust@{UPSTREAM_DIGEST} AS build\nFROM --platform=$BUILDPLATFORM caddy:2.11.6@{UPSTREAM_DIGEST} AS door\n",
+             "from localhost:5000/x/y:1\n", "RUN true\n")] == ["caddy", "localhost:5000/x/y", None]),
+        ("a part still running what its Dockerfile builds on ships nothing, at any digest", True,
+         bool(unshipped["upstream"]) and bool(unshipped["untagged"])
+         and "ghcr.io/lemonfiber/jellyfin" in unshipped["upstream"][0]),
+        ("a Dockerfile building on another image, or none, ships", True,
+         unshipped["base"] == [] and unshipped["none"] == []),
+        ("a part running the image it builds ships", True,
+         parts.unshipped_problems("jellyfin", own, root) == []),
+        ("the train does not move a pin to a revision before its first pin", True, refused_move),
+        ("the train moves a pin to a revision building on another image", True,
+         moved_beside_a_base["revision"] == "f" * 40),
+        ("a pin of a revision before its first pin does not hold", True,
+         held is False and any("ships only once" in line for line in said)),
+    ]
+
+
 def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(),
                                 *stack_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(), *target_shapes(),
-                                *template_targets()):
+                                *template_targets(), *first_pins()):
         print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")
         failures += expected != got
     print("\nself-test passed." if not failures else f"\n{failures} rule(s) did not refuse.")
