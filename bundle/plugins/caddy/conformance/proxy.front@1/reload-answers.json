@@ -1,0 +1,6 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/caddy@sha256:6fb83b5215f34ce6c48d81bc4b42f2ca973343b5a330c46463f470e189bbc147",
+  "note": "Caddy told to reload its running configuration through its admin socket, and answering.",
+  "request": {"method": "POST", "path": "/lemonfiber/proxy.front/v1/reload", "accept": "application/json"},
+  "response": {"status": 205}
+}

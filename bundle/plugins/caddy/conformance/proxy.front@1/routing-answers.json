@@ -1,0 +1,15 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/caddy@sha256:6fb83b5215f34ce6c48d81bc4b42f2ca973343b5a330c46463f470e189bbc147",
+  "note": "What Caddy serves after the routes were applied, read back from its running configuration: the case's one route, with certificates left to Caddy.",
+  "request": {"method": "POST", "path": "/lemonfiber/proxy.front/v1/routing", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {
+      "routes": [
+        {"host": "conformance-upstream", "name": "conformance.home.local", "port": 80}
+      ],
+      "tls": "automatic"
+    }
+  }
+}

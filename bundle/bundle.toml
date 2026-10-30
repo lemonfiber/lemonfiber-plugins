@@ -258,11 +258,11 @@ last_release = "2026-10-18"
 [[plugin]]
 id           = "caddy"
 origin       = "https://github.com/lemonfiber/plugin-caddy"
-revision     = "a19a90a9cab69f46e9c53d840770b2cb46a88651"
-manifest     = "sha256:091e4af8bdb2441509a440c255d69f7536045a9fd8284905f32a71b0b1a6a41b"
-tree         = "sha256:bca69230f9592f3ab9d895f86d1cb3b1bdbd4c8c2687b67f4c94ce6a95092ada"
+revision     = "56b7439b305037fff467ac0e6684ec5b5052d52a"
+manifest     = "sha256:3cc0e93891f0582abde43e5b4dccf96040a06231a09ba4ada05ebb5b5503bcd9"
+tree         = "sha256:b16f67975760a19627fc34dcc941298d091a8a2acf1c6203608a8a75a19121d2"
 fills        = ["proxy.front"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "proxy"
 last_release = "2026-10-03"
 
