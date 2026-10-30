@@ -1,0 +1,25 @@
+{
+  "recorded_from": "ghcr.io/gethomepage/homepage@sha256:a0b71c8e757298d02560186bab9fbe3fc2d375c523a62cc1019177b37e48aa28",
+  "note": "The panel list last applied, read back from the record the adapter keeps beside Homepage's files, which both still match.",
+  "request": {"method": "POST", "path": "/lemonfiber/dashboard.show/v1/panels", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {
+      "groups": [
+        {
+          "entries": [
+            {"check": "http://conformance-curator:58989", "description": "conformance", "icon": "conformance", "link": "http://conformance-curator:58989", "name": "conformance", "widget": null}
+          ],
+          "name": "conformance"
+        }
+      ],
+      "widgets": [
+        "resources",
+        {
+          "search": {"url": "http://conformance-search/?q="}
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/gethomepage/homepage@sha256:a0b71c8e757298d02560186bab9fbe3fc2d375c523a62cc1019177b37e48aa28",
+  "note": "The case's groups and widgets written into the services and widgets files Homepage reads, and the panel list read back as written.",
+  "request": {"method": "POST", "path": "/lemonfiber/dashboard.show/v1/apply", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}
