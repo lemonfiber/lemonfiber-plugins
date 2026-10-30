@@ -93,3 +93,7 @@ capability = "proxy.front"
 [[ask]]
 service    = "audiobookshelf"
 capability = "dashboard.show"
+
+[[wiring]]
+service  = "audiobookshelf"
+hostname = "listen"
