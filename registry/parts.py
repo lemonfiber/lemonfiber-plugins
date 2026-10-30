@@ -1,7 +1,9 @@
 """What a schema 2 bundle holds each pinned part's manifest to, and what holds across them.
 
-Per part (ARCH-R266, ARCH-R96, ARCH-R97, ARCH-R222, ARCH-R270, ARCH-R272, F2-R5, OPS-R86,
-REPO-R92): its stage, its services, its fills, its forms, its licence and its release.
+Per part (ARCH-R266, ARCH-R96, ARCH-R97, ARCH-R222, ARCH-R270, ARCH-R272, ARCH-R285, F2-R5,
+OPS-R86, REPO-R92): its stage, its services, its fills, its forms, its licence, its release,
+and, from its origin's tree, that it runs the image it builds rather than what that image
+builds on.
 Across the parts: the reserved register of ids, published ports and proxy hostnames
 (ARCH-R269), and the services and asks the bundle's wiring names (ARCH-R268).
 """
@@ -25,6 +27,8 @@ HOUSEHOLD = "lan"
 PROXY = "proxy.front"
 DOMAIN = ".{$DOMAIN"
 LABEL = re.compile(r"\A[a-z0-9-]+\Z")
+DOCKERFILE = "Dockerfile"
+REFERENCE = re.compile(r"((?:[^@/:]+(?::[0-9]+)?/)?[^@:]+)(?::[^@/]+)?(?:@sha256:[0-9a-f]{64})?")
 
 Register = dict[tuple[str, str], set[str]]
 
@@ -72,6 +76,33 @@ def plugin_of(manifest: dict) -> dict:
     """A manifest's `[plugin]` table, or nothing where it has none."""
     plugin = manifest.get("plugin")
     return plugin if isinstance(plugin, dict) else {}
+
+
+def built_on(dockerfile: str) -> str | None:
+    """The image the last `FROM` of `dockerfile` names, its flags, tag, digest and stage aside."""
+    stages = [line.split()[1:] for line in dockerfile.splitlines()
+              if line.split()[:1] and line.split()[0].upper() == "FROM"]
+    words = [word for word in (stages[-1] if stages else []) if not word.startswith("--")]
+    found = REFERENCE.fullmatch(words[0]) if words else None
+    return found.group(1) if found else None
+
+
+def unshipped_problems(name: str, manifest: dict, root: pathlib.Path) -> list[str]:
+    """A built part's revision whose service of its id still runs the image its `Dockerfile`
+    builds on, at any digest, rather than the image it builds: one that ships nothing, since
+    what it installs is the upstream its `Dockerfile` adapts (ARCH-R285)."""
+    dockerfile = root / DOCKERFILE
+    if not dockerfile.is_file():
+        return []
+    base = built_on(dockerfile.read_text(encoding="utf-8", errors="replace"))
+    own = f"{OWN_IMAGES}{name}"
+    return [
+        f"service {name} runs {service.get('image')}, the image its {DOCKERFILE} builds on, not "
+        f"{own}, the image it builds: a revision ships only once the first pin of that image merges"
+        for service in services_of(manifest)
+        if service.get("id") == name and base is not None
+        and service.get("image") != own and service.get("image") == base
+    ]
 
 
 def assembled_problems(name: str, manifest: dict, services: list[dict]) -> list[str]:

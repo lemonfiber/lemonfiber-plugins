@@ -20,8 +20,11 @@ twice (ARCH-R269).
 
 Every copy is fetched again from its origin at the pinned revision and compared, the
 revision has to be on its origin's default branch, and it is held to what `check.py`
-holds a registration to (REPO-R61). Nothing from a pinned repository is executed
-(REPO-R62).
+holds a registration to (REPO-R61). A revision whose service of the plugin's id still
+runs the image its `Dockerfile` builds on, at any digest, rather than
+`ghcr.io/lemonfiber/<id>`, is held by no pin and moved to by no apply: it ships nothing
+until the first pin of the image it builds merges (ARCH-R285). Nothing from a pinned
+repository is executed (REPO-R62).
 
 `--offline` holds the bundle and every copy to the contract with nothing fetched. The
 train runs it on the files it is about to commit.
@@ -574,6 +577,9 @@ def held_to_origin(pin: dict, copy: bytes | pathlib.Path) -> tuple[bool, list[st
         differs = differing(ours, theirs)
         if differs:
             return False, differs
+        unshipped = parts.unshipped_problems(pin["id"], parsed((source / tree.MANIFEST).read_bytes()), source)
+        if unshipped:
+            return False, unshipped
         holds, said = check.holds(source, [path for path, _ in theirs if path != tree.MANIFEST])
         return holds, ["the copy is the origin's tree at the pinned revision", *said]
 
@@ -623,7 +629,8 @@ def moved_tree(pin: dict, revision: str, source: pathlib.Path, bundle: Bundle) -
         "manifest": index.digest(manifest),
         "tree": tree.digest(files),
     }
-    said = parts.part_problems(to, parsed(manifest), bundle.table("form"))
+    said = [*parts.part_problems(to, parsed(manifest), bundle.table("form")),
+            *parts.unshipped_problems(pin["id"], parsed(manifest), source)]
     if said:
         raise Refusal(f"{pin['id']} at {revision[:12]}: {'; '.join(said)}")
     return to, files
