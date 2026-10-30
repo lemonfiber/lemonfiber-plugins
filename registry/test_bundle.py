@@ -537,6 +537,39 @@ def stack_shapes() -> list[Case]:
     ]
 
 
+FENCE = f"""[fence]
+image  = "ghcr.io/lemonfiber/fence"
+tag    = "0.18.0"
+digest = "sha256:{"a" * 64}"
+
+"""
+
+
+def fence_shapes() -> list[Case]:
+    """`read` of the image the bundle pins apart from its parts, against each shape it refuses."""
+    good = STACK + FENCE + bundle.rendered(list(PINS.values()), 2)
+    refused = [
+        ("a fence image published elsewhere refused", good.replace('"ghcr.io/lemonfiber/fence"', '"ghcr.io/else/fence"')),
+        ("a fence tag with its v refused", good.replace('"0.18.0"\ndigest', '"v0.18.0"\ndigest')),
+        ("a fence digest that is not one refused", good.replace(f'"sha256:{"a" * 64}"', '"sha256:abc"')),
+        ("a fence with no digest refused", good.replace(f'digest = "sha256:{"a" * 64}"\n', "")),
+        ("a fence saying more refused", good.replace('tag    = "0.18.0"\n', 'tag    = "0.18.0"\nsize = "1"\n')),
+        ("a fence that is not a table refused", good.replace(FENCE, 'fence = "ghcr.io/lemonfiber/fence"\n\n')),
+        ("a fence at schema 1 refused", EMPTY + '\n[fence]\nimage = "ghcr.io/lemonfiber/fence"\n'),
+        ("a fence after the pins refused", STACK + bundle.rendered(list(PINS.values()), 2) + "\n" + FENCE),
+    ]
+    read = bundle.read(good)
+    return [
+        ("a fence image pinned beside the parts is read", False, refuses(lambda: bundle.read(good))),
+        ("the fence image is read as pinned", True,
+         read.images == {"fence": {"image": "ghcr.io/lemonfiber/fence", "tag": "0.18.0", "digest": f"sha256:{'a' * 64}"}}),
+        ("a pre-release fence tag is read", False,
+         refuses(lambda: bundle.read(good.replace('"0.18.0"\ndigest', '"0.18.0-beta.1"\ndigest')))),
+        ("a bundle without a fence pins none", True, bundle.read(stack_of(PINS)).images == {}),
+        *((what, True, refuses(lambda text=text: bundle.read(text))) for what, text in refused),
+    ]
+
+
 def tree_refusals() -> list[tuple[str, str, tuple[str, dict]]]:
     """Each way a schema 2 copy can fail its pin or the contract, what is said of it, and the
     bundle and copies, each pin following its digests."""
@@ -854,8 +887,8 @@ def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(),
-                                *stack_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(), *target_shapes(),
-                                *template_targets(), *first_pins()):
+                                *stack_shapes(), *fence_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(),
+                                *target_shapes(), *template_targets(), *first_pins()):
         print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")
         failures += expected != got
     print("\nself-test passed." if not failures else f"\n{failures} rule(s) did not refuse.")
