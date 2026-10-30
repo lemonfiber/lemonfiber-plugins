@@ -413,11 +413,11 @@ last_release = "2026-09-16"
 [[plugin]]
 id           = "recyclarr"
 origin       = "https://github.com/lemonfiber/plugin-recyclarr"
-revision     = "1f011aeae4603b350eae1f73fcc52de9c65a37cf"
-manifest     = "sha256:09ee095dd26baf5d856116e0cc0981967092bb9c7367e5fec36fb823f015aeb1"
-tree         = "sha256:f282cd975ce45a62e2ccff1257340fcf28b7b7c2c66b904b3c51c3337fbe1c6f"
+revision     = "f70c5a640f4c263f0737dc8902712bdaeec4d054"
+manifest     = "sha256:ecd66bf88efd1cade21be95ccb2aca37b30335c11f462edb201e22d69957d950"
+tree         = "sha256:c740dee49fcb19287a35ecfb8dd48d8e7e3a05484b464221651ab2ef705c74ea"
 fills        = ["quality.sync"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "tuning"
 last_release = "2026-10-05"
 
