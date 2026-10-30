@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/hotio/unpackerr@sha256:724c702e81727e3d90c42cf2b3d900674203906a6d135ba07416c9a3f9f67fbb",
+  "note": "What Unpackerr is extracting, as the events it posted the adapter say: nothing, since no download was put in front of it.",
+  "request": {"method": "POST", "path": "/lemonfiber/archive.extract/v1/working", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": []
+  }
+}

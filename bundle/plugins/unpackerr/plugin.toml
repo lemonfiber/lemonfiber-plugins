@@ -25,36 +25,32 @@ asks_for    = "Nothing. It watches the download directories and extracts archive
 takes_data  = true
 user_mode   = "puid-env"
 replaces    = "unpackerr"
-provides    = ["archive.extract"]
 
 [service.env]
 UMASK                    = { setting = "unpackerr:umask", default = "002" }
 UN_WEBSERVER_METRICS     = "true"
 UN_WEBSERVER_LISTEN_ADDR = "0.0.0.0:5656"
-UN_SONARR_0_URL          = { url_of = "library.curate", files = "tv", native = "servarr" }
-UN_RADARR_0_URL          = { url_of = "library.curate", files = "movies", native = "servarr" }
-UN_LIDARR_0_URL          = { url_of = "library.curate", files = "music", native = "servarr" }
-UN_SONARR_0_API_KEY      = { secret = "tv-key" }
-UN_RADARR_0_API_KEY      = { secret = "movies-key" }
-UN_LIDARR_0_API_KEY      = { secret = "music-key" }
 
-[[secret]]
-id  = "tv-key"
-of  = "sonarr"
-why = "Tell the television curator an extraction is ready to import"
-
-[[secret]]
-id  = "movies-key"
-of  = "radarr"
-why = "Tell the film curator an extraction is ready to import"
-
-[[secret]]
-id  = "music-key"
-of  = "lidarr"
-why = "Tell the music curator an extraction is ready to import"
+[[service]]
+id            = "unpackerr-adapter"
+name          = "Unpackerr adapter"
+image         = "ghcr.io/lemonfiber/unpackerr-adapter"
+digest        = "sha256:c6f5735f8f0937efe513216e43e21c0bba3f2a2b43e2bcae5731c0a04d4a0cea"
+tag           = "main-612ed5f5f29b"
+criticality   = "optional"
+reaches       = ""
+asks_for      = "Nothing beyond this machine. It answers lemonfiber's archive.extract contract by writing the curators lemonfiber hands it into the configuration Unpackerr, beside it, reads, and hears what Unpackerr extracts from the events it posts back."
+config_path   = "/config"
+listens       = 8080
+speaks        = ["archive.extract@1"]
+fronts        = "unpackerr"
+provides      = ["archive.extract"]
+shares_config = "/unpackerr"
+posture       = "confined"
 
 [[proof]]
 id      = "unpackerr.metrics"
+service = "unpackerr"
 title   = "Unpackerr answers its metrics in Prometheus's text format"
 request = { method = "GET", path = "/metrics" }
 expect  = { status = 200, content_type = "text/plain; version=0.0.4", body_starts_with = "# HELP go_gc_duration_seconds" }
@@ -65,12 +61,3 @@ its declaration, is the one place it says anything about its work, and the
 exposition format is what says the answer is Unpackerr's and not an empty
 port.
 """
-
-[[claim]]
-capability = "archive.extract"
-
-[[claim.probe]]
-id      = "working"
-request = { method = "GET", path = "/metrics" }
-expect  = { status = 200, content_type = "text/plain; version=0.0.4", body_starts_with = "# HELP " }
-fixture = "recordings/unpackerr/archive-extract-working.json"
