@@ -1,0 +1,5 @@
+[[roles]]
+name = "lemonfiber"
+routes = ["GET /v1/vpn/status", "GET /v1/portforward"]
+auth = "apikey"
+apikey = "{{secret:control-key}}"

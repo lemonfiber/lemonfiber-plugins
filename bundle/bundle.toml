@@ -314,11 +314,11 @@ last_release = "2026-09-12"
 [[plugin]]
 id           = "gluetun"
 origin       = "https://github.com/lemonfiber/plugin-gluetun"
-revision     = "47c56c10935b3029ff4af2741e8162c3f58dd358"
-manifest     = "sha256:c7e97b18a3552d840c5907bdd5b4c1f72162f49a7dcdf5eae7748094d39db6a4"
-tree         = "sha256:8ffc61da336eb82a260db2c45a16abfab70689db628905d7fbabe6ccd4728b03"
+revision     = "5bc83addce5bb220d4c62f25ea84b3ad7729472d"
+manifest     = "sha256:d65595df8e16576bb2fcfeabb47b2985f6db053c978665ba03ea6c20b4a03ec9"
+tree         = "sha256:8cd4525b3493351bb6166593c7a8bd8af9e38fe33ec5304c9bca662ec8c39cf7"
 fills        = ["network.egress-guard"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "torrent"
 last_release = "2026-07-30"
 
