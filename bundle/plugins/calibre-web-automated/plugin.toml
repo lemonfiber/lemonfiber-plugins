@@ -72,3 +72,7 @@ expect  = { status = 401, body_starts_with = "Unauthorized Access" }
 [[ask]]
 service    = "calibre-web-automated"
 capability = "proxy.front"
+
+[[wiring]]
+service  = "calibre-web-automated"
+hostname = "books"

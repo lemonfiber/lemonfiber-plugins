@@ -66,3 +66,7 @@ id      = "shows"
 request = { method = "GET", path = "/api/services" }
 expect  = { status = 200, json_array_min = 0 }
 fixture = "recordings/homepage/dashboard-show-shows.json"
+
+[[wiring]]
+service  = "homepage"
+hostname = "home"
