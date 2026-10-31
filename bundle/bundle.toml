@@ -280,12 +280,11 @@ last_release = "2026-02-04"
 [[plugin]]
 id           = "decline"
 origin       = "https://github.com/lemonfiber/lemonfiber-decline"
-release      = "0.17.0"
-revision     = "ff03d0dc7ef4ac23992562ea5a3beb73bb3bea35"
-manifest     = "sha256:5b51a4510191f075c994ec7385e52c05520cf93013ca1f8f269223decdf68874"
-tree         = "sha256:b60ffb37d913aa0037334813a6cade9a3f67c2d64b479ce548ea18303cabfe31"
+revision     = "d3911553b3ef6feda24b2ea8a4aa718ebcbc396b"
+manifest     = "sha256:c7ee07dec41dc67be264a3b3a69ed3f5b83a59c87624e0a97ab4a49c97ae2bca"
+tree         = "sha256:1f7fc241ad2fa36254d0ddbd576f4e2b008a526c2dfb4cef1124dac655ad7e28"
 fills        = ["invite.decline"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "media"
 last_release = "2026-10-06"
 
