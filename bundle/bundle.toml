@@ -222,6 +222,15 @@ removed_in  = "0.1.0"
 reason      = "Discontinued upstream in 2025. Its repository is archived, so the pin could only ever age."
 replaced_by = "bindery"
 
+# The image a fenced service runs behind (ARCH-R363). Between releases it is the image
+# a commit on lemonfiber-fence's main published, and the train moves it to the
+# release it tags (OPS-R94).
+
+[fence]
+image  = "ghcr.io/lemonfiber/fence"
+tag    = "main-8814af6c7dbd"
+digest = "sha256:ebd1584da744711ad44fe0b5c1aa76953a0e0700d098e3acb48cbe874707ca19"
+
 [[plugin]]
 id           = "audiobookshelf"
 origin       = "https://github.com/lemonfiber/plugin-audiobookshelf"
