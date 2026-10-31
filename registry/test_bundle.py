@@ -650,6 +650,21 @@ def trees_held() -> list[Case]:
         ("a release names a plugin that builds an image", True, bool(offline(*unbuilt_jelly))),
         ("a copy no pin names refused", True,
          bool(offline(stack_of({k: v for k, v in PINS.items() if k != "caddy"})))),
+        *fenced_held(),
+    ]
+
+
+def fenced_held() -> list[Case]:
+    """A fenced service against the fence image the bundle pins, or does not (ARCH-R363)."""
+    text, trees = changed("sabnzbd", "plugin.toml", b'provides = ["download.usenet"]\n',
+                          b'provides = ["download.usenet"]\nnetwork = { fenced = true }\n')
+    with_fence = text.replace("\n[[plugin]]", "\n" + FENCE + "[[plugin]]", 1)
+    said = "its service 'sabnzbd' is fenced, and the bundle pins no [fence] image"
+    return [
+        ("a fenced service with no fence image pinned refused", True, said in offline(text, trees)),
+        ("a fenced service beside a pinned fence image holds", True, offline(with_fence, trees) == []),
+        ("a fence image pinned for no fenced service holds", True,
+         offline(stack_of(PINS).replace("\n[[plugin]]", "\n" + FENCE + "[[plugin]]", 1)) == []),
     ]
 
 

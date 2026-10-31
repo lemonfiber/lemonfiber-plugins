@@ -788,6 +788,7 @@ def offline_problems(bundle: Bundle, held: dict[str, pathlib.Path]) -> dict[str,
         if manifest is not None:
             manifests[pin["id"]] = manifest
             found[pin["id"]] += parts.part_problems(pin, manifest, bundle.table("form"))
+            found[pin["id"]] += parts.fenced_problems(pin["id"], manifest, bundle.images.get("fence"))
     complete = len(manifests) == len(bundle.pins)
     found[""] = parts.across(bundle.table("wiring"), manifests, held) if complete else []
     return found
