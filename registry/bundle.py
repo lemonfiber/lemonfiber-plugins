@@ -9,7 +9,8 @@ and the digest of its manifest there, and `bundle/plugins/<id>.toml` is that man
 copied byte for byte. Each copy's adapter service is tagged at the pinned release.
 
 At schema 2 the bundle also declares the stack's `[[profile]]`, `[[form]]`, `[[wiring]]`
-and `[[removed]]`, and each `[[plugin]]` names its revision, the digests of its manifest
+and `[[removed]]`, and may pin `[fence]`, the image a fenced service runs behind, by its
+registry path, tag and digest (ARCH-R363), the tag a release or a commit image (OPS-R94), and each `[[plugin]]` names its revision, the digests of its manifest
 and of its tree (ARCH-R267), what it fills, whether lemonfiber assembles or installs it,
 its profile, the upstream's last release, and the release that tagged it where it
 builds an image (ARCH-R266, OPS-R86). `bundle/plugins/<id>/` is the plugin's tree at
@@ -94,6 +95,17 @@ SHAPES = {
     "wiring": (("by", "why"), ("asks", "filled_by", "to")),
 }
 
+#: The images the bundle pins apart from its parts, each by the table named for its
+#: service and the registry path it is published to (ARCH-R363). A train tag moves one.
+IMAGES = {"fence": "ghcr.io/lemonfiber/fence"}
+
+IMAGE_FIELDS = ("image", "tag", "digest")
+
+#: A release the train tags, without its `v`, or a commit image between releases: `main-`
+#: and the commit's first twelve lowercase hexadecimal digits (OPS-R94).
+IMAGE_TAG = re.compile(r"\A(?:(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)|main-[0-9a-f]{12})\Z")
+IMAGE_DIGEST = re.compile(r"\Asha256:[0-9a-f]{64}\Z")
+
 STAGES = (parts.ASSEMBLED, "installed")
 PROTOCOLS = ("usenet", "torrent")
 
@@ -120,6 +132,7 @@ class Bundle:
     schema: int
     pins: list[dict]
     tables: dict[str, list[dict]] = dataclasses.field(default_factory=dict)
+    images: dict[str, dict] = dataclasses.field(default_factory=dict)
 
     def table(self, name: str) -> list[dict]:
         return self.tables.get(name, [])
@@ -169,6 +182,8 @@ def read(text: str, file: str = BUNDLE_FILE) -> Bundle:
     if schema == 1 and TABLE not in held:
         raise Refusal(f"{file}: names no [[{TABLE}]] list, not even an empty one")
     tables, problems = tables_of(held, schema, file)
+    images, pinned_images = images_of(held, schema, file)
+    problems += pinned_images
     pins = tables.pop(TABLE)
     pinned = pin_problems(pins, schema, file)
     problems += pinned
@@ -178,14 +193,46 @@ def read(text: str, file: str = BUNDLE_FILE) -> Bundle:
         problems += written_problems(text, pins, schema, file)
     if problems:
         raise Refusal(*problems)
-    return Bundle(schema, pins, tables)
+    return Bundle(schema, pins, tables, images)
+
+
+def images_of(held: dict, schema: int, file: str) -> tuple[dict[str, dict], list[str]]:
+    """Each image the bundle pins apart from its parts, and everything wrong with each."""
+    if schema != 2:
+        return {}, []
+    images, problems = {}, []
+    for name, published in IMAGES.items():
+        if name not in held:
+            continue
+        pin = held[name]
+        where = f"{file} [{name}]"
+        if not isinstance(pin, dict):
+            problems.append(f"{where}: is not a table")
+            continue
+        missing = [field for field in IMAGE_FIELDS if field not in pin]
+        extra = sorted(set(pin) - set(IMAGE_FIELDS))
+        problems += [f"{where}: is missing {field!r}" for field in missing]
+        problems += [f"{where}: {field} is not something it says; it says {', '.join(IMAGE_FIELDS)}"
+                     for field in extra]
+        if missing or extra:
+            continue
+        if pin["image"] != published:
+            problems.append(f"{where}: image is {pin['image']!r}, and {name} is published as {published}")
+        if not isinstance(pin["tag"], str) or not IMAGE_TAG.match(pin["tag"]):
+            problems.append(f"{where}: tag {pin['tag']!r} is neither a release the train tags, without its v, "
+                            "nor main- and a commit's first twelve lowercase hex digits")
+        if not isinstance(pin["digest"], str) or not IMAGE_DIGEST.match(pin["digest"]):
+            problems.append(f"{where}: digest {pin['digest']!r} is not sha256:<64 hex>")
+        images[name] = pin
+    return images, problems
 
 
 def tables_of(held: dict, schema: int, file: str) -> tuple[dict[str, list[dict]], list[str]]:
     """Each array of tables a bundle at `schema` says, absent ones empty, and every key it does not say."""
     names = (TABLE, *STACK_TABLES) if schema == 2 else (TABLE,)
+    said = (*names, *IMAGES) if schema == 2 else names
     problems = [f"{file}: {key} is not something a bundle at schema {schema} says; it says "
-                f"{' and '.join(('schema', *names))}" for key in sorted(set(held) - {"schema", *names})]
+                f"{' and '.join(('schema', *said))}" for key in sorted(set(held) - {"schema", *said})]
     tables = {}
     for name in names:
         value = held.get(name, [])
@@ -744,6 +791,7 @@ def offline_problems(bundle: Bundle, held: dict[str, pathlib.Path]) -> dict[str,
         if manifest is not None:
             manifests[pin["id"]] = manifest
             found[pin["id"]] += parts.part_problems(pin, manifest, bundle.table("form"))
+            found[pin["id"]] += parts.fenced_problems(pin["id"], manifest, bundle.images.get("fence"))
     complete = len(manifests) == len(bundle.pins)
     found[""] = parts.across(bundle.table("wiring"), manifests, held) if complete else []
     return found

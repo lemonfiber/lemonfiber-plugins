@@ -199,6 +199,16 @@ def part_problems(pin: dict, manifest: dict, forms: list[dict]) -> list[str]:
             *release_problems(pin, built)]
 
 
+def fenced_problems(name: str, manifest: dict, fence: dict | None) -> list[str]:
+    """Each service of a pinned plugin that runs behind a fence, where the bundle pins no
+    fence image for it to run behind (ARCH-R363)."""
+    if fence is not None:
+        return []
+    return [f"its service {service.get('id')!r} is fenced, and the bundle pins no [fence] image"
+            for service in services_of(manifest)
+            if isinstance(service.get("network"), dict) and service["network"].get("fenced") is True]
+
+
 def proxied_to(text: str) -> str | None:
     """The service a `reverse_proxy <service>:<port>` in `text` names."""
     target = text.partition("reverse_proxy ")[2].split()

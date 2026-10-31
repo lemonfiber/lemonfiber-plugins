@@ -537,6 +537,45 @@ def stack_shapes() -> list[Case]:
     ]
 
 
+FENCE = f"""[fence]
+image  = "ghcr.io/lemonfiber/fence"
+tag    = "0.18.0"
+digest = "sha256:{"a" * 64}"
+
+"""
+
+
+def fence_shapes() -> list[Case]:
+    """`read` of the image the bundle pins apart from its parts, against each shape it refuses."""
+    good = STACK + FENCE + bundle.rendered(list(PINS.values()), 2)
+    refused = [
+        ("a fence image published elsewhere refused", good.replace('"ghcr.io/lemonfiber/fence"', '"ghcr.io/else/fence"')),
+        ("a fence tag with its v refused", good.replace('"0.18.0"\ndigest', '"v0.18.0"\ndigest')),
+        ("a pre-release fence tag refused", good.replace('"0.18.0"\ndigest', '"0.18.0-beta.1"\ndigest')),
+        ("a short fence commit tag refused", good.replace('"0.18.0"\ndigest', '"main-8de8b3aa2b2"\ndigest')),
+        ("a long fence commit tag refused", good.replace('"0.18.0"\ndigest', '"main-8de8b3aa2b245"\ndigest')),
+        ("an upper-case fence commit tag refused", good.replace('"0.18.0"\ndigest', '"main-8DE8B3AA2B24"\ndigest')),
+        ("a fence commit tag of another branch refused", good.replace('"0.18.0"\ndigest', '"dev-8de8b3aa2b24"\ndigest')),
+        ("a bare fence commit refused", good.replace('"0.18.0"\ndigest', '"8de8b3aa2b24"\ndigest')),
+        ("a fence digest that is not one refused", good.replace(f'"sha256:{"a" * 64}"', '"sha256:abc"')),
+        ("a fence with no digest refused", good.replace(f'digest = "sha256:{"a" * 64}"\n', "")),
+        ("a fence saying more refused", good.replace('tag    = "0.18.0"\n', 'tag    = "0.18.0"\nsize = "1"\n')),
+        ("a fence that is not a table refused", good.replace(FENCE, 'fence = "ghcr.io/lemonfiber/fence"\n\n')),
+        ("a fence at schema 1 refused", EMPTY + '\n[fence]\nimage = "ghcr.io/lemonfiber/fence"\n'),
+        ("a fence after the pins refused", STACK + bundle.rendered(list(PINS.values()), 2) + "\n" + FENCE),
+    ]
+    read = bundle.read(good)
+    return [
+        ("a fence image pinned beside the parts is read", False, refuses(lambda: bundle.read(good))),
+        ("the fence image is read as pinned", True,
+         read.images == {"fence": {"image": "ghcr.io/lemonfiber/fence", "tag": "0.18.0", "digest": f"sha256:{'a' * 64}"}}),
+        ("a fence commit image is read", False,
+         refuses(lambda: bundle.read(good.replace('"0.18.0"\ndigest', '"main-8de8b3aa2b24"\ndigest')))),
+        ("a bundle without a fence pins none", True, bundle.read(stack_of(PINS)).images == {}),
+        *((what, True, refuses(lambda text=text: bundle.read(text))) for what, text in refused),
+    ]
+
+
 def tree_refusals() -> list[tuple[str, str, tuple[str, dict]]]:
     """Each way a schema 2 copy can fail its pin or the contract, what is said of it, and the
     bundle and copies, each pin following its digests."""
@@ -617,6 +656,21 @@ def trees_held() -> list[Case]:
         ("a release names a plugin that builds an image", True, bool(offline(*unbuilt_jelly))),
         ("a copy no pin names refused", True,
          bool(offline(stack_of({k: v for k, v in PINS.items() if k != "caddy"})))),
+        *fenced_held(),
+    ]
+
+
+def fenced_held() -> list[Case]:
+    """A fenced service against the fence image the bundle pins, or does not (ARCH-R363)."""
+    text, trees = changed("sabnzbd", "plugin.toml", b'provides = ["download.usenet"]\n',
+                          b'provides = ["download.usenet"]\nnetwork = { fenced = true }\n')
+    with_fence = text.replace("\n[[plugin]]", "\n" + FENCE + "[[plugin]]", 1)
+    said = "its service 'sabnzbd' is fenced, and the bundle pins no [fence] image"
+    return [
+        ("a fenced service with no fence image pinned refused", True, said in offline(text, trees)),
+        ("a fenced service beside a pinned fence image holds", True, offline(with_fence, trees) == []),
+        ("a fence image pinned for no fenced service holds", True,
+         offline(stack_of(PINS).replace("\n[[plugin]]", "\n" + FENCE + "[[plugin]]", 1)) == []),
     ]
 
 
@@ -854,8 +908,8 @@ def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(),
-                                *stack_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(), *target_shapes(),
-                                *template_targets(), *first_pins()):
+                                *stack_shapes(), *fence_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(),
+                                *target_shapes(), *template_targets(), *first_pins()):
         print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")
         failures += expected != got
     print("\nself-test passed." if not failures else f"\n{failures} rule(s) did not refuse.")
