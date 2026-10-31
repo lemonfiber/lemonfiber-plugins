@@ -551,6 +551,12 @@ def fence_shapes() -> list[Case]:
     refused = [
         ("a fence image published elsewhere refused", good.replace('"ghcr.io/lemonfiber/fence"', '"ghcr.io/else/fence"')),
         ("a fence tag with its v refused", good.replace('"0.18.0"\ndigest', '"v0.18.0"\ndigest')),
+        ("a pre-release fence tag refused", good.replace('"0.18.0"\ndigest', '"0.18.0-beta.1"\ndigest')),
+        ("a short fence commit tag refused", good.replace('"0.18.0"\ndigest', '"main-8de8b3aa2b2"\ndigest')),
+        ("a long fence commit tag refused", good.replace('"0.18.0"\ndigest', '"main-8de8b3aa2b245"\ndigest')),
+        ("an upper-case fence commit tag refused", good.replace('"0.18.0"\ndigest', '"main-8DE8B3AA2B24"\ndigest')),
+        ("a fence commit tag of another branch refused", good.replace('"0.18.0"\ndigest', '"dev-8de8b3aa2b24"\ndigest')),
+        ("a bare fence commit refused", good.replace('"0.18.0"\ndigest', '"8de8b3aa2b24"\ndigest')),
         ("a fence digest that is not one refused", good.replace(f'"sha256:{"a" * 64}"', '"sha256:abc"')),
         ("a fence with no digest refused", good.replace(f'digest = "sha256:{"a" * 64}"\n', "")),
         ("a fence saying more refused", good.replace('tag    = "0.18.0"\n', 'tag    = "0.18.0"\nsize = "1"\n')),
@@ -563,8 +569,8 @@ def fence_shapes() -> list[Case]:
         ("a fence image pinned beside the parts is read", False, refuses(lambda: bundle.read(good))),
         ("the fence image is read as pinned", True,
          read.images == {"fence": {"image": "ghcr.io/lemonfiber/fence", "tag": "0.18.0", "digest": f"sha256:{'a' * 64}"}}),
-        ("a pre-release fence tag is read", False,
-         refuses(lambda: bundle.read(good.replace('"0.18.0"\ndigest', '"0.18.0-beta.1"\ndigest')))),
+        ("a fence commit image is read", False,
+         refuses(lambda: bundle.read(good.replace('"0.18.0"\ndigest', '"main-8de8b3aa2b24"\ndigest')))),
         ("a bundle without a fence pins none", True, bundle.read(stack_of(PINS)).images == {}),
         *((what, True, refuses(lambda text=text: bundle.read(text))) for what, text in refused),
     ]

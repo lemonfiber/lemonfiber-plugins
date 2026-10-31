@@ -10,7 +10,7 @@ copied byte for byte. Each copy's adapter service is tagged at the pinned releas
 
 At schema 2 the bundle also declares the stack's `[[profile]]`, `[[form]]`, `[[wiring]]`
 and `[[removed]]`, and may pin `[fence]`, the image a fenced service runs behind, by its
-registry path, tag and digest (ARCH-R363), and each `[[plugin]]` names its revision, the digests of its manifest
+registry path, tag and digest (ARCH-R363), the tag a release or a commit image (OPS-R94), and each `[[plugin]]` names its revision, the digests of its manifest
 and of its tree (ARCH-R267), what it fills, whether lemonfiber assembles or installs it,
 its profile, the upstream's last release, and the release that tagged it where it
 builds an image (ARCH-R266, OPS-R86). `bundle/plugins/<id>/` is the plugin's tree at
@@ -101,7 +101,9 @@ IMAGES = {"fence": "ghcr.io/lemonfiber/fence"}
 
 IMAGE_FIELDS = ("image", "tag", "digest")
 
-IMAGE_TAG = re.compile(r"\A(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?\Z")
+#: A release the train tags, without its `v`, or a commit image between releases: `main-`
+#: and the commit's first twelve lowercase hexadecimal digits (OPS-R94).
+IMAGE_TAG = re.compile(r"\A(?:(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)|main-[0-9a-f]{12})\Z")
 IMAGE_DIGEST = re.compile(r"\Asha256:[0-9a-f]{64}\Z")
 
 STAGES = (parts.ASSEMBLED, "installed")
@@ -217,7 +219,8 @@ def images_of(held: dict, schema: int, file: str) -> tuple[dict[str, dict], list
         if pin["image"] != published:
             problems.append(f"{where}: image is {pin['image']!r}, and {name} is published as {published}")
         if not isinstance(pin["tag"], str) or not IMAGE_TAG.match(pin["tag"]):
-            problems.append(f"{where}: tag {pin['tag']!r} is not a version the train tags, without its v")
+            problems.append(f"{where}: tag {pin['tag']!r} is neither a release the train tags, without its v, "
+                            "nor main- and a commit's first twelve lowercase hex digits")
         if not isinstance(pin["digest"], str) or not IMAGE_DIGEST.match(pin["digest"]):
             problems.append(f"{where}: digest {pin['digest']!r} is not sha256:<64 hex>")
         images[name] = pin
