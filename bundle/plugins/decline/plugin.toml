@@ -14,8 +14,8 @@ forms       = ["library", "full"]
 id            = "decline"
 name          = "Decline service"
 image         = "ghcr.io/lemonfiber/decline"
-digest        = "sha256:814d551113e93135259ac8e92586938bf88c3bb03bc8ce75b8e0d7e4d14a8147"
-tag           = "0.17.0"
+digest        = "sha256:d7d075280e083ce2e08f799e4e3bf0784ef92412ee9664c87120fcb1baba99ac"
+tag           = "main-91d3aac7922b"
 port          = 5056
 bind          = "lan"
 listens       = 8080
@@ -28,6 +28,8 @@ asks_for      = "Nothing beyond this machine. When an invitee refuses, it switch
 posture       = "confined"
 replaces      = "decline"
 provides      = ["invite.decline"]
+contract      = 8081
+speaks        = ["invite.decline@1"]
 
 [[proof]]
 id      = "decline.health-names-its-key"
@@ -45,12 +47,3 @@ expect  = { status = 200, json_has_keys = ["key"] }
 
 [[ask]]
 capability = "identity.source"
-
-[[claim]]
-capability = "invite.decline"
-
-[[claim.probe]]
-id      = "held"
-request = { method = "GET", path = "/health" }
-expect  = { status = 200, json_has_keys = ["key"] }
-fixture = "recordings/decline/invite-decline-held.json"
