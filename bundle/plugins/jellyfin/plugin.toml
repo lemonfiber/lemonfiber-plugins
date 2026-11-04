@@ -1,4 +1,4 @@
-#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/23d16d26f54af845163ff4b004be71bca3972939/contract/plugin-manifest.schema.json
+#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/fdda4b122819d77dd79abacc0f34b577363c45ed/contract/plugin-manifest.schema.json
 # Jellyfin, as a first-party lemonfiber plugin (ADR-0041, ADR-0042).
 #
 # Contract: https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/plugin-manifest.md
@@ -37,6 +37,7 @@ memory_mib  = 600
 reaches     = "metadata providers and its own plugin repository"
 asks_for    = "Reads artwork and descriptions for what is in your library, and checks its plugin repository for updates unless you turn that off in its own settings."
 takes_data  = true
+media_types = ["movies", "tv"]
 config_path = "/config"
 listens     = 8096
 user_mode   = "uid"
@@ -51,8 +52,8 @@ to   = "/cache"
 id          = "jellyfin-adapter"
 name        = "Jellyfin adapter"
 image       = "ghcr.io/lemonfiber/jellyfin-adapter"
-digest      = "sha256:12fc3f300de0412f04870bfb17e1be68c5414ef2fb498154c8d28f405b341790"
-tag         = "main-e49888fe5468"
+digest      = "sha256:7744dca192b994838f93bc53e70fb306332801ce92da7bec9b9284089bbb6d5c"
+tag         = "main-445af518e25c"
 criticality = "important"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's media.serve and identity.source contracts by calling Jellyfin, beside it, with the key lemonfiber minted for it."

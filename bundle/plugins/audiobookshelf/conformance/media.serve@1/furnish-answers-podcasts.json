@@ -1,0 +1,12 @@
+{
+  "recorded_from": "ghcr.io/advplyr/audiobookshelf@sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b",
+  "note": "Audiobookshelf holds no library and the folder asked for exists, so the adapter adds a Podcasts library of podcast items reading it, and answers that a library now reads it.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/furnish", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": [
+      {"held": true, "media_type": "podcasts"}
+    ]
+  }
+}
