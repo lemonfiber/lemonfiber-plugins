@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/flaresolverr/flaresolverr@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767",
+  "note": "Whether it answers: the adapter asks FlareSolverr's root, which says it is ready, and answers true.",
+  "request": {"method": "POST", "path": "/lemonfiber/indexer.proxy/v1/answers", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": true
+  }
+}

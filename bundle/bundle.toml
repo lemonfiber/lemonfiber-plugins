@@ -311,11 +311,11 @@ last_release = "2026-10-03"
 [[plugin]]
 id           = "flaresolverr"
 origin       = "https://github.com/lemonfiber/plugin-flaresolverr"
-revision     = "b60a0fae63e112a18914d9ea416ba71b54f69998"
-manifest     = "sha256:12770d0de8d29caeda8f95d427fd90c54e588cca4a5e6ff5fd2eef97ae604bfd"
-tree         = "sha256:a3a0fd91310e178f565c04d121a72ca3cc460afe0a244e4547e25ce1ba2107e5"
+revision     = "085e3ff2eef4bfad072d79c5e0806d781cf6d191"
+manifest     = "sha256:e40477084f830fc14df0ecf253fe9ce35cf30ac4df6f75230766f619bd2a5802"
+tree         = "sha256:8fe932bebe1e254eeadc7f5a37abfa4e77d9fe97ae2aef7f4e39e93afc6a8280"
 fills        = ["indexer.proxy"]
-stage        = "assembled"
+stage        = "installed"
 profile      = "search"
 last_release = "2026-09-12"
 

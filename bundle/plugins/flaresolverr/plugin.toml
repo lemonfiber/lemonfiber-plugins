@@ -23,17 +23,37 @@ criticality = "enhancing"
 memory_mib  = 300
 reaches     = "the indexer sites that challenge it"
 asks_for    = "Fetches a page through a headless browser when an indexer sits behind bot protection, which means it visits that indexer directly."
-provides    = ["indexer.proxy"]
 replaces    = "flaresolverr"
+network     = { fenced = true }
 
 [service.env]
 LOG_LEVEL = { setting = "flaresolverr:log-level", default = "info" }
 
-[[claim]]
-capability = "indexer.proxy"
+[[service]]
+id          = "flaresolverr-adapter"
+name        = "FlareSolverr adapter"
+image       = "ghcr.io/lemonfiber/flaresolverr-adapter"
+digest      = "sha256:44209dede06190a4a8933d8cb64d5ae28a7bcfdc5ead8b200e4f88930feeb2f1"
+tag         = "main-440ebf321817"
+criticality = "enhancing"
+reaches     = ""
+asks_for    = "Nothing beyond this machine but the names it looks up. It answers lemonfiber's indexer.proxy contract by handing FlareSolverr, beside it, each address that passes its screen."
+config_path = "/config"
+listens     = 8080
+speaks      = ["indexer.proxy@1"]
+fronts      = "flaresolverr"
+provides    = ["indexer.proxy"]
+posture     = "confined"
 
-[[claim.probe]]
-id      = "identifies"
+[[proof]]
+id      = "flaresolverr.identifies"
+service = "flaresolverr"
+title   = "FlareSolverr answers that it is ready, and names its version"
 request = { method = "GET", path = "/" }
 expect  = { status = 200, json = { msg = "FlareSolverr is ready!" }, json_types = { version = "str" } }
 fixture = "recordings/flaresolverr/indexer-proxy-identifies.json"
+why     = """
+FlareSolverr's root is the one place it says it is FlareSolverr and which
+version answers, and the adapter in front of it asks nothing else of it before
+handing it a page to fetch.
+"""
