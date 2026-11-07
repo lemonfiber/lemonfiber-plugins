@@ -432,9 +432,9 @@ last_release = "2026-10-05"
 [[plugin]]
 id           = "request-gate"
 origin       = "https://github.com/lemonfiber/lemonfiber-request-gate"
-revision     = "c4499f132d82e058bc063d52b82e9f7e93b10667"
-manifest     = "sha256:eab6950852693ee6b1bb58c339e70ea8101753363d2f135bd2a37acc92567480"
-tree         = "sha256:b2921e96dc94a3057facb9fbf797cd96c16243ee6f676f71a7e5f5348178cc8d"
+revision     = "08b9bd4707003f767668a2a0da90e193997075ea"
+manifest     = "sha256:d872f9c65f89e928978b192c67b11aa20302c586967911343a8c9ea2a3191434"
+tree         = "sha256:207373ac55b672f09bba4df42579a81c9c36313ef7af7ce9015f6e72ec3e04ef"
 fills        = ["request.gate"]
 stage        = "installed"
 profile      = "media"
