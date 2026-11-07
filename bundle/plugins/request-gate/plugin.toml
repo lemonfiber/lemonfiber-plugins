@@ -4,8 +4,8 @@ schema_version = 1
 id          = "request-gate"
 name        = "Request gate"
 version     = "0.17.0"
-description = "Stands between Seerr and Sonarr, Radarr and Jellyfin, so Seerr holds none of their keys"
-without_it  = "Seerr cannot reach Sonarr, Radarr or Jellyfin: requests are not sent, and members cannot sign in to Seerr"
+description = "Stands between Seerr and the curators and the media server, so Seerr holds none of their keys"
+without_it  = "Seerr cannot reach the curators or the media server: requests are not sent, and members cannot sign in to Seerr"
 upstream    = "https://github.com/lemonfiber/lemonfiber-request-gate"
 license     = "Hippocratic-3.0"
 forms       = ["library", "full"]
@@ -14,15 +14,15 @@ forms       = ["library", "full"]
 id            = "request-gate"
 name          = "Request gate"
 image         = "ghcr.io/lemonfiber/request-gate"
-digest        = "sha256:9ff9c3eb5ad701871a57fae9887693c5d7f4906b3013456443465e1521f79331"
-tag           = "main-2f857a7412cb"
+digest        = "sha256:70b128574814b4d6df92182f4542c1a192094f98fa83a0a30941bd49b70d17d4"
+tag           = "main-08b9bd470700"
 listens       = 5057
 health        = { kind = "container" }
 criticality   = "important"
 memory_mib    = 32
 mem_limit_mib = 64
-reaches       = ""
-asks_for      = "Nothing beyond this machine. It answers only Seerr, and makes the calls Seerr's requests, scans and sign-ins need of Sonarr, Radarr and Jellyfin, over networks it shares with them alone."
+reaches       = "plex.tv"
+asks_for      = "Where Plex is the media server, plex.tv's account read alone: whose a token Seerr presents is, once per token, when Seerr's owner is the operator's own Plex account, and a member's own Plex sign-in, passed on unchanged, when Seerr reaches plex.tv through the gate. Otherwise nothing beyond this machine. It answers only Seerr, and makes the calls Seerr's requests, scans and sign-ins need of each curator's adapter and the media server, over networks it shares with them alone."
 posture       = "confined"
 replaces      = "request-gate"
 provides      = ["request.gate"]
@@ -48,4 +48,4 @@ each       = true
 
 [[ask]]
 capability = "identity.source"
-native     = "jellyfin"
+native     = ["jellyfin", "emby", "plex"]
