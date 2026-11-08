@@ -3,7 +3,8 @@
 Per part (ARCH-R266, ARCH-R96, ARCH-R97, ARCH-R222, ARCH-R270, ARCH-R272, ARCH-R285, F2-R5,
 OPS-R86, REPO-R92): its stage, its services, its fills, its forms, its licence, its release,
 and, from its origin's tree, that it runs the image it builds rather than what that image
-builds on.
+builds on. An offered plugin is held to the same at its own stage, `offered`, but for
+its licence: its services are no bundled service (ARCH-R394, F2-R5).
 Across the parts: the reserved register of ids, published ports and proxy hostnames
 (ARCH-R269), and the services and asks the bundle's wiring names (ARCH-R268).
 """
@@ -17,6 +18,7 @@ import re
 import tree
 
 ASSEMBLED = "assembled"
+OFFERED = "offered"
 OWN_ORIGINS = "https://github.com/lemonfiber/"
 OWN_IMAGES = "ghcr.io/lemonfiber/"
 OWN_LICENCE = "Hippocratic-3.0"
@@ -134,6 +136,13 @@ def installed_problems(name: str, services: list[dict]) -> list[str]:
     return said
 
 
+def offered_problems(services: list[dict]) -> list[str]:
+    """An offered plugin takes the place of no part, so no service of it declares `replaces`
+    (ARCH-R394)."""
+    return [f"it is offered and service {service.get('id')} declares replaces, though it takes no part's place"
+            for service in services if "replaces" in service]
+
+
 def service_problems(service: dict) -> list[str]:
     """One service of a first-party part: `replaces`, `reaches` and `asks_for`, and `critical`."""
     where = f"service {service.get('id')}"
@@ -190,13 +199,14 @@ def part_problems(pin: dict, manifest: dict, forms: list[dict]) -> list[str]:
     built = built_of(services)
     said = [] if plugin.get("id") == name else [f"the copy declares [plugin].id {plugin.get('id')!r}, not {name!r}"]
     said += (assembled_problems(name, manifest, services) if pin["stage"] == ASSEMBLED
+             else offered_problems(services) if pin["stage"] == OFFERED
              else installed_problems(name, services))
     said += [line for service in services for line in service_problems(service)]
     filled = filled_by(services)
     said += [f"fills {it!r}, which no service of the copy provides or speaks" for it in pin["fills"]
              if it not in filled]
-    return [*said, *forms_problems(pin, plugin, forms), *licence_problems(plugin, built),
-            *release_problems(pin, built)]
+    licensed = [] if pin["stage"] == OFFERED else licence_problems(plugin, built)
+    return [*said, *forms_problems(pin, plugin, forms), *licensed, *release_problems(pin, built)]
 
 
 def fenced_problems(name: str, manifest: dict, fence: dict | None) -> list[str]:

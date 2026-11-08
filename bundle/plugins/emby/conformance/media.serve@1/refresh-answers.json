@@ -1,0 +1,10 @@
+{
+  "recorded_from": "docker.io/emby/embyserver@sha256:7082c63b10a2fcb3805a7eaebba407d5723bc57c085c9f0b29b7d0a702765cc1",
+  "note": "An id no Emby item can have asked to be read afresh, refused as the contract declares.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/refresh", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "that names nothing the media server holds", "type": "refused"}
+  }
+}

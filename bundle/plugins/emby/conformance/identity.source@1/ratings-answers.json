@@ -1,0 +1,33 @@
+{
+  "recorded_from": "docker.io/emby/embyserver@sha256:7082c63b10a2fcb3805a7eaebba407d5723bc57c085c9f0b29b7d0a702765cc1",
+  "note": "The certificates in Emby's rating table for its default country, each at the age its level is read as.",
+  "request": {"method": "POST", "path": "/lemonfiber/identity.source/v1/ratings", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": [
+      {"age": 0, "name": "TV-Y"},
+      {"age": 0, "name": "APPROVED"},
+      {"age": 0, "name": "G"},
+      {"age": 0, "name": "E"},
+      {"age": 0, "name": "EC"},
+      {"age": 0, "name": "TV-G"},
+      {"age": 7, "name": "TV-Y7"},
+      {"age": 7, "name": "TV-Y7-FV"},
+      {"age": 8, "name": "PG"},
+      {"age": 8, "name": "TV-PG"},
+      {"age": 12, "name": "PG-13"},
+      {"age": 12, "name": "T"},
+      {"age": 15, "name": "TV-14"},
+      {"age": 18, "name": "R"},
+      {"age": 18, "name": "M"},
+      {"age": 18, "name": "TV-MA"},
+      {"age": 18, "name": "NC-17"},
+      {"age": 21, "name": "AO"},
+      {"age": 21, "name": "RP"},
+      {"age": 21, "name": "UR"},
+      {"age": 21, "name": "X"},
+      {"age": 21, "name": "XXX"}
+    ]
+  }
+}

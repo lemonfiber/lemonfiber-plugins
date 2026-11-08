@@ -19,6 +19,12 @@ published ports and proxy hostnames every pinned plugin declares, and every host
 the proxy's configuration in its copy answers on, are reserved, and none is taken
 twice (ARCH-R269).
 
+At schema 2 the bundle may also pin, as `[[offered]]`, a first-party plugin the stack
+does not ship: pinned as a part is, by its revision, the digests of its manifest and its
+tree, its profile and the upstream's last release, naming neither what it fills nor a
+stage, with no service of it declaring `replaces`. Its copy, its reservations and its
+moves are a part's (ARCH-R394).
+
 Every copy is fetched again from its origin at the pinned revision and compared, the
 revision has to be on its origin's default branch, and it is held to what `check.py`
 holds a registration to (REPO-R61). A revision whose service of the plugin's id still
@@ -79,6 +85,8 @@ SCHEMAS = (1, 2)
 
 TABLE = "plugin"
 
+OFFERED_TABLE = parts.OFFERED
+
 STACK_TABLES = ("profile", "form", "wiring", "removed")
 
 FIELDS = {
@@ -87,6 +95,14 @@ FIELDS = {
 }
 
 OPTIONAL = {1: (), 2: ("release",)}
+
+#: What an `[[offered]]` names: a part's pin but `fills` and `stage`, since it fills nothing
+#: until the operator chooses it and nothing installs it until the operator asks (ARCH-R394).
+OFFERED_FIELDS = ("id", "origin", "release", "revision", "manifest", "tree", "profile", "last_release")
+
+#: What a pin read from `[[offered]]` carries beside what it names, so every rule and move
+#: reads it as any pin: filling nothing, at its own stage.
+AS_OFFERED = {"fills": [], "stage": parts.OFFERED}
 
 SHAPES = {
     "profile": (("id", "name", "description"), ("protocol",)),
@@ -114,7 +130,7 @@ PLACEHOLDER = ".gitkeep"
 RELEASE = re.compile(r"\A(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\Z")
 DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
 
-PINS_START = re.compile(rf"^(?:\[\[{TABLE}\]\]|{TABLE}\s*=)", re.MULTILINE)
+PINS_START = re.compile(rf"^(?:\[\[(?:{TABLE}|{OFFERED_TABLE})\]\]|{TABLE}\s*=)", re.MULTILINE)
 
 
 class Refusal(Exception):
@@ -147,15 +163,28 @@ def quoted(value: str) -> str:
     return json.dumps(value)
 
 
+def is_offered(pin: dict) -> bool:
+    """Whether a pin was read from `[[offered]]`."""
+    return pin.get("stage") == parts.OFFERED
+
+
 def rendered(pins: list[dict], schema: int = 1) -> str:
-    """The pins as the bundle writes them: one table each, ordered by id, keys aligned."""
+    """The pins as the bundle writes them: one table each, the parts' then the offered
+    plugins', each ordered by id, keys aligned."""
     if not pins:
         return f"{TABLE} = []\n" if schema == 1 else ""
-    fields = FIELDS[schema]
+    written = [(TABLE, FIELDS[schema], [pin for pin in pins if not is_offered(pin)]),
+               (OFFERED_TABLE, OFFERED_FIELDS, [pin for pin in pins if is_offered(pin)])]
+    return "\n".join(table for name, fields, held in written if held
+                     for table in [rendered_table(name, fields, held)])
+
+
+def rendered_table(name: str, fields: tuple[str, ...], pins: list[dict]) -> str:
+    """The pins of one table, each ordered by id, keys aligned."""
     width = max(len(field) for field in fields)
     tables = []
     for pin in sorted(pins, key=lambda one: one["id"]):
-        lines = [f"[[{TABLE}]]"]
+        lines = [f"[[{name}]]"]
         for field in fields:
             if field not in pin:
                 continue
@@ -184,8 +213,9 @@ def read(text: str, file: str = BUNDLE_FILE) -> Bundle:
     tables, problems = tables_of(held, schema, file)
     images, pinned_images = images_of(held, schema, file)
     problems += pinned_images
-    pins = tables.pop(TABLE)
-    pinned = pin_problems(pins, schema, file)
+    parts_pinned, offered = tables.pop(TABLE), tables.pop(OFFERED_TABLE, [])
+    pinned = pin_problems(parts_pinned, schema, file, offered)
+    pins = [*parts_pinned, *({**row, **AS_OFFERED} for row in offered)]
     problems += pinned
     if schema == 2:
         problems += stack_problems(tables, pins, file)
@@ -229,7 +259,7 @@ def images_of(held: dict, schema: int, file: str) -> tuple[dict[str, dict], list
 
 def tables_of(held: dict, schema: int, file: str) -> tuple[dict[str, list[dict]], list[str]]:
     """Each array of tables a bundle at `schema` says, absent ones empty, and every key it does not say."""
-    names = (TABLE, *STACK_TABLES) if schema == 2 else (TABLE,)
+    names = (TABLE, *STACK_TABLES, OFFERED_TABLE) if schema == 2 else (TABLE,)
     said = (*names, *IMAGES) if schema == 2 else names
     problems = [f"{file}: {key} is not something a bundle at schema {schema} says; it says "
                 f"{' and '.join(('schema', *said))}" for key in sorted(set(held) - {"schema", *said})]
@@ -253,29 +283,34 @@ def written_problems(text: str, pins: list[dict], schema: int, file: str) -> lis
         return []
     return [(
         f"{file}: the pins are not written as the bundle writes them — one [[{TABLE}]] per "
-        f"plugin, last in the file, ordered by id, fields in the order {', '.join(FIELDS[schema])} — "
-        "so a move would rewrite lines nobody changed"
+        f"part, then one [[{OFFERED_TABLE}]] per offered plugin, last in the file, each ordered by id, "
+        f"fields in the order {', '.join(FIELDS[schema])} — so a move would rewrite lines nobody changed"
     )]
 
 
-def pin_problems(pins: list[dict], schema: int, file: str) -> list[str]:
-    """Every pin well formed, and no plugin or origin pinned twice."""
+def pin_problems(pins: list[dict], schema: int, file: str, offered: tuple | list = ()) -> list[str]:
+    """Every pin, a part's and an offered plugin's, well formed, and no plugin or origin
+    pinned twice across both."""
     problems = [problem for pin in pins for problem in one(pin, file, schema)]
+    problems += [problem for pin in offered for problem in one(pin, file, schema, OFFERED_TABLE)]
+    every = [*pins, *offered]
     seen: set[str] = set()
-    for named in (pin.get("id") for pin in pins if isinstance(pin.get("id"), str)):
+    for named in (pin.get("id") for pin in every if isinstance(pin.get("id"), str)):
         if named in seen:
             problems.append(f"{file}: pins {named!r} twice")
         seen.add(named)
     if not problems:
-        problems += [f"{file}: {clash}" for clash in entries_module.collisions(pins)]
+        problems += [f"{file}: {clash}" for clash in entries_module.collisions(every)]
     return problems
 
 
-def one(pin: dict, file: str, schema: int = 1) -> list[str]:
-    """One pin, and the shape of each thing it says."""
+def one(pin: dict, file: str, schema: int = 1, table: str = TABLE) -> list[str]:
+    """One pin of `table`, and the shape of each thing it says."""
     named = pin.get("id")
     if not isinstance(named, str) or entries_module.ID.match(named) is None:
         return [f"{file}: {named!r} is not a plugin id"]
+    if table == OFFERED_TABLE:
+        return offered_one(pin, f"{file} ({named})")
     where = f"{file} ({named})"
     fields = FIELDS[schema]
     problems = [f"{where}: is missing {field!r}" for field in fields
@@ -286,6 +321,17 @@ def one(pin: dict, file: str, schema: int = 1) -> list[str]:
         return problems
     problems = pointer_problems(pin, where) + digest_problems(pin, where, schema) + fills_problems(pin, where)
     return problems + (part_fields(pin, where) if schema == 2 else [])
+
+
+def offered_one(pin: dict, where: str) -> list[str]:
+    """One `[[offered]]`, and the shape of each thing it says (ARCH-R394)."""
+    problems = [f"{where}: is missing {field!r}" for field in OFFERED_FIELDS
+                if field not in pin and field not in OPTIONAL[2]]
+    problems += [f"{where}: {field} is not something an [[{OFFERED_TABLE}]] says; it says {', '.join(OFFERED_FIELDS)}"
+                 for field in sorted(set(pin) - set(OFFERED_FIELDS))]
+    if problems:
+        return problems
+    return pointer_problems(pin, where) + digest_problems(pin, where, 2) + placed_fields(pin, where)
 
 
 def pointer_problems(pin: dict, where: str) -> list[str]:
@@ -321,6 +367,12 @@ def part_fields(pin: dict, where: str) -> list[str]:
     problems = []
     if pin["stage"] not in STAGES:
         problems.append(f"{where}: stage {pin['stage']!r} is not {' or '.join(STAGES)}")
+    return problems + placed_fields(pin, where)
+
+
+def placed_fields(pin: dict, where: str) -> list[str]:
+    """What places a schema 2 pin: its profile and the upstream's last release."""
+    problems = []
     if not isinstance(pin["profile"], str) or not pin["profile"].strip():
         problems.append(f"{where}: profile is not a profile's id")
     released = pin["last_release"]
@@ -374,7 +426,7 @@ def stack_problems(tables: dict[str, list[dict]], pins: list[dict], file: str) -
     if problems:
         return problems
     profiles = {row["id"] for row in tables["profile"]}
-    pinned = {pin.get("id") for pin in pins if isinstance(pin.get("id"), str)}
+    pinned = {pin.get("id") for pin in pins if isinstance(pin.get("id"), str) and not is_offered(pin)}
     return [
         *(problem for name in ("profile", "form", "removed") for problem in unique(name, tables[name], file)),
         *protocol_problems(tables["profile"], file),

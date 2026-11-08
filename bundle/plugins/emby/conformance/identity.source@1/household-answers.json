@@ -1,0 +1,25 @@
+{
+  "recorded_from": "docker.io/emby/embyserver@sha256:7082c63b10a2fcb3805a7eaebba407d5723bc57c085c9f0b29b7d0a702765cc1",
+  "note": "The household right after the first run: the administrator alone.",
+  "request": {"method": "POST", "path": "/lemonfiber/identity.source/v1/household", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": [
+      {
+        "access": {
+          "administrator": true,
+          "age_limit": null,
+          "disabled": false,
+          "every_library": true,
+          "libraries": [],
+          "unrated": "let-through"
+        },
+        "claimed": true,
+        "id": "<redacted>",
+        "last_seen": "2026-11-06T22:32:24.7801686Z",
+        "name": "admin"
+      }
+    ]
+  }
+}

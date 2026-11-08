@@ -28,6 +28,12 @@
 #   profile       the profile every service of the plugin sits in.
 #   last_release  the upstream's latest release, YYYY-MM-DD.
 #
+# One [[offered]] table per first-party plugin the stack does not ship, after every
+# [[plugin]], ordered by id: a second filler of a capability a part fills, installed only
+# where the operator asks. It names `id`, `origin`, `release`, `revision`, `manifest`,
+# `tree`, `profile` and `last_release` as a [[plugin]] does, and neither `fills` nor
+# `stage` (ARCH-R394). bundle/plugins/<id>/ holds its tree as it does a part's.
+#
 # The train moves `release`, `revision`, `manifest`, `tree` and the copy of a plugin
 # that builds an image (OPS-R86). A plugin that builds none, and every other field,
 # moves by a person's pull request. registry/bundle.py holds every copy to its origin
@@ -483,3 +489,21 @@ fills        = ["archive.extract"]
 stage        = "installed"
 profile      = "tuning"
 last_release = "2026-08-31"
+
+[[offered]]
+id           = "emby"
+origin       = "https://github.com/lemonfiber/plugin-emby"
+revision     = "2abf302947c34d886940c6a1566b8ff6d72c496f"
+manifest     = "sha256:5010d1a6c8f52ca275e3599970a5e0296e5d045984b11090792c5c1b81b309ae"
+tree         = "sha256:6bf5e7b9d41836f23ebf8376f5b0f2a763cfa26fd4d107e7c0be8cddcf20b9ea"
+profile      = "media"
+last_release = "2026-10-20"
+
+[[offered]]
+id           = "medusa"
+origin       = "https://github.com/lemonfiber/plugin-medusa"
+revision     = "a5e22904c7a7321a1528fc17b233aa09d32d49ac"
+manifest     = "sha256:aee2efc7066a0bb8eac824fe2d7c402ea12797e646270d15570f84d9b1450c99"
+tree         = "sha256:c93f16d2a8a2197f7bfb5036ebccd56f1ccfd54ff8014c603e4fb00c272ea0b5"
+profile      = "tv"
+last_release = "2026-10-18"

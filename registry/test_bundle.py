@@ -537,6 +537,44 @@ def stack_shapes() -> list[Case]:
     ]
 
 
+def offered_shapes() -> list[Case]:
+    """`read` of an `[[offered]]` pin, and each shape of one it exists to refuse (ARCH-R394)."""
+    pins = {**PINS, "caddy": pinned("caddy", TREES["caddy"], **bundle.AS_OFFERED)}
+    good = stack_of(pins)
+    read = bundle.read(good)
+    caddy = next(pin for pin in read.pins if pin["id"] == "caddy")
+    offered = good[good.index("[[offered]]"):]
+    trees = {**TREES, "caddy": {**TREES["caddy"], "plugin.toml": CADDY.replace(
+        b'provides = ["proxy.front"]', b'provides = ["proxy.front"]\nreplaces = "caddy"')}}
+    replacing = stack_of({**PINS, "caddy": pinned("caddy", trees["caddy"], **bundle.AS_OFFERED)})
+    closed = {**TREES, "caddy": {**TREES["caddy"], "plugin.toml": CADDY.replace(
+        b'license = "Apache-2.0"', b'license = "Proprietary"')}}
+    proprietary = stack_of({**PINS, "caddy": pinned("caddy", closed["caddy"], **bundle.AS_OFFERED)})
+    as_a_part = stack_of({**PINS, "caddy": pinned("caddy", closed["caddy"], fills=["proxy.front"])})
+    refused = [
+        ("an offered plugin naming fills refused", good.replace(
+            '[[offered]]\nid           = "caddy"', '[[offered]]\nid           = "caddy"\nfills = []')),
+        ("an offered plugin naming a stage refused", good.replace(
+            '[[offered]]\nid           = "caddy"', '[[offered]]\nid           = "caddy"\nstage = "installed"')),
+        ("an offered plugin without its tree refused", good.replace(f'tree         = "{caddy["tree"]}"\n', "")),
+        ("a part at the offered stage refused", good.replace('stage        = "installed"', 'stage        = "offered"')),
+        ("a plugin pinned as a part and as offered refused",
+         good + "\n" + offered.replace("[[offered]]", "[[offered]]", 1)),
+    ]
+    return [
+        ("an offered plugin is read filling nothing, at its own stage", True,
+         caddy["fills"] == [] and caddy["stage"] == "offered"),
+        ("an offered plugin is written back as [[offered]], after every part", True,
+         STACK + bundle.rendered(read.pins, 2) == good and "fills" not in offered and "stage" not in offered),
+        ("an offered plugin's copy holds", True, offline(good) == []),
+        ("an offered plugin whose service declares replaces does not hold", True,
+         any("it is offered and service caddy declares replaces" in line for line in offline(replacing, trees))),
+        ("an offered plugin of a proprietary upstream holds, which no part does", True,
+         offline(proprietary, closed) == [] and any("licence" in line for line in offline(as_a_part, closed))),
+        *((what, True, refuses(lambda text=text: bundle.read(text))) for what, text in refused),
+    ]
+
+
 FENCE = f"""[fence]
 image  = "ghcr.io/lemonfiber/fence"
 tag    = "0.18.0"
@@ -908,7 +946,7 @@ def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(),
-                                *stack_shapes(), *fence_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(),
+                                *stack_shapes(), *offered_shapes(), *fence_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(),
                                 *target_shapes(), *template_targets(), *first_pins()):
         print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")
         failures += expected != got
