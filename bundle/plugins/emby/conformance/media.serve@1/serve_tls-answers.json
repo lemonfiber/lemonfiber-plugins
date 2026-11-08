@@ -1,0 +1,6 @@
+{
+  "recorded_from": "docker.io/emby/embyserver@sha256:7082c63b10a2fcb3805a7eaebba407d5723bc57c085c9f0b29b7d0a702765cc1",
+  "note": "The internal TLS port turned on with the throwaway certificate lemonfiber wrote into Emby's configuration directory: the server's configuration is written and read back, and Emby loads a certificate only when it starts, so it is in force once Emby restarts.",
+  "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/serve_tls", "accept": "application/json"},
+  "response": {"status": 205}
+}

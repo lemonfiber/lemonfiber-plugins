@@ -1,0 +1,98 @@
+#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/80f16a17cd9a2985cf86dd98a4f01ca9f2138063/contract/plugin-manifest.schema.json
+# Emby, as a lemonfiber plugin.
+#
+# Contract: https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/plugin-manifest.md
+#
+# Two services. `emby` is the upstream, Emby Server's official image, which Emby keeps
+# closed. `emby-adapter` speaks the contracts in front of it. release.yml publishes it
+# from every commit on main, tagged `main-<commit>`, and from every train tag, and its
+# rolling pull requests move the digest and tag below to what was published.
+
+schema_version = 1
+
+[plugin]
+id          = "emby"
+name        = "Emby"
+version     = "0.18.0"
+description = "Plays your library on TVs, phones and browsers"
+without_it  = "Files on disk, no way to watch them"
+upstream    = "https://emby.media"
+license     = "Proprietary"
+forms       = ["library", "full"]
+
+[[service]]
+id          = "emby"
+name        = "Emby"
+image       = "docker.io/emby/embyserver"
+digest      = "sha256:7082c63b10a2fcb3805a7eaebba407d5723bc57c085c9f0b29b7d0a702765cc1"
+tag         = "4.10.2.0"
+port        = 8097
+bind        = "loopback"
+health      = { kind = "http", path = "/System/Info/Public", timeout_s = 120 }
+criticality = "important"
+memory_mib  = 600
+reaches     = "metadata providers, Emby's own servers and an address lookup service"
+asks_for    = "Reads artwork and descriptions for what is in your library, checks Emby's servers for plugins, updates and any Emby Premiere key, and looks up its own address on the internet unless remote access is turned off in its own settings."
+takes_data  = true
+media_types = ["movies", "tv"]
+config_path = "/config"
+listens     = 8096
+user_mode   = { uid_env = "UID", gid_env = "GID" }
+native      = "emby"
+
+[[service]]
+id          = "emby-adapter"
+name        = "Emby adapter"
+image       = "ghcr.io/lemonfiber/emby-adapter"
+digest      = "sha256:df59b29cf29e0bc12509adbc4a3cf0c2ce8eb8c2ed4f4e41636fad0e33c1f42f"
+tag         = "main-d9fc7631420b"
+criticality = "important"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's media.serve and identity.source contracts by calling Emby, beside it, with the administrator's account lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["media.serve@1", "identity.source@1"]
+fronts      = "emby"
+provides    = ["media.serve", "identity.source"]
+media_types = ["movies", "tv"]
+
+[[proof]]
+id      = "emby.identifies"
+service = "emby"
+title   = "Emby says which server it is to anybody"
+fixture = "fixtures/system-info-public.json"
+why     = """
+The adapter's readiness is this answer, so the pinned image has to name its server and
+its version without a credential.
+"""
+request = { method = "GET", path = "/System/Info/Public" }
+expect  = { status = 200, json_types = { Id = "str", Version = "str", ServerName = "str" } }
+
+[[proof]]
+id      = "emby.guarded"
+service = "emby"
+title   = "Emby lists no account to anybody presenting nothing"
+fixture = "fixtures/users-unauthenticated.json"
+why     = """
+The household's accounts are the adapter's to read, signed in as the administrator.
+An Emby that answered this to a caller presenting nothing would be naming every member
+to every device that can reach it.
+"""
+request = { method = "GET", path = "/Users" }
+expect  = { status = 401 }
+
+[[proof]]
+id      = "emby.catalogue-guarded"
+service = "emby"
+title   = "Emby shows its catalogue to nobody presenting nothing"
+fixture = "fixtures/items-unauthenticated.json"
+why     = """
+A media server on the household network that answered this would be publishing the
+household's library to every device that can reach it.
+"""
+request = { method = "GET", path = "/Items" }
+expect  = { status = 401 }
+
+[[ask]]
+service    = "emby"
+capability = "dashboard.show"

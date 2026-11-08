@@ -28,6 +28,12 @@
 #   profile       the profile every service of the plugin sits in.
 #   last_release  the upstream's latest release, YYYY-MM-DD.
 #
+# One [[offered]] table per first-party plugin the stack does not ship, after every
+# [[plugin]], ordered by id: a second filler of a capability a part fills, installed only
+# where the operator asks. It names `id`, `origin`, `release`, `revision`, `manifest`,
+# `tree`, `profile` and `last_release` as a [[plugin]] does, and neither `fills` nor
+# `stage` (ARCH-R394). bundle/plugins/<id>/ holds its tree as it does a part's.
+#
 # The train moves `release`, `revision`, `manifest`, `tree` and the copy of a plugin
 # that builds an image (OPS-R86). A plugin that builds none, and every other field,
 # moves by a person's pull request. registry/bundle.py holds every copy to its origin
@@ -344,9 +350,9 @@ last_release = "2026-09-17"
 [[plugin]]
 id           = "jellyfin"
 origin       = "https://github.com/lemonfiber/plugin-jellyfin"
-revision     = "6f2173b2730968e15d2b60185ddf16069cdc3965"
-manifest     = "sha256:a624b51986fad2709eaadf416619069e9d9b92f89c1d2fa367ef51769136ef8c"
-tree         = "sha256:7b6903890a7a488a079a52b7567a6c6f44f2cb6d9ea808ac5ca622169e94da06"
+revision     = "b07cb2aa7945b49b5bcb5d3f95ff298018c68234"
+manifest     = "sha256:87a14d84b355c478461188314eb070ea2d8ff89040c58ff0cb0346ff047de4f3"
+tree         = "sha256:b3deb40d7ea0e8a8f5164603b29b691bfc63abda1f0ee5e08e434714f2bbba8a"
 fills        = ["identity.source", "media.serve"]
 stage        = "installed"
 profile      = "media"
@@ -483,3 +489,21 @@ fills        = ["archive.extract"]
 stage        = "installed"
 profile      = "tuning"
 last_release = "2026-08-31"
+
+[[offered]]
+id           = "emby"
+origin       = "https://github.com/lemonfiber/plugin-emby"
+revision     = "d19435ea8423b9f2074fc17ce01180e63a9d117b"
+manifest     = "sha256:d16c94278441600da58f125a175bb2e1286fbd2892dc8048b7ce2bb46ba973e0"
+tree         = "sha256:62da94fa62deb19d56991733f8ab637f009bfbc8ce2d3f362410365cf6eedf98"
+profile      = "media"
+last_release = "2026-10-20"
+
+[[offered]]
+id           = "medusa"
+origin       = "https://github.com/lemonfiber/plugin-medusa"
+revision     = "bba1695f4a52e7c72994b0f0d1beeae26ea27067"
+manifest     = "sha256:39f8df78e41e008233fd650675d91457de93dbfad9305823dd62822422865dec"
+tree         = "sha256:c704d61dede415ffe870af9ff5e26970a4ac9d07ec7ef38cb9a793bfee084985"
+profile      = "tv"
+last_release = "2026-10-18"
