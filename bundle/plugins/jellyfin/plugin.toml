@@ -31,7 +31,7 @@ digest      = "sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad
 tag         = "10.11.11"
 port        = 8095
 bind        = "loopback"
-health      = { kind = "http", path = "/health", timeout_s = 120 }
+health      = { kind = "http", path = "/Users/Public", timeout_s = 120 }
 criticality = "important"
 memory_mib  = 600
 reaches     = "metadata providers and its own plugin repository"
