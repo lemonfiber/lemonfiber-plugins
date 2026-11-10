@@ -21,3 +21,11 @@ Servarr = "Servarr"
 # Navidrome's environment prefix. Every one of its settings is ND_SOMETHING, and
 # the checker reads the prefix on its own as a misspelling of "AND".
 ND = "ND"
+
+[files]
+# The titles and names Lidarr's and Bindery's catalogues answer a lookup with, as
+# their artists and authors spell them, excluded as the plugins' own repos do.
+extend-exclude = [
+    "bundle/plugins/lidarr/conformance/music.curate@1/lookup-answers.json",
+    "bundle/plugins/bindery/conformance/books.curate@1/lookup-answers.json",
+]
