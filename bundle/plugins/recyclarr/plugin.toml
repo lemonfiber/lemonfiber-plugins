@@ -31,8 +31,8 @@ CRON_SCHEDULE = { setting = "recyclarr:cron", default = "@daily" }
 id            = "recyclarr-adapter"
 name          = "Recyclarr adapter"
 image         = "ghcr.io/lemonfiber/recyclarr-adapter"
-digest        = "sha256:42c9e9c3e78e8dda61b21090b937b1224c88bae94e16f13ed97c12dfd8475301"
-tag           = "main-374f488a98ed"
+digest        = "sha256:438d9c060cdd61c3064e6d02b7d174471af34ce0b45af4b237736bf5f8f97d4b"
+tag           = "main-62b0615b1320"
 criticality   = "optional"
 reaches       = ""
 asks_for      = "Nothing beyond this machine. It answers lemonfiber's quality.sync contract by writing the preset and curator lemonfiber hands it into the configuration Recyclarr, beside it, reads, each curator's key into the secrets file beside it."
@@ -62,4 +62,5 @@ release this manifest names.
 [[ask]]
 service    = "recyclarr"
 capability = "library.curate"
+native     = "servarr"
 each       = true

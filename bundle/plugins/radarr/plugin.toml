@@ -37,8 +37,8 @@ RADARR__AUTH__APIKEY = { secret = "upstream-key" }
 id          = "radarr-adapter"
 name        = "Radarr adapter"
 image       = "ghcr.io/lemonfiber/radarr-adapter"
-digest      = "sha256:15bed06c175d3ffd6340778947565dfd1226ce1cf579cc034c007f6bffc13636"
-tag         = "main-f239c037a8db"
+digest      = "sha256:8f1b37309be469fa6e30174b32415b4c19a734d4d1cf22dd6805bcfedb64a08d"
+tag         = "main-9f6ddc5334c2"
 criticality = "core"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's library.curate contract by calling Radarr, beside it, with the key lemonfiber minted for it."
@@ -84,10 +84,12 @@ expect  = { status = 401 }
 [[ask]]
 service    = "radarr"
 capability = "download.usenet"
+native     = "sabnzbd"
 
 [[ask]]
 service    = "radarr"
 capability = "download.torrent"
+native     = "qbittorrent"
 
 [[ask]]
 service    = "radarr"
