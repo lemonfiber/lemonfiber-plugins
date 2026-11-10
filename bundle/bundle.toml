@@ -350,9 +350,9 @@ last_release = "2026-09-17"
 [[plugin]]
 id           = "jellyfin"
 origin       = "https://github.com/lemonfiber/plugin-jellyfin"
-revision     = "b07cb2aa7945b49b5bcb5d3f95ff298018c68234"
-manifest     = "sha256:87a14d84b355c478461188314eb070ea2d8ff89040c58ff0cb0346ff047de4f3"
-tree         = "sha256:b3deb40d7ea0e8a8f5164603b29b691bfc63abda1f0ee5e08e434714f2bbba8a"
+revision     = "409324ab33e7657834141d198c05a8aedebefa88"
+manifest     = "sha256:b2f060c304899d920e4da34bc9c548be89b7013ddb52e8c8a4eaa5967ad2bd96"
+tree         = "sha256:5d8b17c3056e5d9a4bece6e9223d6a2ff20ce31b36cb99216f029b0265e72341"
 fills        = ["identity.source", "media.serve"]
 stage        = "installed"
 profile      = "media"
