@@ -1,0 +1,10 @@
+{
+  "recorded_from": "docker.io/binwiederhier/ntfy@sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7",
+  "note": "A topic's history, asked for presenting nothing. The refusal is the pass: access is denied to everybody but the accounts the configuration names. Taken with the stand-ins the manifest declares for NTFY_BASE_URL, never with an operator's value.",
+  "request": {"method": "GET", "path": "/lemonfiber/json?poll=1"},
+  "response": {
+    "status": 403,
+    "headers": {"content-type": "application/json"},
+    "json": {"code": 40301, "http": 403, "error": "forbidden", "link": "https://ntfy.sh/docs/publish/#authentication"}
+  }
+}

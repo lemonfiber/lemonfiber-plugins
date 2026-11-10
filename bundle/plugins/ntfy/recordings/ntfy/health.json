@@ -1,0 +1,10 @@
+{
+  "recorded_from": "docker.io/binwiederhier/ntfy@sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7",
+  "note": "Its health check, asked for presenting nothing on a fresh server holding the starting configuration. An answer is the pass: healthy is what ntfy says once it serves. Taken with the stand-ins the manifest declares for NTFY_BASE_URL, never with an operator's value.",
+  "request": {"method": "GET", "path": "/v1/health"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {"healthy": true, "role": "active"}
+  }
+}

@@ -1,0 +1,12 @@
+listen-http: ":2586"
+cache-file: "/config/cache.db"
+auth-file: "/config/auth.db"
+auth-default-access: "deny-all"
+auth-users:
+  - "lemonfiber:{{secret:password|bcrypt}}:user"
+auth-access:
+  - "lemonfiber:lemonfiber-*:rw"
+attachment-cache-dir: "/config/attachments"
+enable-signup: false
+enable-login: true
+require-login: true
