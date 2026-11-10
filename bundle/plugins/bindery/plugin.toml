@@ -39,16 +39,17 @@ BINDERY_API_KEY       = { secret = "api-key" }
 id          = "bindery-adapter"
 name        = "Bindery adapter"
 image       = "ghcr.io/lemonfiber/bindery-adapter"
-digest      = "sha256:8fae4b9248384eda8d97edbc4f8274afeaf7279dfa1dc74be683c9bc6da191f4"
-tag         = "main-ec0e337888aa"
+digest      = "sha256:37cedb1863c0c415d8a887d2bc663f0feac0bdced40de322deb40ccd899bd56f"
+tag         = "main-cdac1f11e817"
 criticality = "core"
 reaches     = ""
-asks_for    = "Nothing beyond this machine. It answers lemonfiber's owner.claim, indexer.pull and library.curate contracts by calling Bindery, beside it, with the key and the administrator lemonfiber minted for it."
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's owner.claim, indexer.pull, library.curate and books.curate contracts by calling Bindery, beside it, with the key and the administrator lemonfiber minted for it."
 config_path = "/config"
 listens     = 8080
-speaks      = ["owner.claim@1", "indexer.pull@1", "library.curate@1"]
+speaks      = ["owner.claim@1", "indexer.pull@1", "library.curate@1", "books.curate@1"]
 fronts      = "bindery"
-provides    = ["library.curate"]
+provides    = ["library.curate", "books.curate"]
+outside     = { "books.curate@1/lookup-answers" = "openlibrary.org" }
 upstream    = { api_key = { secret = "api-key" }, username = { secret = "admin-username" }, password = { secret = "admin-password" } }
 
 [[secret]]
@@ -86,11 +87,14 @@ expect  = { status = 401, json = { error = "unauthorized" } }
 [[ask]]
 service    = "bindery"
 capability = "download.usenet"
+native     = "sabnzbd"
 
 [[ask]]
 service    = "bindery"
 capability = "download.torrent"
+native     = "qbittorrent"
 
 [[ask]]
 service    = "bindery"
 capability = "indexer.search"
+native     = ["servarr", "nzbhydra2"]
