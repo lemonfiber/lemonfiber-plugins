@@ -32,8 +32,8 @@ replaces    = "bazarr"
 id          = "bazarr-adapter"
 name        = "Bazarr adapter"
 image       = "ghcr.io/lemonfiber/bazarr-adapter"
-digest      = "sha256:8c7e628137286f39d6d9e780289f74f326221a4c60a18258886e54df9b14669e"
-tag         = "main-16428a6e306f"
+digest      = "sha256:ee0bdacf29ba4aa29468c7490a972e8bc9995452932979e17acc65b0e71f89a8"
+tag         = "main-30489fdb6d1d"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's subtitles.fetch contract by calling Bazarr, beside it, with the key lemonfiber minted for it."
@@ -68,6 +68,7 @@ expect  = { status = 401, json_types = { message = "str" } }
 [[ask]]
 service    = "bazarr"
 capability = "library.curate"
+native     = "servarr"
 each       = true
 
 [[ask]]

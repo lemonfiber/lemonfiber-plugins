@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/radarr@sha256:c984533510abe0219a70e80d15bd0d212b7df21baa0913759c4ce6cc9092240b",
+  "note": "A search for a film a fresh Radarr does not hold: refused before any search is asked.",
+  "request": {"method": "POST", "path": "/lemonfiber/library.curate/v1/search", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "it holds no film as 0", "type": "refused"}
+  }
+}
