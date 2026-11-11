@@ -180,30 +180,33 @@ origin   = "https://github.com/lemonfiber/plugin-komga"
 revision = "0123456789abcdef0123456789abcdef01234567"
 """
 
+#: The file the good entry is registered in: named for the id it registers.
+GOOD_FILE = f"{tomllib.loads(GOOD)['plugin']['id']}.toml"
+
 
 def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     import tempfile
 
     cases: list[tuple[str, str, str]] = [
-        ("a complete entry is read", "komga.toml", GOOD),
-        ("a schema this does not read refused", "komga.toml", GOOD.replace("schema = 1", "schema = 2")),
-        ("a missing [plugin] refused", "komga.toml", "schema = 1\n"),
-        ("a missing revision refused", "komga.toml",
+        ("a complete entry is read", GOOD_FILE, GOOD),
+        ("a schema this does not read refused", GOOD_FILE, GOOD.replace("schema = 1", "schema = 2")),
+        ("a missing [plugin] refused", GOOD_FILE, "schema = 1\n"),
+        ("a missing revision refused", GOOD_FILE,
          GOOD.replace('revision = "0123456789abcdef0123456789abcdef01234567"\n', "")),
-        ("a field nothing reads refused", "komga.toml", GOOD + 'summary = "no"\n'),
+        ("a field nothing reads refused", GOOD_FILE, GOOD + 'summary = "no"\n'),
         ("an id that is not one refused", "Komga.toml", GOOD.replace('"komga"', '"Komga"')),
         ("a file named for another plugin refused", "kavita.toml", GOOD),
-        ("an ssh origin refused", "komga.toml", GOOD.replace("https://github.com/", "ssh://git@github.com/")),
-        ("an origin carrying credentials refused", "komga.toml",
+        ("an ssh origin refused", GOOD_FILE, GOOD.replace("https://github.com/", "ssh://git@github.com/")),
+        ("an origin carrying credentials refused", GOOD_FILE,
          GOOD.replace("https://github.com/", "https://token@github.com/")),
-        ("an origin naming no repository refused", "komga.toml",
+        ("an origin naming no repository refused", GOOD_FILE,
          GOOD.replace("https://github.com/lemonfiber/plugin-komga", "https://github.com")),
-        ("an origin carrying a fragment refused", "komga.toml",
+        ("an origin carrying a fragment refused", GOOD_FILE,
          GOOD.replace("plugin-komga", "plugin-komga#anything")),
-        ("a branch where a commit belongs refused", "komga.toml",
+        ("a branch where a commit belongs refused", GOOD_FILE,
          GOOD.replace('"0123456789abcdef0123456789abcdef01234567"', '"main"')),
-        ("a short commit refused", "komga.toml",
+        ("a short commit refused", GOOD_FILE,
          GOOD.replace('"0123456789abcdef0123456789abcdef01234567"', '"0123456"')),
     ]
 

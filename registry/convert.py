@@ -107,12 +107,21 @@ NOTE = re.compile(r"\A(?:>[^\n]*\n)+\n")
 BARE_KEY = re.compile(r"\A[A-Za-z0-9_-]+\Z")
 REVISION = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._/~^-]{0,255}\Z")
 COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
-IMAGE = re.compile(r"\A(?:[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::[0-9]+)?/)?[a-z0-9]+(?:[._-]+[a-z0-9]+)*(?:/[a-z0-9]+(?:[._-]+[a-z0-9]+)*)*\Z")
-TAG = re.compile(r"\A[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}\Z")
+IMAGE_HOST = re.compile(r"\A[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::\d+)?\Z", re.ASCII)
+IMAGE_COMPONENT = re.compile(r"\A[a-z0-9]+(?:[._-]+[a-z0-9]+)*\Z")
+TAG = re.compile(r"\A\w[\w.-]{0,127}\Z", re.ASCII)
 MARKDOWN = re.compile(r"([\\`*_\[\]<>|~])")
 CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 EXECUTABLE = 0o755
 READABLE = 0o644
+
+
+def image_named(value: str) -> bool:
+    """Whether `value` names an image: a registry host where it begins with one, then one or more
+    path components, `/` between them."""
+    first, *rest = value.split("/")
+    return all(IMAGE_COMPONENT.match(one) for one in rest) and bool(
+        IMAGE_COMPONENT.match(first) or (rest and IMAGE_HOST.match(first)))
 
 
 def plain(path: str) -> bool:
@@ -232,8 +241,9 @@ def built(service: dict, path: str, variant: str) -> list[str]:
     if variant == BUILT:
         return [f"{path}: the {BUILT} variant builds from the image the service names, and its {field} "
                 f"{service.get(field)!r} is not one"
-                for field, shape in (("image", IMAGE), ("tag", TAG), ("digest", tree.DIGEST_SHAPE))
-                if not isinstance(service.get(field), str) or not shape.match(service[field])]
+                for field, shaped in (("image", image_named), ("tag", TAG.match),
+                                      ("digest", tree.DIGEST_SHAPE.match))
+                if not isinstance(service.get(field), str) or not shaped(service[field])]
     return []
 
 
@@ -551,7 +561,7 @@ def part_owned(path: str) -> bool:
 def template_files(template: pathlib.Path, chosen: str = VARIANT) -> tuple[dict[str, pathlib.Path], dict, list[str]]:
     """The file a part's repository takes from the template at each of its paths, the variant's own
     manifest, and every template file nothing says what becomes of."""
-    everything, refused = tree.walked(template, ".")
+    everything, refused = tree.walked(template, tree.TOP)
     problems = list(refused)
     under = f"{chosen}/"
     variant = {path[len(under):] for path in everything if path.startswith(under)}
@@ -591,7 +601,7 @@ def held_to_variant(template: pathlib.Path, own: dict, files: dict[str, bytes], 
 def variant_files(template: pathlib.Path, chosen: str = VARIANT) -> dict[str, bytes]:
     """The variant's own part's files, as the repository made from it holds them."""
     root = template / chosen
-    found, _ = tree.walked(root, ".")
+    found, _ = tree.walked(root, tree.TOP)
     return {path: (root / path).read_bytes() for path in found if part_owned(path) and path != PROOFS}
 
 

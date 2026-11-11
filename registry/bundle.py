@@ -117,9 +117,9 @@ IMAGES = {"fence": "ghcr.io/lemonfiber/fence"}
 
 IMAGE_FIELDS = ("image", "tag", "digest")
 
-#: A release the train tags, without its `v`, or a commit image between releases: `main-`
-#: and the commit's first twelve lowercase hexadecimal digits (OPS-R94).
-IMAGE_TAG = re.compile(r"\A(?:(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)|main-[0-9a-f]{12})\Z")
+#: A commit image between releases: `main-` and the commit's first twelve lowercase hexadecimal
+#: digits (OPS-R94). An image is otherwise tagged at a release the train tags, without its `v`.
+COMMIT_IMAGE_TAG = re.compile(r"\Amain-[0-9a-f]{12}\Z")
 IMAGE_DIGEST = re.compile(r"\Asha256:[0-9a-f]{64}\Z")
 
 STAGES = (parts.ASSEMBLED, "installed")
@@ -235,26 +235,30 @@ def images_of(held: dict, schema: int, file: str) -> tuple[dict[str, dict], list
         if name not in held:
             continue
         pin = held[name]
-        where = f"{file} [{name}]"
-        if not isinstance(pin, dict):
-            problems.append(f"{where}: is not a table")
-            continue
-        missing = [field for field in IMAGE_FIELDS if field not in pin]
-        extra = sorted(set(pin) - set(IMAGE_FIELDS))
-        problems += [f"{where}: is missing {field!r}" for field in missing]
-        problems += [f"{where}: {field} is not something it says; it says {', '.join(IMAGE_FIELDS)}"
-                     for field in extra]
-        if missing or extra:
-            continue
-        if pin["image"] != published:
-            problems.append(f"{where}: image is {pin['image']!r}, and {name} is published as {published}")
-        if not isinstance(pin["tag"], str) or not IMAGE_TAG.match(pin["tag"]):
-            problems.append(f"{where}: tag {pin['tag']!r} is neither a release the train tags, without its v, "
-                            "nor main- and a commit's first twelve lowercase hex digits")
-        if not isinstance(pin["digest"], str) or not IMAGE_DIGEST.match(pin["digest"]):
-            problems.append(f"{where}: digest {pin['digest']!r} is not sha256:<64 hex>")
-        images[name] = pin
+        problems += image_problems(name, published, pin, f"{file} [{name}]")
+        if isinstance(pin, dict) and set(pin) == set(IMAGE_FIELDS):
+            images[name] = pin
     return images, problems
+
+
+def image_problems(name: str, published: str, pin: object, where: str) -> list[str]:
+    """Everything wrong with the pin of the image `name`, which is published as `published`."""
+    if not isinstance(pin, dict):
+        return [f"{where}: is not a table"]
+    said = [f"{where}: is missing {field!r}" for field in IMAGE_FIELDS if field not in pin]
+    said += [f"{where}: {field} is not something it says; it says {', '.join(IMAGE_FIELDS)}"
+             for field in sorted(set(pin) - set(IMAGE_FIELDS))]
+    if said:
+        return said
+    if pin["image"] != published:
+        said.append(f"{where}: image is {pin['image']!r}, and {name} is published as {published}")
+    tag = pin["tag"]
+    if not isinstance(tag, str) or not (RELEASE.match(tag) or COMMIT_IMAGE_TAG.match(tag)):
+        said.append(f"{where}: tag {tag!r} is neither a release the train tags, without its v, "
+                    "nor main- and a commit's first twelve lowercase hex digits")
+    if not isinstance(pin["digest"], str) or not IMAGE_DIGEST.match(pin["digest"]):
+        said.append(f"{where}: digest {pin['digest']!r} is not sha256:<64 hex>")
+    return said
 
 
 def tables_of(held: dict, schema: int, file: str) -> tuple[dict[str, list[dict]], list[str]]:
@@ -581,10 +585,9 @@ def held_to_pin(pin: dict, copy: bytes) -> list[str]:
 
 def held_to_tree(pin: dict, root: pathlib.Path) -> tuple[list[str], dict | None]:
     """Everything a schema 2 copy has to say for its pin that needs no fetch, and its manifest."""
-    manifest_path = root / tree.MANIFEST
-    if not manifest_path.is_file() or manifest_path.is_symlink():
+    if not tree.held_file(root, tree.MANIFEST):
         return [f"the copy holds no {tree.MANIFEST}"], None
-    copy = manifest_path.read_bytes()
+    copy = tree.contained(root, tree.MANIFEST).read_bytes()
     said = []
     if index.digest(copy) != pin["manifest"]:
         said.append(f"the copy's manifest digest is {index.digest(copy)}, not the pinned {pin['manifest']}")
@@ -598,7 +601,7 @@ def held_to_tree(pin: dict, root: pathlib.Path) -> tuple[list[str], dict | None]
         return [*said, *unread.problems], manifest
     if tree.digest(files) != pin["tree"]:
         said.append(f"the copy's tree digest is {tree.digest(files)}, not the pinned {pin['tree']}")
-    everything, refused = tree.walked(root, ".")
+    everything, refused = tree.walked(root, tree.TOP)
     paths = {path for path, _ in files}
     said += [f"the copy holds {path}, which is not in the plugin's tree" for path in everything if path not in paths]
     return [*said, *refused], manifest
@@ -637,8 +640,8 @@ def fetched_tree(pin: dict, revision: str, into: pathlib.Path) -> pathlib.Path:
     why = on_main(pin["origin"], revision)
     if why is not None:
         raise Refusal(f"{pin['id']}: {why}")
-    if not (into / index.MANIFEST).is_file():
-        raise Refusal(f"{pin['id']} at {revision[:12]} has no {index.MANIFEST} at its root")
+    if not tree.held_file(into, tree.MANIFEST):
+        raise Refusal(f"{pin['id']} at {revision[:12]} has no {tree.MANIFEST} at its root")
     return into
 
 
@@ -664,7 +667,7 @@ def held_to_origin(pin: dict, copy: bytes | pathlib.Path) -> tuple[bool, list[st
         except Refusal as refused:
             return False, [str(refused)]
         if isinstance(copy, bytes):
-            if (source / index.MANIFEST).read_bytes() != copy:
+            if tree.contained(source, tree.MANIFEST).read_bytes() != copy:
                 return False, [f"the copy differs from {index.MANIFEST} at the pinned revision"]
             holds, said = check.holds(source)
             return holds, ["the copy is the origin's manifest at the pinned revision", *said]
@@ -676,7 +679,7 @@ def held_to_origin(pin: dict, copy: bytes | pathlib.Path) -> tuple[bool, list[st
         differs = differing(ours, theirs)
         if differs:
             return False, differs
-        unshipped = parts.unshipped_problems(pin["id"], parsed((source / tree.MANIFEST).read_bytes()), source)
+        unshipped = parts.unshipped_problems(pin["id"], parsed(dict(theirs)[tree.MANIFEST]), source)
         if unshipped:
             return False, unshipped
         holds, said = check.holds(source, [path for path, _ in theirs if path != tree.MANIFEST])
@@ -715,7 +718,7 @@ def moved(pin: dict, revision: str, manifest: bytes) -> dict:
 def moved_tree(pin: dict, revision: str, source: pathlib.Path, bundle: Bundle) -> tuple[dict, list]:
     """A schema 2 pin at `revision`, whose tree is in `source`, with that tree, or a refusal."""
     entries_module.revision(revision, pin["id"])
-    manifest = (source / tree.MANIFEST).read_bytes()
+    manifest = tree.contained(source, tree.MANIFEST).read_bytes()
     release = released(manifest, 2)
     try:
         files = tree.read(source, parsed(manifest))
@@ -784,7 +787,7 @@ def applied(
         with tempfile.TemporaryDirectory() as box:
             source = fetched_tree(was, revision, pathlib.Path(box) / "source")
             if bundle.schema == 1:
-                manifest = (source / index.MANIFEST).read_bytes()
+                manifest = tree.contained(source, tree.MANIFEST).read_bytes()
                 now = moved(was, revision, manifest)
                 (held / f"{name}.toml").write_bytes(manifest)
             else:
@@ -843,7 +846,7 @@ def offline_problems(bundle: Bundle, held: dict[str, pathlib.Path]) -> dict[str,
         if manifest is not None:
             manifests[pin["id"]] = manifest
             found[pin["id"]] += parts.part_problems(pin, manifest, bundle.table("form"))
-            found[pin["id"]] += parts.fenced_problems(pin["id"], manifest, bundle.images.get("fence"))
+            found[pin["id"]] += parts.fenced_problems(manifest, bundle.images.get("fence"))
     complete = len(manifests) == len(bundle.pins)
     found[""] = parts.across(bundle.table("wiring"), manifests, held) if complete else []
     return found
