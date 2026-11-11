@@ -198,7 +198,8 @@ an empty directory beneath the working directory:
 - `plugin.toml`, the part's `services/<id>.toml` in the plugin manifest's
   vocabulary. The plugin's id and name are the service's, and `[plugin]` takes
   its `describes`, `without_it`, `upstream` and `license`. `forms` names exactly
-  the forms whose closure holds the service's profile. Each wiring asking a
+  the forms whose closure holds the service's profile, or every form where that
+  profile runs beside them (ARCH-R410). Each wiring asking a
   capability by the service is an `[[ask]]`, and its claims are `[[claim]]`. The
   service declares `replaces` naming its own id, which is how a manifest takes
   an id and a port the bundle reserves.

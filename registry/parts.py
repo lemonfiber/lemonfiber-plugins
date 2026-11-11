@@ -161,14 +161,25 @@ def service_problems(service: dict) -> list[str]:
     return said
 
 
-def forms_problems(pin: dict, plugin: dict, forms: list[dict]) -> list[str]:
-    """`[plugin].forms` names exactly the forms whose closure holds the pin's profile."""
-    holding = sorted(str(form.get("id")) for form in forms if pin["profile"] in listed(form, "profiles"))
-    declared = listed(plugin, "forms")
-    if sorted(map(str, declared)) == holding:
-        return []
+def beside(profiles: list[dict]) -> set[str]:
+    """The profiles that run beside whichever forms run, which no form lists (ARCH-R410)."""
+    return {str(row.get("id")) for row in profiles if isinstance(row, dict) and row.get("beside") is True}
+
+
+def forms_problems(pin: dict, plugin: dict, forms: list[dict], profiles: list[dict]) -> list[str]:
+    """`[plugin].forms` names exactly the forms whose closure holds the pin's profile, or every
+    form where that profile runs beside them (ARCH-R410)."""
     profile = pin["profile"]
-    return [f"[plugin].forms is {declared}, and the forms whose closure holds profile {profile!r} are {holding}"]
+    if profile in beside(profiles):
+        wanted = sorted(str(form.get("id")) for form in forms)
+        why = f"profile {profile!r} runs beside every form, and the forms are {wanted}"
+    else:
+        wanted = sorted(str(form.get("id")) for form in forms if profile in listed(form, "profiles"))
+        why = f"the forms whose closure holds profile {profile!r} are {wanted}"
+    declared = listed(plugin, "forms")
+    if sorted(map(str, declared)) == wanted:
+        return []
+    return [f"[plugin].forms is {declared}, and {why}"]
 
 
 def licence_problems(plugin: dict, built: list[dict]) -> list[str]:
@@ -203,7 +214,7 @@ def stage_problems(pin: dict, manifest: dict, services: list[dict]) -> list[str]
     return installed_problems(pin["id"], services)
 
 
-def part_problems(pin: dict, manifest: dict, forms: list[dict]) -> list[str]:
+def part_problems(pin: dict, manifest: dict, forms: list[dict], profiles: list[dict]) -> list[str]:
     """Everything a schema 2 pin's manifest has to say for it."""
     name = pin["id"]
     plugin = plugin_of(manifest)
@@ -216,7 +227,7 @@ def part_problems(pin: dict, manifest: dict, forms: list[dict]) -> list[str]:
     said += [f"fills {it!r}, which no service of the copy provides or speaks" for it in pin["fills"]
              if it not in filled]
     licensed = [] if pin["stage"] == OFFERED else licence_problems(plugin, built)
-    return [*said, *forms_problems(pin, plugin, forms), *licensed, *release_problems(pin, built)]
+    return [*said, *forms_problems(pin, plugin, forms, profiles), *licensed, *release_problems(pin, built)]
 
 
 def fenced_problems(manifest: dict, fence: dict | None) -> list[str]:

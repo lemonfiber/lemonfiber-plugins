@@ -33,7 +33,8 @@
 # the stack runs beside its parts and fills nothing, installed only where the operator
 # asks. It names `id`, `origin`, `release`, `revision`, `manifest`,
 # `tree`, `profile` and `last_release` as a [[plugin]] does, and neither `fills` nor
-# `stage` (ARCH-R394). bundle/plugins/<id>/ holds its tree as it does a part's.
+# `stage` (ARCH-R394). One in a beside profile names every form in `[plugin].forms`
+# (ARCH-R410). bundle/plugins/<id>/ holds its tree as it does a part's.
 #
 # The train moves `release`, `revision`, `manifest`, `tree` and the copy of a plugin
 # that builds an image (OPS-R86). A plugin that builds none, and every other field,
@@ -43,7 +44,8 @@
 schema = 2
 
 # The profiles: one per role a service plays, each the Compose profile its services
-# are written into.
+# are written into. A profile with `beside = true` runs beside whichever forms run, and
+# no form lists it (ARCH-R410).
 
 [[profile]]
 id          = "search"
@@ -106,6 +108,7 @@ description = "A page linking everything"
 id          = "notify"
 name        = "Notifications"
 description = "A self-hosted push channel"
+beside      = true
 
 [[profile]]
 id          = "proxy"
@@ -118,61 +121,61 @@ description = "Friendly hostnames"
 id          = "search"
 name        = "Search"
 description = "Find things. Nothing else runs."
-profiles    = ["search", "notify"]
+profiles    = ["search"]
 
 [[form]]
 id          = "dl"
 name        = "Download"
 description = "You have a link — fetch it."
-profiles    = ["usenet", "torrent", "notify"]
+profiles    = ["usenet", "torrent"]
 
 [[form]]
 id          = "hunt"
 name        = "Hunt"
 description = "Search and grab, manually."
-profiles    = ["search", "usenet", "torrent", "notify"]
+profiles    = ["search", "usenet", "torrent"]
 
 [[form]]
 id          = "tv"
 name        = "TV"
 description = "Search, download and automate television"
-profiles    = ["search", "usenet", "torrent", "tv", "subs", "notify"]
+profiles    = ["search", "usenet", "torrent", "tv", "subs"]
 
 [[form]]
 id          = "movies"
 name        = "Movies"
 description = "Search, download and automate film"
-profiles    = ["search", "usenet", "torrent", "movies", "subs", "notify"]
+profiles    = ["search", "usenet", "torrent", "movies", "subs"]
 
 [[form]]
 id          = "music"
 name        = "Music"
 description = "Search, download and automate music"
-profiles    = ["search", "usenet", "torrent", "music", "notify"]
+profiles    = ["search", "usenet", "torrent", "music"]
 
 [[form]]
 id          = "books"
 name        = "Books"
 description = "Search, download and automate books and audiobooks"
-profiles    = ["search", "usenet", "torrent", "books", "notify"]
+profiles    = ["search", "usenet", "torrent", "books"]
 
 [[form]]
 id          = "auto"
 name        = "Auto"
 description = "Everything automated, nothing served"
-profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "tuning", "notify"]
+profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "tuning"]
 
 [[form]]
 id          = "library"
 name        = "Library"
 description = "Serve what exists. Requires no third-party accounts."
-profiles    = ["media", "notify"]
+profiles    = ["media"]
 
 [[form]]
 id          = "full"
 name        = "Full"
 description = "The lot."
-profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "media", "tuning", "dash", "notify"]
+profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "media", "tuning", "dash"]
 
 [[form]]
 id          = "proxy"
@@ -356,9 +359,9 @@ last_release = "2026-09-17"
 [[plugin]]
 id           = "jellyfin"
 origin       = "https://github.com/lemonfiber/plugin-jellyfin"
-revision     = "c18e11c0f978370012f2dec1491965c6eda3166d"
-manifest     = "sha256:51aa83a6f77fb8a1728bc814ba26c6b8365504c20f37be536e410b058df8160b"
-tree         = "sha256:90d93ac7f166b46397615abc90eb18617b3924582ec13aed602bee9e163a6136"
+revision     = "7817759f1ba42a667dcef4d26ca92ee219e99dca"
+manifest     = "sha256:37bf7f0bd52c3cba528ea20ab485ac1010124880fa0357ee6a9b975dfb20d6ea"
+tree         = "sha256:f15c4c97cf8a3ef551c0a5af5031e915c5631086cdfff29360701708be3f7a39"
 fills        = ["identity.source", "media.serve"]
 stage        = "installed"
 profile      = "media"
@@ -499,26 +502,26 @@ last_release = "2026-08-31"
 [[offered]]
 id           = "emby"
 origin       = "https://github.com/lemonfiber/plugin-emby"
-revision     = "79a5e015cef557a481002438d04e2373796ed944"
-manifest     = "sha256:4aff67c3fbf58eaeab7ccd443b4a2a46667c3cc0a7ba74e96bb6b73773be5e61"
-tree         = "sha256:87daddaaf58f1035365529cfa08e3588b697ffb404bc7e7ba77c4063e4e015d2"
+revision     = "782e2e783ba93ab23bed78a4a4defd9ef2a3b1b6"
+manifest     = "sha256:f0ed9b620403b15a9f425bfb9b94dc56fa314dd759531ffd09e5bb3e4af5a232"
+tree         = "sha256:4c2233bb92186f59f073bd37acdda3e4313f22ffefb16dfe124436727208b9f9"
 profile      = "media"
 last_release = "2026-10-20"
 
 [[offered]]
 id           = "medusa"
 origin       = "https://github.com/lemonfiber/plugin-medusa"
-revision     = "471bc95fe6ad4b3aed2da55922c7d7cceec3b8a7"
-manifest     = "sha256:4575f687892b508282a6b608e1ed71096af135183ff26c79f6db8002bd662120"
-tree         = "sha256:8a85393ced2b5539367886c22d5f5be552fbdece83d42b987b89869cb2ea6b90"
+revision     = "53728a71617ed831283507ec78cd78d64a46cd2b"
+manifest     = "sha256:547dbe95a7591f5ca7761376a0eb75720963da1ad1adfa10159dfaa55892b1dd"
+tree         = "sha256:674f26733ccede33441af199062a26c0107b29f7dc7ceb8a115d6ad37a5b4f11"
 profile      = "tv"
 last_release = "2026-10-18"
 
 [[offered]]
 id           = "ntfy"
 origin       = "https://github.com/lemonfiber/plugin-ntfy"
-revision     = "c7b6cc22e7224259af9404f710314712fb19a0e8"
-manifest     = "sha256:d9fba81e3eb3281c8a854ae8339b95becd0191efca3b86f64e1b62dca9f0834d"
-tree         = "sha256:f941aff62a76893adbf0ba537aa5a7fa02739cfc047f29a354d1c91b0393b594"
+revision     = "4bddd3087ac8bfe008d20e3800baf4a94bfdc513"
+manifest     = "sha256:2ca7cf02e7bd5a3953fa6f90e4dba8cd7a42c7522a52e1abf1436361736fdd7b"
+tree         = "sha256:9a51276fbc333afb9f473a31b4d0a7f57eee08f073fb1948078fdbde08525d7d"
 profile      = "notify"
 last_release = "2026-11-04"

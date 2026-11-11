@@ -8,7 +8,8 @@ empty directory beneath the working directory it writes:
 - `plugin.toml`, the part's `services/<id>.toml` in the plugin manifest's vocabulary:
   the plugin's id and name are the service's, `[plugin]` takes the service's
   `describes`, `without_it`, `upstream` and `license`, `forms` names exactly the forms
-  whose closure holds the service's profile (ARCH-R96), each `[[wiring]]` asking a
+  whose closure holds the service's profile (ARCH-R96), or every form where that
+  profile runs beside them (ARCH-R410), each `[[wiring]]` asking a
   capability by the service becomes an `[[ask]]`, its claims become `[[claim]]`, and
   the service declares `replaces` naming its own id, which is how a manifest takes an
   id, a port and a hostname the bundle reserves (ARCH-R222);
@@ -270,12 +271,15 @@ def asks_of(stack_manifest: dict, name: str) -> tuple[list[dict], list[dict], li
 
 
 def forms_holding(stack_manifest: dict, profile: str, problems: list[str]) -> list[str]:
-    """The forms whose closure holds `profile`, in the order the stack declares them."""
-    profiles = {row.get("id") for row in parts.listed(stack_manifest, "profile") if isinstance(row, dict)}
+    """The forms whose closure holds `profile`, or every form where it runs beside them
+    (ARCH-R410), in the order the stack declares them."""
+    rows = parts.listed(stack_manifest, "profile")
+    profiles = {row.get("id") for row in rows if isinstance(row, dict)}
     if profile not in profiles:
         problems.append(f"the service sits in profile {profile!r}, which {STACK_MANIFEST} does not declare")
+    beside = profile in parts.beside(rows)
     return [str(row.get("id")) for row in parts.listed(stack_manifest, "form")
-            if isinstance(row, dict) and profile in parts.listed(row, "profiles")]
+            if isinstance(row, dict) and (beside or profile in parts.listed(row, "profiles"))]
 
 
 def claims_of(service: dict) -> list[dict]:
@@ -341,7 +345,8 @@ def converted(stack: pathlib.Path, name: str, version: str, variant: str = VARIA
     pin = {"id": name, "stage": parts.ASSEMBLED, "profile": profile,
            "fills": sorted(parts.filled_by(manifest["service"]))}
     problems += [f"the bundle would refuse it: {said}"
-                 for said in parts.part_problems(pin, manifest, parts.listed(stack_manifest, "form"))]
+                 for said in parts.part_problems(pin, manifest, parts.listed(stack_manifest, "form"),
+                                                 parts.listed(stack_manifest, "profile"))]
     if problems:
         raise Refused(problems)
     return Part(manifest, files, profile, str(service.get("last_release", "")), links, choices, left)

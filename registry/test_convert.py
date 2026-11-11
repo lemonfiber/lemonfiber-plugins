@@ -581,12 +581,40 @@ def round_trip_cases() -> list[Case]:
     ]
 
 
+NOTIFY = """[[profile]]
+id = "notify"
+name = "Notifications"
+description = "A self-hosted push channel"
+beside = true
+
+[[form]]"""
+
+
+def beside_cases() -> list[Case]:
+    """A part whose profile runs beside every form names every form (ARCH-R410)."""
+    stack = tomllib.loads(STACK.replace("[[form]]", NOTIFY, 1))
+    said: list[str] = []
+    every = convert.forms_holding(stack, "notify", said)
+    closure = convert.forms_holding(stack, "tv", said)
+    code, refused, _, _, held = ran(changed("stack.toml", "[[form]]", NOTIFY.replace(
+        'id = "notify"', 'id = "search-beside"')) | {"services/part.toml": STACK_FILES["services/part.toml"].replace(
+        'profile = "search"', 'profile = "search-beside"')}, template_files())
+    plugin = tomllib.loads(held["plugin.toml"].decode()).get("plugin", {}) if "plugin.toml" in held else {}
+    return [
+        ("a beside profile is held by every form, in the stack's order", True,
+         every == ["search", "tv", "library"] and not said),
+        ("a profile not beside is still held by its closures", True, closure == ["tv", "library"]),
+        ("a part in a beside profile is written naming every form", True,
+         code == 0 and not refused and plugin.get("forms") == ["search", "tv", "library"]),
+    ]
+
+
 def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     try:
         cases = [*written_cases(), *readme_cases(), *refusal_cases(), *proving_cases(), *write_cases(), *built_cases(),
-                 *injection_cases(), *option_cases(),
+                 *injection_cases(), *option_cases(), *beside_cases(),
                  *round_trip_cases()]
     finally:
         for scratch in SCRATCH:
