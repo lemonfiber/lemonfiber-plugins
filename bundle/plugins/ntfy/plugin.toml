@@ -1,0 +1,74 @@
+#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/ffa9d036adc5b5fc661d772616fd9949fa6188cd/contract/plugin-manifest.schema.json
+schema_version = 1
+
+[plugin]
+id          = "ntfy"
+name        = "ntfy"
+version     = "1.0.0"
+description = "The household's own push server: alerts reach your phones through this house, not through a company's service"
+without_it  = "Alerts reach a phone only through a push service you set up and run yourself"
+upstream    = "https://github.com/binwiederhier/ntfy"
+license     = "Apache-2.0"
+forms       = ["search", "dl", "hunt", "tv", "movies", "music", "books", "auto", "library", "full"]
+
+[[service]]
+id          = "ntfy"
+name        = "ntfy"
+image       = "docker.io/binwiederhier/ntfy"
+digest      = "sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7"
+tag         = "v2.37.2"
+args        = ["serve"]
+port        = 2586
+bind        = "lan"
+health      = { kind = "http", path = "/v1/health", timeout_s = 30 }
+criticality = "enhancing"
+memory_mib  = 50
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It holds the messages lemonfiber publishes to it and hands them to the phones and browsers that subscribe, each signed in; it sends nothing on its own."
+posture     = "confined"
+user_mode   = "uid"
+
+[service.env]
+NTFY_CONFIG_FILE    = "/config/server.yml"
+NTFY_BASE_URL       = { setting = "ntfy:base-url", default = "http://localhost:2586", recorded_with = "http://192.0.2.1:2586" }
+NTFY_CACHE_DURATION = { setting = "ntfy:cache-duration", default = "72h" }
+
+[[secret]]
+id     = "password"
+of     = "ntfy"
+minted = "password"
+why    = "The password of the account lemonfiber publishes to ntfy and reads its history as, written into ntfy's configuration as the bcrypt hash ntfy keeps"
+
+[[proof]]
+id      = "ntfy.healthy"
+service = "ntfy"
+title   = "ntfy says it is healthy to anybody"
+fixture = "recordings/ntfy/health.json"
+why     = """
+Its health check is the one route it answers without an account, and the pinned
+image answering it healthy is ntfy serving with the configuration lemonfiber
+wrote, rather than an image that printed its help and left.
+"""
+request = { method = "GET", path = "/v1/health" }
+expect  = { status = 200, content_type = "application/json", json = { healthy = true } }
+
+[[proof]]
+id      = "ntfy.closed-to-nobody"
+service = "ntfy"
+title   = "ntfy shows a topic's messages to nobody presenting nothing"
+fixture = "recordings/ntfy/topic-closed.json"
+why     = """
+A topic's history is what the household was told. Access is denied to everybody
+but the accounts its configuration names, so an ntfy that answered a topic to a
+caller presenting nothing would be telling every device that can reach it.
+"""
+request = { method = "GET", path = "/lemonfiber/json?poll=1" }
+expect  = { status = 403, content_type = "application/json", json = { code = 40301 } }
+
+[[ask]]
+service    = "ntfy"
+capability = "proxy.front"
+
+[[wiring]]
+service  = "ntfy"
+hostname = "ntfy"

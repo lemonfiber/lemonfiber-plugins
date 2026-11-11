@@ -29,8 +29,9 @@
 #   last_release  the upstream's latest release, YYYY-MM-DD.
 #
 # One [[offered]] table per first-party plugin the stack does not ship, after every
-# [[plugin]], ordered by id: a second filler of a capability a part fills, installed only
-# where the operator asks. It names `id`, `origin`, `release`, `revision`, `manifest`,
+# [[plugin]], ordered by id: a second filler of a capability a part fills, or a service
+# the stack runs beside its parts and fills nothing, installed only where the operator
+# asks. It names `id`, `origin`, `release`, `revision`, `manifest`,
 # `tree`, `profile` and `last_release` as a [[plugin]] does, and neither `fills` nor
 # `stage` (ARCH-R394). bundle/plugins/<id>/ holds its tree as it does a part's.
 #
@@ -102,6 +103,11 @@ name        = "Dashboard"
 description = "A page linking everything"
 
 [[profile]]
+id          = "notify"
+name        = "Notifications"
+description = "A self-hosted push channel"
+
+[[profile]]
 id          = "proxy"
 name        = "Proxy"
 description = "Friendly hostnames"
@@ -112,61 +118,61 @@ description = "Friendly hostnames"
 id          = "search"
 name        = "Search"
 description = "Find things. Nothing else runs."
-profiles    = ["search"]
+profiles    = ["search", "notify"]
 
 [[form]]
 id          = "dl"
 name        = "Download"
 description = "You have a link — fetch it."
-profiles    = ["usenet", "torrent"]
+profiles    = ["usenet", "torrent", "notify"]
 
 [[form]]
 id          = "hunt"
 name        = "Hunt"
 description = "Search and grab, manually."
-profiles    = ["search", "usenet", "torrent"]
+profiles    = ["search", "usenet", "torrent", "notify"]
 
 [[form]]
 id          = "tv"
 name        = "TV"
 description = "Search, download and automate television"
-profiles    = ["search", "usenet", "torrent", "tv", "subs"]
+profiles    = ["search", "usenet", "torrent", "tv", "subs", "notify"]
 
 [[form]]
 id          = "movies"
 name        = "Movies"
 description = "Search, download and automate film"
-profiles    = ["search", "usenet", "torrent", "movies", "subs"]
+profiles    = ["search", "usenet", "torrent", "movies", "subs", "notify"]
 
 [[form]]
 id          = "music"
 name        = "Music"
 description = "Search, download and automate music"
-profiles    = ["search", "usenet", "torrent", "music"]
+profiles    = ["search", "usenet", "torrent", "music", "notify"]
 
 [[form]]
 id          = "books"
 name        = "Books"
 description = "Search, download and automate books and audiobooks"
-profiles    = ["search", "usenet", "torrent", "books"]
+profiles    = ["search", "usenet", "torrent", "books", "notify"]
 
 [[form]]
 id          = "auto"
 name        = "Auto"
 description = "Everything automated, nothing served"
-profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "tuning"]
+profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "tuning", "notify"]
 
 [[form]]
 id          = "library"
 name        = "Library"
 description = "Serve what exists. Requires no third-party accounts."
-profiles    = ["media"]
+profiles    = ["media", "notify"]
 
 [[form]]
 id          = "full"
 name        = "Full"
 description = "The lot."
-profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "media", "tuning", "dash"]
+profiles    = ["search", "usenet", "torrent", "tv", "movies", "music", "books", "subs", "media", "tuning", "dash", "notify"]
 
 [[form]]
 id          = "proxy"
@@ -507,3 +513,12 @@ manifest     = "sha256:4575f687892b508282a6b608e1ed71096af135183ff26c79f6db8002b
 tree         = "sha256:8a85393ced2b5539367886c22d5f5be552fbdece83d42b987b89869cb2ea6b90"
 profile      = "tv"
 last_release = "2026-10-18"
+
+[[offered]]
+id           = "ntfy"
+origin       = "https://github.com/lemonfiber/plugin-ntfy"
+revision     = "c7b6cc22e7224259af9404f710314712fb19a0e8"
+manifest     = "sha256:d9fba81e3eb3281c8a854ae8339b95becd0191efca3b86f64e1b62dca9f0834d"
+tree         = "sha256:f941aff62a76893adbf0ba537aa5a7fa02739cfc047f29a354d1c91b0393b594"
+profile      = "notify"
+last_release = "2026-11-04"
