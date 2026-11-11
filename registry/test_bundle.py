@@ -620,6 +620,40 @@ def offered_shapes() -> list[Case]:
     ]
 
 
+BESIDE = """[[profile]]
+id          = "notify"
+name        = "Notifications"
+description = "A self-hosted push channel"
+beside      = true
+
+"""
+
+
+def beside_shapes() -> list[Case]:
+    """A profile that runs beside whichever forms run, and each shape of one it refuses (ARCH-R410)."""
+    stack = STACK.replace("[[form]]", BESIDE + "[[form]]", 1)
+    every = {**TREES, "caddy": {**TREES["caddy"], "plugin.toml": CADDY.replace(
+        b'forms = ["full"]', b'forms = ["dl", "full"]')}}
+    good = stack + bundle.rendered(list({**PINS, "caddy": pinned(
+        "caddy", every["caddy"], **{**bundle.AS_OFFERED, "profile": "notify"})}.values()), 2)
+    narrow = stack + bundle.rendered(list({**PINS, "caddy": pinned(
+        "caddy", TREES["caddy"], **{**bundle.AS_OFFERED, "profile": "notify"})}.values()), 2)
+    refused = [
+        ("beside that is not true or false refused", good.replace("beside      = true", 'beside      = "yes"')),
+        ("a form listing a beside profile refused", good.replace('profiles    = ["usenet"]\n',
+                                                                'profiles    = ["usenet", "notify"]\n')),
+    ]
+    return [
+        ("a beside profile no form lists is read", False, refuses(lambda: bundle.read(good))),
+        ("a plugin in a beside profile naming every form holds", True, offline(good, every) == []),
+        ("a plugin in a beside profile naming only the forms that hold it does not", True,
+         any("runs beside every form" in line for line in offline(narrow))),
+        ("a profile not marked beside is held to its closures", True,
+         parts.beside([{"id": "media"}, {"id": "notify", "beside": False}]) == set()),
+        *((what, True, refuses(lambda text=text: bundle.read(text))) for what, text in refused),
+    ]
+
+
 FENCE = f"""[fence]
 image  = "ghcr.io/lemonfiber/fence"
 tag    = "0.18.0"
@@ -991,7 +1025,7 @@ def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
     for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(), *escapes(),
-                                *stack_shapes(), *offered_shapes(), *fence_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(),
+                                *stack_shapes(), *offered_shapes(), *beside_shapes(), *fence_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(),
                                 *target_shapes(), *template_targets(), *first_pins()):
         print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")
         failures += expected != got

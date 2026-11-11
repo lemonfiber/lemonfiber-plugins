@@ -105,7 +105,7 @@ OFFERED_FIELDS = ("id", "origin", "release", "revision", "manifest", "tree", "pr
 AS_OFFERED = {"fills": [], "stage": parts.OFFERED}
 
 SHAPES = {
-    "profile": (("id", "name", "description"), ("protocol",)),
+    "profile": (("id", "name", "description"), ("protocol", "beside")),
     "form": (("id", "name", "description", "profiles"), ("composable",)),
     "removed": (("id", "removed_in", "reason"), ("replaced_by",)),
     "wiring": (("by", "why"), ("asks", "filled_by", "to")),
@@ -407,7 +407,7 @@ def shaped(name: str, rows: list[dict], file: str) -> list[str]:
             f"{where}: {field} is not text"
             for field, value in row.items()
             if field in (*required, *optional)
-            and field not in ("profiles", "composable")
+            and field not in ("profiles", "composable", "beside")
             and (not isinstance(value, str) or not value.strip())
         ]
     return problems
@@ -430,11 +430,13 @@ def stack_problems(tables: dict[str, list[dict]], pins: list[dict], file: str) -
     if problems:
         return problems
     profiles = {row["id"] for row in tables["profile"]}
+    besides = parts.beside(tables["profile"])
     pinned = {pin.get("id") for pin in pins if isinstance(pin.get("id"), str) and not is_offered(pin)}
     return [
         *(problem for name in ("profile", "form", "removed") for problem in unique(name, tables[name], file)),
         *protocol_problems(tables["profile"], file),
-        *(problem for row in tables["form"] for problem in form_problems(row, profiles, file)),
+        *beside_problems(tables["profile"], file),
+        *(problem for row in tables["form"] for problem in form_problems(row, profiles, besides, file)),
         *(problem for row in tables["removed"] for problem in removed_problems(row, pinned, file)),
         *wiring_shapes(tables["wiring"], file),
         *(f"{file} ({pin['id']}): profile {pin['profile']!r} is no declared [[profile]]" for pin in pins
@@ -453,8 +455,14 @@ def protocol_problems(profiles: list[dict], file: str) -> list[str]:
                        for protocol, held in declaring.items() if len(held) > 1]
 
 
-def form_problems(row: dict, profiles: set[str], file: str) -> list[str]:
-    """A form's closure names declared profiles, and `composable` is true or false."""
+def beside_problems(profiles: list[dict], file: str) -> list[str]:
+    """Each `beside` true or false (ARCH-R410)."""
+    return [f"{file}: [[profile]] {row['id']!r}: beside is not true or false"
+            for row in profiles if "beside" in row and not isinstance(row["beside"], bool)]
+
+
+def form_problems(row: dict, profiles: set[str], besides: set[str], file: str) -> list[str]:
+    """A form's closure names declared profiles and no beside one, and `composable` is true or false."""
     where = f"{file}: [[form]] {row['id']!r}"
     closure = row["profiles"]
     if not isinstance(closure, list) or not all(isinstance(it, str) for it in closure):
@@ -462,6 +470,8 @@ def form_problems(row: dict, profiles: set[str], file: str) -> list[str]:
     else:
         problems = [f"{where}: names profile {it!r}, which no [[profile]] declares" for it in closure
                     if it not in profiles]
+        problems += [f"{where}: names profile {it!r}, which runs beside every form and no form lists (ARCH-R410)"
+                     for it in closure if it in besides]
     if "composable" in row and not isinstance(row["composable"], bool):
         problems.append(f"{where}: composable is not true or false")
     return problems
@@ -731,7 +741,7 @@ def moved_tree(pin: dict, revision: str, source: pathlib.Path, bundle: Bundle) -
         "manifest": index.digest(manifest),
         "tree": tree.digest(files),
     }
-    said = [*parts.part_problems(to, parsed(manifest), bundle.table("form")),
+    said = [*parts.part_problems(to, parsed(manifest), bundle.table("form"), bundle.table("profile")),
             *parts.unshipped_problems(pin["id"], parsed(manifest), source)]
     if said:
         raise Refusal(f"{pin['id']} at {revision[:12]}: {'; '.join(said)}")
@@ -845,7 +855,7 @@ def offline_problems(bundle: Bundle, held: dict[str, pathlib.Path]) -> dict[str,
         found[pin["id"]], manifest = held_to_tree(pin, held[pin["id"]])
         if manifest is not None:
             manifests[pin["id"]] = manifest
-            found[pin["id"]] += parts.part_problems(pin, manifest, bundle.table("form"))
+            found[pin["id"]] += parts.part_problems(pin, manifest, bundle.table("form"), bundle.table("profile"))
             found[pin["id"]] += parts.fenced_problems(manifest, bundle.images.get("fence"))
     complete = len(manifests) == len(bundle.pins)
     found[""] = parts.across(bundle.table("wiring"), manifests, held) if complete else []
