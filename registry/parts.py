@@ -30,7 +30,7 @@ PROXY = "proxy.front"
 DOMAIN = ".{$DOMAIN"
 LABEL = re.compile(r"\A[a-z0-9-]+\Z")
 DOCKERFILE = "Dockerfile"
-REFERENCE = re.compile(r"((?:[^@/:]+(?::[0-9]+)?/)?[^@:]+)(?::[^@/]+)?(?:@sha256:[0-9a-f]{64})?")
+REFERENCE = re.compile(r"((?:[^@/:]+(?::\d+)?/)?[^@:]+)(?::[^@/]+)?(?:@sha256:[0-9a-f]{64})?", re.ASCII)
 
 Register = dict[tuple[str, str], set[str]]
 
@@ -93,7 +93,10 @@ def unshipped_problems(name: str, manifest: dict, root: pathlib.Path) -> list[st
     """A built part's revision whose service of its id still runs the image its `Dockerfile`
     builds on, at any digest, rather than the image it builds: one that ships nothing, since
     what it installs is the upstream its `Dockerfile` adapts (ARCH-R285)."""
-    dockerfile = root / DOCKERFILE
+    try:
+        dockerfile = tree.contained(root, DOCKERFILE)
+    except tree.Unreadable as unread:
+        return unread.problems
     if not dockerfile.is_file():
         return []
     base = built_on(dockerfile.read_text(encoding="utf-8", errors="replace"))
@@ -191,6 +194,15 @@ def release_problems(pin: dict, built: list[dict]) -> list[str]:
     ]
 
 
+def stage_problems(pin: dict, manifest: dict, services: list[dict]) -> list[str]:
+    """What a pin's stage asks of its manifest's services."""
+    if pin["stage"] == ASSEMBLED:
+        return assembled_problems(pin["id"], manifest, services)
+    if pin["stage"] == OFFERED:
+        return offered_problems(services)
+    return installed_problems(pin["id"], services)
+
+
 def part_problems(pin: dict, manifest: dict, forms: list[dict]) -> list[str]:
     """Everything a schema 2 pin's manifest has to say for it."""
     name = pin["id"]
@@ -198,9 +210,7 @@ def part_problems(pin: dict, manifest: dict, forms: list[dict]) -> list[str]:
     services = services_of(manifest)
     built = built_of(services)
     said = [] if plugin.get("id") == name else [f"the copy declares [plugin].id {plugin.get('id')!r}, not {name!r}"]
-    said += (assembled_problems(name, manifest, services) if pin["stage"] == ASSEMBLED
-             else offered_problems(services) if pin["stage"] == OFFERED
-             else installed_problems(name, services))
+    said += stage_problems(pin, manifest, services)
     said += [line for service in services for line in service_problems(service)]
     filled = filled_by(services)
     said += [f"fills {it!r}, which no service of the copy provides or speaks" for it in pin["fills"]
@@ -209,7 +219,7 @@ def part_problems(pin: dict, manifest: dict, forms: list[dict]) -> list[str]:
     return [*said, *forms_problems(pin, plugin, forms), *licensed, *release_problems(pin, built)]
 
 
-def fenced_problems(name: str, manifest: dict, fence: dict | None) -> list[str]:
+def fenced_problems(manifest: dict, fence: dict | None) -> list[str]:
     """Each service of a pinned plugin that runs behind a fence, where the bundle pins no
     fence image for it to run behind (ARCH-R363)."""
     if fence is not None:
@@ -274,11 +284,9 @@ def held(register: Register, kind: str, value: object, name: str) -> None:
 
 def proxy_labels(root: pathlib.Path, service: dict) -> list[tuple[str, str | None]]:
     """Every label the starting files of a proxy service answer on, with the service each routes to."""
-    found = []
-    for path in sorted((root / tree.CONFIG / str(service.get("id"))).rglob("*")):
-        if path.is_file() and not path.is_symlink():
-            found += answered(path.read_text(encoding="utf-8", errors="replace"))
-    return found
+    starting, _ = tree.starting_files(root, str(service.get("id")))
+    return [label for path in starting
+            for label in answered(tree.contained(root, path).read_text(encoding="utf-8", errors="replace"))]
 
 
 def service_holdings(reserved: Register, name: str, part: dict) -> None:

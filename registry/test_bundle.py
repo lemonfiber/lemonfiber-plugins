@@ -273,6 +273,51 @@ def crowded(count: int, size: int) -> list:
         return tree.read(root, {"service": [{"id": "one"}]})
 
 
+def escapes() -> list[Case]:
+    """A path out of the tree, written with `..`, written absolute or reached through a symbolic
+    link, refused wherever a tree is read."""
+    with tempfile.TemporaryDirectory() as box:
+        outside = pathlib.Path(box) / "outside.json"
+        outside.write_bytes(b"{}\n")
+        root = pathlib.Path(box) / "tree"
+        (root / "recordings").mkdir(parents=True)
+        (root / "config").mkdir()
+        (root / tree.MANIFEST).write_bytes(b"")
+        (root / "recordings" / "linked.json").symlink_to(outside)
+        (root / "config" / "out").symlink_to(box)
+        (root / parts.DOCKERFILE).symlink_to(outside)
+        linked = pathlib.Path(box) / "linked"
+        linked.mkdir()
+        (linked / tree.MANIFEST).symlink_to(outside)
+
+        def contains(path: str) -> bool:
+            return not refuses(lambda: tree.contained(root, path), tree.Unreadable)
+
+        def recorded(path: str) -> bool:
+            return refuses(lambda: tree.read(root, {"claim": [{"fixture": path}]}), tree.Unreadable)
+
+        def started(service: str) -> bool:
+            return refuses(lambda: tree.read(root, {"service": [{"id": service}]}), tree.Unreadable)
+
+        return [
+            ("a path written with .. is not contained", False, contains("../outside.json")),
+            ("an absolute path is not contained", False, contains(str(outside))),
+            ("a path linked out of the tree is not contained", False, contains("recordings/linked.json")),
+            ("a directory linked out of the tree is not contained", False, contains("config/out/outside.json")),
+            ("a path inside the tree is contained", True, contains(tree.MANIFEST)),
+            ("the tree itself is contained", True, contains(tree.TOP)),
+            ("a recording written with .. refused", True, recorded("../outside.json")),
+            ("a recording written absolute refused", True, recorded(str(outside))),
+            ("a recording linked out of the tree refused", True, recorded("recordings/linked.json")),
+            ("a service id written with .. refused", True, started("..")),
+            ("starting files linked out of the tree refused", True, started("out")),
+            ("a manifest linked out of the tree refused", True,
+             refuses(lambda: tree.manifest_of(linked), tree.Unreadable)),
+            ("a Dockerfile linked out of the tree refused", True,
+             parts.unshipped_problems("one", {}, root) == [f"{parts.DOCKERFILE} is outside the tree"]),
+        ]
+
+
 SAB = b"""schema_version = 1
 
 [plugin]
@@ -945,7 +990,7 @@ def first_pins() -> list[Case]:
 def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
     failures = 0
-    for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(),
+    for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(), *escapes(),
                                 *stack_shapes(), *offered_shapes(), *fence_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(),
                                 *target_shapes(), *template_targets(), *first_pins()):
         print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")

@@ -69,18 +69,20 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 import entry as entries_module  # noqa: E402
+import tree  # noqa: E402
 
 # What is copied out of a fetched revision. Data, and the whole of the data — a plugin
 # is `plugin.toml` and its recordings, and `targets.toml` is the author's claim about
 # which release they proved against.
-CARRIED = ("plugin.toml", "targets.toml")
+TARGETS = "targets.toml"
+CARRIED = (tree.MANIFEST, TARGETS)
 CARRIED_DIRS = ("fixtures",)
 
 # Where the author's `targets.toml` is kept beside the catalogue's own.
 THEIRS = "targets.theirs.toml"
 
 # The lemonfiber this catalogue targets (`REPO-R56`).
-OURS = ROOT / "targets.toml"
+OURS = ROOT / TARGETS
 
 HARNESS = ROOT / ".github" / "reader"
 sys.path.insert(0, str(HARNESS))
@@ -161,19 +163,21 @@ def assembled(
     """
     shutil.copytree(HARNESS, into / ".github" / "reader")
     shutil.copytree(reader.CACHE, into / reader.CACHE.name)
-    shutil.copy2(targets, into / "targets.toml")
+    shutil.copy2(targets, into / TARGETS)
     for name in CARRIED:
-        found = source / name
-        if not found.is_file():
+        if not tree.held_file(source, name):
             return f"the revision read has no {name} at its root"
-        shutil.copy2(found, into / (THEIRS if name == "targets.toml" else name))
+        shutil.copy2(tree.contained(source, name), into / (THEIRS if name == TARGETS else name))
     if carried is not None:
         for path in carried:
             (into / path).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source / path, into / path)
+            shutil.copy2(tree.contained(source, path), into / path)
         return None
     for name in CARRIED_DIRS:
-        found = source / name
+        _, refused = tree.walked(source, name)
+        if refused:
+            return f"the revision read cannot carry {name}/: {'; '.join(refused)}"
+        found = tree.contained(source, name)
         if not found.is_dir():
             return f"the revision read has no {name}/ at its root"
         shutil.copytree(found, into / name)
@@ -291,7 +295,7 @@ def one(plugin: dict, its_own: bool = False) -> tuple[bool, list[str]]:
         why = fetched(plugin["origin"], plugin["revision"], source)
         if why is not None:
             return False, [f"the revision named could not be fetched: {why}"]
-        targets = source / "targets.toml" if its_own else OURS
+        targets = source / TARGETS if its_own else OURS
         why = fetched_for(targets) if its_own else None
         if why is not None:
             return False, [why]
@@ -334,6 +338,49 @@ def holds(
     return True, said
 
 
+def subjects(template: bool, only: str | None) -> tuple[list[dict], int | None]:
+    """What this run holds to everything: the template, or the registrations, `only` one of
+    them where it names one; with the exit code instead where there is nothing to hold."""
+    if template:
+        return [TEMPLATE], None
+    try:
+        found = entries_module.entries()
+    except entries_module.Refusal as refused:
+        print(f"::error::{refused}")
+        return [], 1
+    if only:
+        found = [plugin for plugin in found if plugin["id"] == only]
+        if not found:
+            print(f"::error::nothing registered is called {only!r}")
+            return [], 2
+    if not found:
+        print("No plugins are registered yet, so there is nothing to hold to anything.")
+        return [], 0
+    return found, None
+
+
+def reported(found: list[dict], its_own: bool, template: bool) -> int:
+    """Each subject held to everything and said, then how many held, as an exit code."""
+    refused = 0
+    for plugin in found:
+        held, said = one(plugin, its_own)
+        mark = "ok  " if held else "FAIL"
+        print(f"  {mark} {plugin['id']} @ {plugin['revision'][:12]}")
+        for line in said:
+            print(f"         {line}")
+        if not held:
+            refused += 1
+            unheld = UNHELD_TEMPLATE if template else UNHELD_REGISTRATION
+            print(f"::error::{plugin['id']} {unheld}")
+
+    print(
+        f"\n{len(found) - refused} of {len(found)} hold. Proofs ran against recorded "
+        "responses, which is a claim about what a plugin declares rather than about a "
+        "service that answered."
+    )
+    return 1 if refused else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--only", metavar="ID", help="one registration rather than all of them")
@@ -348,22 +395,9 @@ def main() -> int:
         print("::error::--template and --only name different subjects, so ask one of them")
         return 2
 
-    if args.template:
-        found = [TEMPLATE]
-    else:
-        try:
-            found = entries_module.entries()
-        except entries_module.Refusal as refused:
-            print(f"::error::{refused}")
-            return 1
-        if args.only:
-            found = [plugin for plugin in found if plugin["id"] == args.only]
-            if not found:
-                print(f"::error::nothing registered is called {args.only!r}")
-                return 2
-        if not found:
-            print("No plugins are registered yet, so there is nothing to hold to anything.")
-            return 0
+    found, finished = subjects(args.template, args.only)
+    if finished is not None:
+        return finished
 
     try:
         its_own = asked_under_its_own(args.template)
@@ -373,28 +407,11 @@ def main() -> int:
         return 2
     if its_own:
         print(f"This catalogue targets {version}; the template is asked of the lemonfiber its own "
-              "targets.toml names (REPO-R56).\n")
+              f"{TARGETS} names (REPO-R56).\n")
     else:
         print(f"Asked of {version}, which this catalogue targets.\n")
 
-    refused = 0
-    for plugin in found:
-        held, said = one(plugin, its_own)
-        mark = "ok  " if held else "FAIL"
-        print(f"  {mark} {plugin['id']} @ {plugin['revision'][:12]}")
-        for line in said:
-            print(f"         {line}")
-        if not held:
-            refused += 1
-            unheld = UNHELD_TEMPLATE if args.template else UNHELD_REGISTRATION
-            print(f"::error::{plugin['id']} {unheld}")
-
-    print(
-        f"\n{len(found) - refused} of {len(found)} hold. Proofs ran against recorded "
-        "responses, which is a claim about what a plugin declares rather than about a "
-        "service that answered."
-    )
-    return 1 if refused else 0
+    return reported(found, its_own, args.template)
 
 
 if __name__ == "__main__":

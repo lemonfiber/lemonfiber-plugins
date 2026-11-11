@@ -28,6 +28,9 @@ import tomllib
 #: The manifest, at the root of a plugin's repository.
 MANIFEST = "plugin.toml"
 
+#: The tree itself, written as a path inside it.
+TOP = "."
+
 #: Where each service's starting files sit, under the service's id.
 CONFIG = "config"
 
@@ -82,34 +85,44 @@ def relative(path: str) -> bool:
     )
 
 
-def linked(root: pathlib.Path, path: str) -> str | None:
-    """The first segment of `path` under `root` that is a symbolic link, if one is."""
-    parts = path.split("/")
-    for depth in range(1, len(parts) + 1):
-        said = "/".join(parts[:depth])
-        if (root / said).is_symlink():
-            return said
-    return None
-
-
 def inside(root: pathlib.Path, path: pathlib.Path) -> bool:
     """Whether `path`, every link followed, is `root` or beneath it."""
     base = os.path.realpath(root)
     return os.path.commonpath([base, os.path.realpath(path)]) == base
 
 
+def contained(root: pathlib.Path, path: str) -> pathlib.Path:
+    """`path` in `root`, resolved, where it is `TOP` or a relative path that no symbolic link reaches
+    and that stays within `root`, or a refusal. Every read of a tree goes through it."""
+    if path != TOP and not relative(path):
+        raise Unreadable([f"{path!r} is not a path inside the tree"])
+    base = os.path.realpath(root)
+    joined = os.path.normpath(os.path.join(base, path))
+    resolved = os.path.realpath(joined)
+    if resolved != base and not resolved.startswith(base + os.sep):
+        raise Unreadable([f"{path} is outside the tree"])
+    held = pathlib.Path(resolved)
+    if resolved != joined or any(one.is_symlink() for one in (held, *held.parents[:path.count("/")])):
+        raise Unreadable([f"{path} is reached through a symbolic link"])
+    return held
+
+
+def held_file(root: pathlib.Path, path: str) -> bool:
+    """Whether `path` is a regular file of the tree in `root`, reached through no symbolic link."""
+    try:
+        return contained(root, path).is_file()
+    except Unreadable:
+        return False
+
+
 def walked(root: pathlib.Path, under: str) -> tuple[list[str], list[str]]:
     """Every file under `under` in `root`, and every symbolic link or other non-file there."""
-    link = linked(root, under)
-    if link is not None:
-        return [], [f"{link} is a symbolic link"]
-    base = os.path.realpath(root)
-    start = os.path.realpath(os.path.join(base, under))
-    if start != base and not start.startswith(base + os.sep):
-        return [], [f"{under} is outside the tree"]
-    if not os.path.isdir(start):
+    try:
+        top, start = contained(root, TOP), contained(root, under)
+    except Unreadable as unread:
+        return [], unread.problems
+    if not start.is_dir():
         return [], []
-    top = pathlib.Path(base)
     found: list[str] = []
     refused: list[str] = []
     for at, directories, files in os.walk(start, followlinks=False):
@@ -132,7 +145,7 @@ def starting_files(root: pathlib.Path, service: str) -> tuple[list[str], list[st
     if not relative(service) or "/" in service:
         return [], [f"service id {service!r} is not a directory name"]
     found, refused = walked(root, f"{CONFIG}/{service}")
-    weight = sum((root / one).stat().st_size for one in found)
+    weight = sum(contained(root, one).stat().st_size for one in found)
     if len(found) > MOST_STARTING_FILES:
         refused.append(f"service {service} starts with {len(found)} files, more than {MOST_STARTING_FILES}")
     if weight > MOST_STARTING_BYTES:
@@ -147,12 +160,16 @@ def named(root: pathlib.Path, manifest: dict) -> tuple[list[str], list[str]]:
     for recording in sorted(set(recordings(manifest))):
         if not relative(recording):
             refused.append(f"the recording {recording!r} is not a path inside the repository")
-        elif linked(root, recording) is not None or not inside(root, root / recording):
+            continue
+        try:
+            path = contained(root, recording)
+        except Unreadable:
             refused.append(f"the recording {recording} is reached through a symbolic link")
-        elif not (root / recording).is_file():
-            refused.append(f"the recording {recording} is not in the tree")
-        else:
+            continue
+        if path.is_file():
             found.append(recording)
+        else:
+            refused.append(f"the recording {recording} is not in the tree")
     return found, refused
 
 
@@ -160,7 +177,7 @@ def paths(root: pathlib.Path, manifest: dict) -> list[str]:
     """The tree's paths, sorted bytewise, or every reason they cannot be listed."""
     held = {MANIFEST}
     problems: list[str] = []
-    if (root / MANIFEST).is_symlink() or not (root / MANIFEST).is_file():
+    if not held_file(root, MANIFEST):
         problems.append(f"{MANIFEST} is not a file at the root")
     parts = [starting_files(root, service) for service in service_ids(manifest)]
     parts += [named(root, manifest), walked(root, CONFORMANCE)]
@@ -187,13 +204,13 @@ def digest(files: list[tuple[str, bytes]]) -> str:
 
 def read(root: pathlib.Path, manifest: dict) -> list[tuple[str, bytes]]:
     """The tree in `root`, each path with its bytes, in listing order."""
-    return [(path, (root / path).read_bytes()) for path in paths(root, manifest)]
+    return [(path, contained(root, path).read_bytes()) for path in paths(root, manifest)]
 
 
 def manifest_of(root: pathlib.Path) -> dict:
     """The manifest at `root`, read as TOML, or a refusal."""
     try:
-        return tomllib.loads((root / MANIFEST).read_text(encoding="utf-8"))
+        return tomllib.loads(contained(root, MANIFEST).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as broken:
         raise Unreadable([f"{MANIFEST} cannot be read: {broken}"]) from broken
 
