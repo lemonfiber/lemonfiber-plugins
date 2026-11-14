@@ -7,8 +7,9 @@ hold the reader to is the part that is not: that each verdict is written to
 `proofs.json` as it was given, that failing as declared is kept apart from passed
 and failed with the declaration it failed as, that the run fails on everything
 but passed and failing as declared, that `targets.toml` names one release or one
-commit of `main` and nothing else, and that a commit is held to `main`, built the
-way the train's gate builds its candidate, and kept.
+commit and nothing else, and that a commit is held to `main`, or to a pull
+request's head where the run takes one, built the way the train's gate builds its
+candidate, and kept.
 
 The core a commit is built from is a git repository made here, and cargo is a
 stand-in that writes a binary where cargo would and says where its target
@@ -63,6 +64,23 @@ def declared(**over) -> dict:
 
 RELEASE = reader.Target("0.17.0", commit=False)
 COMMIT = reader.Target("c" * 40, commit=True)
+
+
+class Claimed(unittest.TestCase):
+    def read(self, printed: dict) -> dict:
+        """What the reader takes from `plugin claims --json` printing this."""
+        answer = subprocess.CompletedProcess([], 0, stdout=json.dumps(printed), stderr="")
+        with mock.patch.object(reader, "plugin", return_value=answer):
+            return reader.claimed()
+
+    def test_an_envelope_is_read_for_the_claims_it_carries(self):
+        claims = {"refusals": [], "proofs": []}
+        printed = {"api_version": 1, "kind": reader.CLAIMS_KIND, "data": claims}
+        self.assertEqual(self.read(printed), claims)
+
+    def test_claims_printed_bare_are_read_as_they_are(self):
+        claims = {"refusals": [], "proofs": []}
+        self.assertEqual(self.read(claims), claims)
 
 
 class Proofs(unittest.TestCase):
@@ -266,7 +284,7 @@ class Schema(unittest.TestCase):
         self.target = COMMIT
         code, out = self.read(f"#:schema {self.WANTED}")
         self.assertEqual(code, 1, out)
-        self.assertIn(f"targets.toml names lemonfiber's main at {COMMIT.name}, whose schema is {self.COMMITTED}", out)
+        self.assertIn(f"targets.toml names lemonfiber at {COMMIT.name}, whose schema is {self.COMMITTED}", out)
 
     def test_the_schema_at_another_commit_is_refused(self):
         self.target = COMMIT
@@ -314,7 +332,7 @@ class Targets(unittest.TestCase):
         self.assertIn("'main', which is not a full commit", self.refused('commit = "main"\n'))
 
     def test_a_commit_is_described_as_main_at_it(self):
-        self.assertEqual(str(COMMIT), f"lemonfiber's main at {COMMIT.name}")
+        self.assertEqual(str(COMMIT), f"lemonfiber at {COMMIT.name}")
         self.assertEqual(str(RELEASE), "0.17.0")
 
 
@@ -345,8 +363,8 @@ def git(*args: str, at: pathlib.Path) -> str:
 
 
 class Built(unittest.TestCase):
-    """A commit is held to `main`, built the way the train's gate builds its candidate,
-    and kept under the commit."""
+    """A commit is held to `main`, or to a pull request's head where the run takes one,
+    built the way the train's gate builds its candidate, and kept under the commit."""
 
     BUILD = "x86_64-unknown-linux-gnu"
 
@@ -364,6 +382,9 @@ class Built(unittest.TestCase):
         git("checkout", "--quiet", "-b", "elsewhere", at=self.core)
         git("commit", "--quiet", "--allow-empty", "-m", "not on main", at=self.core)
         self.elsewhere = git("rev-parse", "HEAD", at=self.core)
+        git("commit", "--quiet", "--allow-empty", "-m", "a pull request's head", at=self.core)
+        self.pulled = git("rev-parse", "HEAD", at=self.core)
+        git("update-ref", "refs/pull/7/head", self.pulled, at=self.core)
         git("checkout", "--quiet", "main", at=self.core)
 
         tools = root / "bin"
@@ -388,12 +409,17 @@ class Built(unittest.TestCase):
         ):
             patched.start()
             self.addCleanup(patched.stop)
+        os.environ.pop(reader.PULL_HEADS_ENV, None)
 
     def target(self, commit: str) -> None:
         self.targets.write_text(f'commit = "{commit}"\n', encoding="utf-8")
 
     def cargo(self) -> list[str]:
         return self.log.read_text(encoding="utf-8").splitlines() if self.log.exists() else []
+
+    def taking(self, value: str) -> contextlib.AbstractContextManager:
+        """The run with the pull-head variable set to `value`."""
+        return mock.patch.dict(os.environ, {reader.PULL_HEADS_ENV: value})
 
     def test_a_commit_on_main_is_built_as_the_gate_builds_its_candidate_and_kept_under_it(self):
         self.target(self.on_main)
@@ -421,6 +447,42 @@ class Built(unittest.TestCase):
         self.assertEqual(str(said.exception), f"targets.toml names the commit {self.elsewhere}, which lemonfiber's main does not hold")
         self.assertEqual(self.cargo(), [])
         self.assertFalse(self.cache.exists())
+
+    def test_a_pull_requests_head_is_refused_unless_the_run_takes_one(self):
+        self.target(self.pulled)
+        with self.assertRaises(reader.Unasked) as said:
+            reader.binary()
+        self.assertEqual(str(said.exception), f"targets.toml names the commit {self.pulled}, which lemonfiber's main does not hold")
+        self.assertEqual(self.cargo(), [])
+
+    def test_a_run_taking_pull_requests_heads_builds_a_commit_one_holds(self):
+        for commit in (self.pulled, self.elsewhere):
+            with self.subTest(commit=commit):
+                self.target(commit)
+                with self.taking("true"), contextlib.redirect_stderr(io.StringIO()):
+                    held = reader.binary()
+                self.assertEqual(held.read_text(encoding="utf-8").strip(), commit)
+
+    def test_a_run_taking_pull_requests_heads_refuses_a_commit_none_holds(self):
+        git("checkout", "--quiet", "-b", "unpulled", "main", at=self.core)
+        git("commit", "--quiet", "--allow-empty", "-m", "on no pull request", at=self.core)
+        unpulled = git("rev-parse", "HEAD", at=self.core)
+        git("checkout", "--quiet", "main", at=self.core)
+        self.target(unpulled)
+        with self.taking("true"), self.assertRaises(reader.Unasked) as said:
+            reader.binary()
+        self.assertEqual(
+            str(said.exception),
+            f"targets.toml names the commit {unpulled}, which neither lemonfiber's main nor the head of any of its pull requests holds",
+        )
+        self.assertEqual(self.cargo(), [])
+
+    def test_only_true_takes_pull_requests_heads(self):
+        self.target(self.pulled)
+        for value in ("1", "yes", "TRUE", ""):
+            with self.subTest(value=value), self.taking(value), self.assertRaises(reader.Unasked):
+                reader.binary()
+        self.assertEqual(self.cargo(), [])
 
     def test_a_commit_the_core_never_had_is_refused_before_anything_is_built(self):
         nowhere = "d" * 40
@@ -480,7 +542,7 @@ class Reader(unittest.TestCase):
     def test_a_commits_build_is_shown_rather_than_compared(self):
         code, out = self.asked(COMMIT, "lemonfiber 0.18.0")
         self.assertEqual(code, 0, out)
-        self.assertIn(f"::notice::targets.toml names lemonfiber's main at {COMMIT.name}, built here; it says 'lemonfiber 0.18.0'", out)
+        self.assertIn(f"::notice::targets.toml names lemonfiber at {COMMIT.name}, built here; it says 'lemonfiber 0.18.0'", out)
 
 
 if __name__ == "__main__":
