@@ -801,7 +801,7 @@ def target_shapes() -> list[Case]:
         finally:
             check.reader.TARGETS = kept
     named = check.reader.Target(commit, commit=True)
-    cases.append(("a commit reported as main's", True, check.described(named) == f"lemonfiber's main at {commit}"))
+    cases.append(("a commit reported as main's", True, check.described(named) == f"lemonfiber at {commit}"))
     cases.append(("a release reported by its number", True,
                   check.described(check.reader.Target("0.17.0", commit=False)) == "lemonfiber 0.17.0"))
     return cases

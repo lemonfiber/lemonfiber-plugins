@@ -31,13 +31,15 @@ refusal names the capability rather than a version, and `reader` prints it.
 
 `targets.toml` names one of two things. A release, as `lemonfiber =
 "X.Y.Z"`, is fetched once into `.lemonfiber/` beside the manifest and checked
-against the digest published with it. A commit of lemonfiber's `main`, in full,
-as `commit`, is what a plugin names before a release carries what it needs: it is
-refused unless `main` holds it, then built once the way the release train's gate
-builds its candidate, with the `dist` profile, the toolchain and lockfile the
-commit pins and every submodule it embeds, and kept in `.lemonfiber/` under the
-commit. Either is asked the same questions, and the report names the one that
-answered.
+against the digest published with it. A commit of lemonfiber, in full, as
+`commit`, is what a plugin names before a release carries what it needs: it is
+refused unless `main` holds it, or, where the run sets `LEMONFIBER_PULL_HEADS` to
+`true` as a plugin's own checks do, the head of a lemonfiber pull request holds
+it. It is then built once the way the release train's gate builds its candidate,
+with the `dist` profile, the toolchain and lockfile the commit pins and every
+submodule it embeds, and kept in `.lemonfiber/` under the commit. Either is asked
+the same questions, and the report names the one that answered. The catalogue and
+the release train set no such variable, and take no commit `main` does not hold.
 
 Exit 0 = the answer is the one asked for, 1 = it is not, or lemonfiber could not
 be asked.
@@ -48,6 +50,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import pathlib
 import platform
 import re
@@ -76,6 +79,9 @@ PROFILE = "dist"
 DIRECTIVE = "#:schema "
 FETCH_TIMEOUT_S = 120
 
+# The envelope kind a build wrapping `plugin claims --json` names its answer by.
+CLAIMS_KIND = "plugin-claims"
+
 # The one refusal that is about the release rather than the manifest.
 UNOFFERED = "is not something this build offers a plugin"
 
@@ -87,6 +93,13 @@ DECLARED = ("fixture", "constraint", "held", "reason")
 # What `targets.toml` names a release under, and a commit under.
 RELEASE_KEY = "lemonfiber"
 COMMIT_KEY = "commit"
+
+# The variable a run sets to `true` to take a commit a lemonfiber pull request's head
+# holds as well as one `main` holds, the refs those heads are fetched from, and where
+# they are kept in the checkout.
+PULL_HEADS_ENV = "LEMONFIBER_PULL_HEADS"
+PULL_HEADS = "refs/pull/*/head"
+PULLED = "refs/pulled"
 
 # A commit as git names one in full. A short one names whatever it happens to
 # match on the day.
@@ -105,13 +118,13 @@ class Unasked(RuntimeError):
 
 
 class Target(NamedTuple):
-    """The lemonfiber `targets.toml` names: a release, or a commit of `main`."""
+    """The lemonfiber `targets.toml` names: a release, or a commit."""
 
     name: str
     commit: bool
 
     def __str__(self) -> str:
-        return f"lemonfiber's {TRUNK} at {self.name}" if self.commit else self.name
+        return f"lemonfiber at {self.name}" if self.commit else self.name
 
 
 def targeted() -> Target:
@@ -180,25 +193,50 @@ def ran(*command: str, at: pathlib.Path) -> str:
     return done.stdout
 
 
+def pull_heads_taken() -> bool:
+    """Whether this run takes a commit a lemonfiber pull request's head holds."""
+    return os.environ.get(PULL_HEADS_ENV) == "true"
+
+
+def holds(commit: str, *refs: str, at: pathlib.Path) -> bool:
+    """Whether any of `refs` holds `commit`, which a commit git has not got is not."""
+    holding = subprocess.run(
+        ["git", "for-each-ref", "--count=1", "--contains", commit, "--format=%(refname)", *refs],
+        cwd=at, capture_output=True, text=True, check=False,
+    )
+    return holding.returncode == 0 and holding.stdout.strip() != ""
+
+
+def unheld(commit: str, source: pathlib.Path) -> str | None:
+    """Why the commit may not be built: `main` does not hold it, nor, where this run takes
+    them, does any lemonfiber pull request's head."""
+    if holds(commit, f"refs/remotes/origin/{TRUNK}", at=source):
+        return None
+    if not pull_heads_taken():
+        return f"{TARGETS.name} names the commit {commit}, which lemonfiber's {TRUNK} does not hold"
+    ran("git", "fetch", "--quiet", "origin", f"+{PULL_HEADS}:{PULLED}/*", at=source)
+    if holds(commit, PULLED, at=source):
+        return None
+    return f"{TARGETS.name} names the commit {commit}, which neither lemonfiber's {TRUNK} nor the head of any of its pull requests holds"
+
+
 def built(commit: str, named: str, held: pathlib.Path) -> None:
-    """lemonfiber built at a commit of `main`, the way the release train's gate builds its
+    """lemonfiber built at a commit, the way the release train's gate builds its
     candidate, and kept under the commit.
 
-    The commit is held to `main` before anything is built. The checkout is made
-    outside this repository, so no cargo configuration here reaches the build, and
-    is thrown away once the binary is kept; cargo's own target directory, wherever
-    it is configured to be, is not. The binary is moved into place whole, so a
-    build that stops part-way leaves nothing that reads as kept.
+    The commit is held to `main`, or to a pull request's head where this run takes
+    one, before anything is built. The checkout is made outside this repository, so
+    no cargo configuration here reaches the build, and is thrown away once the
+    binary is kept; cargo's own target directory, wherever it is configured to be,
+    is not. The binary is moved into place whole, so a build that stops part-way
+    leaves nothing that reads as kept.
     """
     with tempfile.TemporaryDirectory() as scratch:
         source = pathlib.Path(scratch) / "lemonfiber"
         ran("git", "clone", "--quiet", "--no-checkout", "--filter=blob:none", CORE, str(source), at=pathlib.Path(scratch))
-        held_by_main = subprocess.run(
-            ["git", "merge-base", "--is-ancestor", commit, f"origin/{TRUNK}"],
-            cwd=source, capture_output=True, check=False,
-        )
-        if held_by_main.returncode != 0:
-            raise Unasked(f"{TARGETS.name} names the commit {commit}, which lemonfiber's {TRUNK} does not hold")
+        refused = unheld(commit, source)
+        if refused is not None:
+            raise Unasked(refused)
         ran("git", "checkout", "--quiet", "--detach", commit, at=source)
         ran("git", "submodule", "update", "--init", "--recursive", "--depth", "1", at=source)
         print(f"building {Target(commit, commit=True)} for {named}; it is kept, so this happens once.", file=sys.stderr)
@@ -224,12 +262,14 @@ def plugin(*asked: str) -> subprocess.CompletedProcess:
 
 
 def claimed() -> dict:
-    """What `lemonfiber plugin claims --json` says, or why it said nothing."""
+    """What `lemonfiber plugin claims --json` says, out of its envelope where the build
+    answers in one, or why it said nothing."""
     answer = plugin("claims", "--json")
     try:
-        return json.loads(answer.stdout)
+        said = json.loads(answer.stdout)
     except ValueError:
         raise Unasked(f"lemonfiber read nothing here: {answer.stderr.strip()}") from None
+    return said["data"] if said.get("kind") == CLAIMS_KIND else said
 
 
 def reader() -> int:
