@@ -16,8 +16,6 @@ name        = "FlareSolverr"
 image       = "ghcr.io/flaresolverr/flaresolverr"
 digest      = "sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767"
 tag         = "v3.5.2"
-port        = 8191
-bind        = "loopback"
 listens     = 8191
 health      = { kind = "tcp", timeout_s = 60 }
 criticality = "enhancing"

@@ -16,8 +16,6 @@ name        = "Byparr"
 image       = "ghcr.io/thephaseless/byparr"
 digest      = "sha256:c66fa161187b8fa527bfad7eefa2647ea1c553f77df68cbffd6fe83366d1787b"
 tag         = "3.1.1"
-port        = 8192
-bind        = "loopback"
 listens     = 8191
 health      = { kind = "tcp", timeout_s = 120 }
 criticality = "enhancing"
