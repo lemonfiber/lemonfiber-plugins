@@ -60,6 +60,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import tomllib
 import urllib.request
 from typing import NamedTuple
@@ -113,8 +114,23 @@ BUILDS = {
 }
 
 
+# How often a registry that did not answer is asked in all, how long the first wait
+# before asking again is, and what each wait is multiplied by for the next.
+REGISTRY_ATTEMPTS = 4
+REGISTRY_FIRST_WAIT_S = 5
+REGISTRY_BACKOFF = 3
+
+# What a registry says where it holds no such image, tag or digest. Any other failure
+# is a registry that did not answer: a rate limit, a server error, the network.
+ABSENT = re.compile(r"not found|manifest unknown|name unknown", re.IGNORECASE)
+
+
 class Unasked(RuntimeError):
     """lemonfiber could not be fetched, built or asked, so nothing was decided."""
+
+
+class Unanswered(RuntimeError):
+    """A registry did not say whether it holds a reference, however often it was asked."""
 
 
 class Target(NamedTuple):
@@ -428,13 +444,43 @@ def proofs() -> int:
     return 1 if failing or not found else 0
 
 
-def resolves(reference: str) -> str:
-    """The digest a reference names in its registry now, or nothing."""
-    asked = subprocess.run(
-        ["docker", "buildx", "imagetools", "inspect", reference, "--format", "{{.Manifest.Digest}}"],
-        capture_output=True, text=True, check=False,
-    )
-    return asked.stdout.strip() if asked.returncode == 0 else ""
+def resolves(reference: str) -> str | None:
+    """The digest a reference names in its registry now, or None where the registry holds no such reference.
+
+    A registry that fails without saying it holds none is asked again, waiting longer
+    each time, and raises `Unanswered` once every attempt has failed.
+    """
+    wait = REGISTRY_FIRST_WAIT_S
+    for attempt in range(1, REGISTRY_ATTEMPTS + 1):
+        asked = subprocess.run(
+            ["docker", "buildx", "imagetools", "inspect", reference, "--format", "{{.Manifest.Digest}}"],
+            capture_output=True, text=True, check=False,
+        )
+        if asked.returncode == 0:
+            return asked.stdout.strip()
+        said = (asked.stderr.strip() or asked.stdout.strip()).splitlines()
+        if ABSENT.search(" ".join(said)):
+            return None
+        if attempt < REGISTRY_ATTEMPTS:
+            time.sleep(wait)
+            wait *= REGISTRY_BACKOFF
+    last = said[-1] if said else f"exit {asked.returncode}"
+    raise Unanswered(f"{reference} could not be checked: its registry did not answer in {REGISTRY_ATTEMPTS} attempts ({last})")
+
+
+def pinned_image(service: dict) -> tuple[bool, str]:
+    """Whether one service's pinned digest resolves and its tag still names it, and what to say."""
+    pinned = f"{service['image']}@{service['digest']}"
+    try:
+        held = resolves(pinned) == service["digest"]
+        tagged = resolves(f"{service['image']}:{service['tag']}") if held else None
+    except Unanswered as why:
+        return False, str(why)
+    if not held:
+        return False, f"{pinned} is not in its registry"
+    if tagged and tagged != service["digest"]:
+        return False, f"{service['image']}:{service['tag']} names {tagged}, not the pinned digest"
+    return True, f"{pinned}, which {service['tag']} names" if tagged else pinned
 
 
 def image() -> int:
@@ -442,17 +488,9 @@ def image() -> int:
     services = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("service", [])
     faults = 0
     for service in services:
-        pinned = f"{service['image']}@{service['digest']}"
-        if resolves(pinned) != service["digest"]:
-            print(f"::error::{pinned} is not in its registry")
-            faults += 1
-            continue
-        tagged = resolves(f"{service['image']}:{service['tag']}")
-        if tagged and tagged != service["digest"]:
-            print(f"::error::{service['image']}:{service['tag']} names {tagged}, not the pinned digest")
-            faults += 1
-        else:
-            print(f"  ok   {pinned}, which {service['tag']} names" if tagged else f"  ok   {pinned}")
+        held, said = pinned_image(service)
+        print(f"  ok   {said}" if held else f"::error::{said}")
+        faults += not held
     vouched = plugin("provenance")
     print(vouched.stdout + vouched.stderr)
     return 1 if faults or vouched.returncode != 0 else 0

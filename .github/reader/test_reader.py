@@ -9,7 +9,8 @@ and failed with the declaration it failed as, that the run fails on everything
 but passed and failing as declared, that `targets.toml` names one release or one
 commit and nothing else, and that a commit is held to `main`, or to a pull
 request's head where the run takes one, built the way the train's gate builds its
-candidate, and kept.
+candidate, and kept, and that an image's registry is called empty only where it
+says so, and asked again where it did not answer.
 
 The core a commit is built from is a git repository made here, and cargo is a
 stand-in that writes a binary where cargo would and says where its target
@@ -543,6 +544,88 @@ class Reader(unittest.TestCase):
         code, out = self.asked(COMMIT, "lemonfiber 0.18.0")
         self.assertEqual(code, 0, out)
         self.assertIn(f"::notice::targets.toml names lemonfiber at {COMMIT.name}, built here; it says 'lemonfiber 0.18.0'", out)
+
+
+DIGEST = "sha256:" + "4e" * 32
+MANIFESTED = f"""
+[[service]]
+image = "lscr.io/linuxserver/prowlarr"
+tag = "2.6.5"
+digest = "{DIGEST}"
+"""
+ABSENT = subprocess.CompletedProcess([], 1, stdout="", stderr=f"ERROR: lscr.io/linuxserver/prowlarr@{DIGEST}: not found\n")
+LIMITED = subprocess.CompletedProcess([], 1, stdout="", stderr="ERROR: unexpected status: 429 Too Many Requests: toomanyrequests\n")
+HELD = subprocess.CompletedProcess([], 0, stdout=f"{DIGEST}\n", stderr="")
+
+
+class Image(unittest.TestCase):
+    """`reader.py image` reports a digest the registry holds no such thing at as absent, and
+    asks a registry that did not answer again, waiting longer each time, before failing
+    the image as unchecked rather than absent."""
+
+    def asked(self, *answers: subprocess.CompletedProcess) -> tuple[int, str, list, list]:
+        box = tempfile.TemporaryDirectory()
+        self.addCleanup(box.cleanup)
+        manifest = pathlib.Path(box.name) / "plugin.toml"
+        manifest.write_text(MANIFESTED, encoding="utf-8")
+        vouched = subprocess.CompletedProcess([], 0, stdout="vouched\n", stderr="")
+        out = io.StringIO()
+        with (
+            mock.patch.object(reader, "MANIFEST", manifest),
+            mock.patch.object(reader.subprocess, "run", side_effect=list(answers)) as run,
+            mock.patch.object(reader.time, "sleep") as sleep,
+            mock.patch.object(reader, "plugin", return_value=vouched),
+            mock.patch.object(sys, "argv", ["reader.py", "image"]),
+            contextlib.redirect_stdout(out),
+        ):
+            code = reader.main()
+        return code, out.getvalue(), [call.args[0][4] for call in run.call_args_list], [call.args[0] for call in sleep.call_args_list]
+
+    def test_a_digest_its_tag_still_names_passes(self):
+        code, out, asked, waits = self.asked(HELD, HELD)
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"ok   lscr.io/linuxserver/prowlarr@{DIGEST}, which 2.6.5 names", out)
+        self.assertEqual(asked, [f"lscr.io/linuxserver/prowlarr@{DIGEST}", "lscr.io/linuxserver/prowlarr:2.6.5"])
+        self.assertEqual(waits, [])
+
+    def test_a_digest_the_registry_holds_none_of_is_absent_at_once(self):
+        code, out, asked, waits = self.asked(ABSENT)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"::error::lscr.io/linuxserver/prowlarr@{DIGEST} is not in its registry", out)
+        self.assertEqual((len(asked), waits), (1, []))
+
+    def test_a_rate_limit_that_lifts_is_asked_again_and_passes(self):
+        code, out, asked, waits = self.asked(LIMITED, HELD, HELD)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("::error::", out)
+        self.assertEqual((len(asked), waits), (3, [reader.REGISTRY_FIRST_WAIT_S]))
+
+    def test_a_registry_that_never_answers_could_not_be_checked_and_is_not_called_absent(self):
+        code, out, asked, waits = self.asked(*[LIMITED] * reader.REGISTRY_ATTEMPTS)
+        self.assertEqual(code, 1, out)
+        self.assertIn(
+            f"::error::lscr.io/linuxserver/prowlarr@{DIGEST} could not be checked: its registry did not answer "
+            f"in {reader.REGISTRY_ATTEMPTS} attempts (ERROR: unexpected status: 429 Too Many Requests: toomanyrequests)",
+            out,
+        )
+        self.assertNotIn("is not in its registry", out)
+        self.assertEqual(len(asked), reader.REGISTRY_ATTEMPTS)
+        self.assertEqual(
+            waits,
+            [reader.REGISTRY_FIRST_WAIT_S * reader.REGISTRY_BACKOFF**at for at in range(reader.REGISTRY_ATTEMPTS - 1)],
+        )
+
+    def test_a_tag_the_registry_never_answers_for_could_not_be_checked(self):
+        code, out, _, _ = self.asked(HELD, *[LIMITED] * reader.REGISTRY_ATTEMPTS)
+        self.assertEqual(code, 1, out)
+        self.assertIn("::error::lscr.io/linuxserver/prowlarr:2.6.5 could not be checked", out)
+        self.assertNotIn("ok   ", out)
+
+    def test_a_failure_that_says_nothing_names_its_exit(self):
+        silent = subprocess.CompletedProcess([], 1, stdout="", stderr="")
+        code, out, _, _ = self.asked(*[silent] * reader.REGISTRY_ATTEMPTS)
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"in {reader.REGISTRY_ATTEMPTS} attempts (exit 1)", out)
 
 
 if __name__ == "__main__":
