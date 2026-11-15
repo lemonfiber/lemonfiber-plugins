@@ -1,0 +1,15 @@
+{
+  "recorded_from": "lscr.io/linuxserver/nzbget@sha256:6f86d5cb17fa12c214e0c699addde8ee5b9622fbafd2f4dc2eb8f89e7251dc49",
+  "note": "Every category the starting nzbget.conf holds, and the folder each completes into: the main folder with the category's name appended.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.usenet/v1/filed", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": [
+      {"category": "movies", "folder": "/config/downloads/complete/movies"},
+      {"category": "tv", "folder": "/config/downloads/complete/tv"},
+      {"category": "music", "folder": "/config/downloads/complete/music"},
+      {"category": "books", "folder": "/config/downloads/complete/books"}
+    ]
+  }
+}

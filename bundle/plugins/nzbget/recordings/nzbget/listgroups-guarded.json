@@ -1,0 +1,9 @@
+{
+  "recorded_from": "lscr.io/linuxserver/nzbget@sha256:6f86d5cb17fa12c214e0c699addde8ee5b9622fbafd2f4dc2eb8f89e7251dc49",
+  "note": "The queue, asked for presenting nothing, on a fresh instance started from the nzbget.conf this repository ships, which holds the control account lemonfiber minted in place of the template's well-known one. A refusal is the pass: the queue names what the household is downloading.",
+  "request": {"method": "GET", "path": "/jsonrpc/listgroups"},
+  "response": {
+    "status": 401,
+    "headers": {"content-type": "text/plain"}
+  }
+}

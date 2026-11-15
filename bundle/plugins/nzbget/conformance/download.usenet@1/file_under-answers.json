@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/nzbget@sha256:6f86d5cb17fa12c214e0c699addde8ee5b9622fbafd2f4dc2eb8f89e7251dc49",
+  "note": "A category filed under the folder the case names, written to NZBGet's settings, taken up on a reload and read back.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.usenet/v1/file_under", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}
