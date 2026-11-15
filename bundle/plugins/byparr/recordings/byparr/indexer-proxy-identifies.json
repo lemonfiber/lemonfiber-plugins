@@ -1,0 +1,377 @@
+{
+  "recorded_from": "ghcr.io/thephaseless/byparr@sha256:c66fa161187b8fa527bfad7eefa2647ea1c553f77df68cbffd6fe83366d1787b",
+  "note": "Its own state, asked for presenting nothing. It holds nothing of the operator's and is reached only from inside the stack, so an answer is the pass, and what the answer has to show is that the thing behind the port serves FlareSolverr's POST /v1 beside Byparr's own POST /load, and which version answers. The recorder gives it no internet, and it answers this without its browser fetching anything.",
+  "request": {"method": "GET", "path": "/openapi.json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {
+      "components": {
+        "schemas": {
+          "Cookie": {
+            "properties": {
+              "domain": {"title": "Domain", "type": "string"},
+              "expires": {"title": "Expires", "type": "number"},
+              "httpOnly": {"title": "Httponly", "type": "boolean"},
+              "name": {"title": "Name", "type": "string"},
+              "partitionKey": {
+                "anyOf": [
+                  {"type": "string"},
+                  {"type": "null"}
+                ],
+                "title": "Partitionkey"
+              },
+              "path": {"title": "Path", "type": "string"},
+              "sameSite": {
+                "enum": ["Lax", "None", "Strict"],
+                "title": "Samesite",
+                "type": "string"
+              },
+              "secure": {"title": "Secure", "type": "boolean"},
+              "value": {"title": "Value", "type": "string"}
+            },
+            "title": "Cookie",
+            "type": "object"
+          },
+          "HTTPValidationError": {
+            "properties": {
+              "detail": {
+                "items": {"$ref": "#/components/schemas/ValidationError"},
+                "title": "Detail",
+                "type": "array"
+              }
+            },
+            "title": "HTTPValidationError",
+            "type": "object"
+          },
+          "LinkRequest": {
+            "properties": {
+              "blockMedia": {"default": false, "description": "Block image, media, and font resources from loading.", "title": "Blockmedia", "type": "boolean"},
+              "cmd": {"default": "request.get", "description": "Type of request, currently only supports GET requests. This string is purely for compatibility with FlareSolverr.", "title": "Cmd", "type": "string"},
+              "maxTimeout": {"default": 60, "description": "Maximum timeout for resolving the anti-bot challenge. Values below 1000 are treated as seconds; values of 1000 or more as milliseconds, matching FlareSolverr's maxTimeout parameter.", "title": "Maxtimeout", "type": "integer"},
+              "returnOnlyCookies": {"default": false, "description": "Return only cookies, skip the page HTML content in the response.", "title": "Returnonlycookies", "type": "boolean"},
+              "url": {"default": "https://", "pattern": "^https?://", "title": "Url", "type": "string"}
+            },
+            "title": "LinkRequest",
+            "type": "object"
+          },
+          "LinkResponse": {
+            "properties": {
+              "endTimestamp": {"title": "Endtimestamp", "type": "integer"},
+              "message": {"title": "Message", "type": "string"},
+              "solution": {"$ref": "#/components/schemas/Solution"},
+              "startTimestamp": {"title": "Starttimestamp", "type": "integer"},
+              "status": {"default": "ok", "title": "Status", "type": "string"},
+              "version": {"default": "3.1.1", "title": "Version", "type": "string"}
+            },
+            "required": ["message", "solution", "startTimestamp"],
+            "title": "LinkResponse",
+            "type": "object"
+          },
+          "LoadRequest": {
+            "properties": {
+              "urls": {
+                "items": {"type": "string"},
+                "title": "Urls",
+                "type": "array"
+              }
+            },
+            "required": ["urls"],
+            "title": "LoadRequest",
+            "type": "object"
+          },
+          "LoadResult": {
+            "properties": {
+              "metadata": {
+                "additionalProperties": {"type": "string"},
+                "title": "Metadata",
+                "type": "object"
+              },
+              "page_content": {"title": "Page Content", "type": "string"}
+            },
+            "required": ["page_content", "metadata"],
+            "title": "LoadResult",
+            "type": "object"
+          },
+          "Solution": {
+            "properties": {
+              "contentType": {"default": "text/html", "title": "Contenttype", "type": "string"},
+              "cookies": {
+                "default": [],
+                "items": {"$ref": "#/components/schemas/Cookie"},
+                "title": "Cookies",
+                "type": "array"
+              },
+              "headers": {
+                "additionalProperties": true,
+                "default": {},
+                "title": "Headers",
+                "type": "object"
+              },
+              "response": {"default": "", "title": "Response", "type": "string"},
+              "status": {"title": "Status", "type": "integer"},
+              "url": {"title": "Url", "type": "string"},
+              "userAgent": {"default": "", "title": "Useragent", "type": "string"}
+            },
+            "required": ["url", "status"],
+            "title": "Solution",
+            "type": "object"
+          },
+          "ValidationError": {
+            "properties": {
+              "ctx": {"title": "Context", "type": "object"},
+              "input": {"title": "Input"},
+              "loc": {
+                "items": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "integer"}
+                  ]
+                },
+                "title": "Location",
+                "type": "array"
+              },
+              "msg": {"title": "Message", "type": "string"},
+              "type": {"title": "Error Type", "type": "string"}
+            },
+            "required": ["loc", "msg", "type"],
+            "title": "ValidationError",
+            "type": "object"
+          }
+        }
+      },
+      "info": {"title": "FastAPI", "version": "0.1.0"},
+      "openapi": "3.1.0",
+      "paths": {
+        "/health": {
+          "get": {
+            "description": "Health check endpoint.",
+            "operationId": "health_check_health_get",
+            "parameters": [
+              {
+                "description": "Override proxy server for this request in protocol://host:port format.",
+                "in": "header",
+                "name": "X-Proxy-Server",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "description": "Override proxy server for this request in protocol://host:port format.",
+                  "title": "X-Proxy-Server"
+                }
+              },
+              {
+                "in": "header",
+                "name": "X-Proxy-Username",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "title": "X-Proxy-Username"
+                }
+              },
+              {
+                "in": "header",
+                "name": "X-Proxy-Password",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "title": "X-Proxy-Password"
+                }
+              }
+            ],
+            "responses": {
+              "200": {
+                "content": {
+                  "application/json": {
+                    "schema": {}
+                  }
+                },
+                "description": "Successful Response"
+              },
+              "422": {
+                "content": {
+                  "application/json": {
+                    "schema": {"$ref": "#/components/schemas/HTTPValidationError"}
+                  }
+                },
+                "description": "Validation Error"
+              }
+            },
+            "summary": "Health Check"
+          }
+        },
+        "/load": {
+          "post": {
+            "description": "Fetch URLs through the anti-bot browser and return their text content.\n\nEach URL is fetched sequentially; a failing URL yields empty\npage_content so Open WebUI's RAG pipeline degrades gracefully.",
+            "operationId": "load_urls_load_post",
+            "parameters": [
+              {
+                "in": "header",
+                "name": "authorization",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "title": "Authorization"
+                }
+              },
+              {
+                "description": "Override proxy server for this request in protocol://host:port format.",
+                "in": "header",
+                "name": "X-Proxy-Server",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "description": "Override proxy server for this request in protocol://host:port format.",
+                  "title": "X-Proxy-Server"
+                }
+              },
+              {
+                "in": "header",
+                "name": "X-Proxy-Username",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "title": "X-Proxy-Username"
+                }
+              },
+              {
+                "in": "header",
+                "name": "X-Proxy-Password",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "title": "X-Proxy-Password"
+                }
+              }
+            ],
+            "requestBody": {
+              "content": {
+                "application/json": {
+                  "schema": {"$ref": "#/components/schemas/LoadRequest"}
+                }
+              },
+              "required": true
+            },
+            "responses": {
+              "200": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "items": {"$ref": "#/components/schemas/LoadResult"},
+                      "title": "Response Load Urls Load Post",
+                      "type": "array"
+                    }
+                  }
+                },
+                "description": "Successful Response"
+              },
+              "422": {
+                "content": {
+                  "application/json": {
+                    "schema": {"$ref": "#/components/schemas/HTTPValidationError"}
+                  }
+                },
+                "description": "Validation Error"
+              }
+            },
+            "summary": "Load Urls",
+            "tags": ["Open WebUI"]
+          }
+        },
+        "/v1": {
+          "post": {
+            "description": "Handle POST requests.",
+            "operationId": "read_item_v1_post",
+            "parameters": [
+              {
+                "description": "Override proxy server for this request in protocol://host:port format.",
+                "in": "header",
+                "name": "X-Proxy-Server",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "description": "Override proxy server for this request in protocol://host:port format.",
+                  "title": "X-Proxy-Server"
+                }
+              },
+              {
+                "in": "header",
+                "name": "X-Proxy-Username",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "title": "X-Proxy-Username"
+                }
+              },
+              {
+                "in": "header",
+                "name": "X-Proxy-Password",
+                "required": false,
+                "schema": {
+                  "anyOf": [
+                    {"type": "string"},
+                    {"type": "null"}
+                  ],
+                  "title": "X-Proxy-Password"
+                }
+              }
+            ],
+            "requestBody": {
+              "content": {
+                "application/json": {
+                  "schema": {"$ref": "#/components/schemas/LinkRequest"}
+                }
+              },
+              "required": true
+            },
+            "responses": {
+              "200": {
+                "content": {
+                  "application/json": {
+                    "schema": {"$ref": "#/components/schemas/LinkResponse"}
+                  }
+                },
+                "description": "Successful Response"
+              },
+              "422": {
+                "content": {
+                  "application/json": {
+                    "schema": {"$ref": "#/components/schemas/HTTPValidationError"}
+                  }
+                },
+                "description": "Validation Error"
+              }
+            },
+            "summary": "Read Item"
+          }
+        }
+      }
+    }
+  }
+}

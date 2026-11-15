@@ -1,0 +1,84 @@
+schema_version = 1
+
+[plugin]
+id          = "byparr"
+name        = "Byparr"
+version     = "1.0.0"
+description = "Gets past bot-protection on some indexers"
+without_it  = "Those indexers return nothing"
+upstream    = "https://github.com/ThePhaseless/Byparr"
+license     = "GPL-3.0-only"
+forms       = ["search", "hunt", "tv", "movies", "music", "books", "auto", "full"]
+
+[[service]]
+id          = "byparr"
+name        = "Byparr"
+image       = "ghcr.io/thephaseless/byparr"
+digest      = "sha256:c66fa161187b8fa527bfad7eefa2647ea1c553f77df68cbffd6fe83366d1787b"
+tag         = "3.1.1"
+port        = 8192
+bind        = "loopback"
+listens     = 8191
+health      = { kind = "tcp", timeout_s = 120 }
+criticality = "enhancing"
+memory_mib  = 1024
+reaches     = "the indexer sites that challenge it, GitHub for its GeoIP database, and a lookup service for the house's public address"
+asks_for    = "Fetches a page through a headless browser when an indexer sits behind bot protection, which means it visits that indexer directly. Each time it starts it downloads a GeoIP database from GitHub and asks a lookup service for the house's address, so its browser's timezone and language match where the house appears to be."
+native      = "flaresolverr"
+network     = { fenced = true }
+
+[service.env]
+LOG_LEVEL    = { setting = "byparr:log-level", default = "info" }
+OWUI_API_KEY = { secret = "loader-key" }
+
+[[service]]
+id          = "byparr-adapter"
+name        = "Byparr adapter"
+image       = "ghcr.io/lemonfiber/byparr-adapter"
+digest      = "sha256:084ce4901cd7b381ffec4ab184030ae070b374b455a2aca4cb6daa01436c5d35"
+tag         = "main-6ac23611fe21"
+criticality = "enhancing"
+reaches     = ""
+asks_for    = "Nothing beyond this machine but the names it looks up. It answers lemonfiber's indexer.proxy contract by handing Byparr, beside it, each address that passes its screen."
+config_path = "/config"
+listens     = 8080
+speaks      = ["indexer.proxy@1"]
+fronts      = "byparr"
+provides    = ["indexer.proxy"]
+posture     = "confined"
+
+[[secret]]
+id     = "loader-key"
+of     = "byparr"
+minted = true
+why    = "The key Byparr's Open WebUI page loader answers to, which nothing is handed, so that loader fetches no page for anybody"
+
+[[proof]]
+id      = "byparr.identifies"
+service = "byparr"
+title   = "Byparr describes the FlareSolverr-compatible API it serves, and names its version"
+request = { method = "GET", path = "/openapi.json" }
+expect  = { status = 200, json_has_keys = ["/paths/~1v1/post", "/paths/~1load/post"], json_types = { "/components/schemas/LinkResponse/properties/version/default" = "str" } }
+fixture = "recordings/byparr/indexer-proxy-identifies.json"
+why     = """
+Byparr's root only redirects to its documentation, and its health check sends its
+browser to an outside site. The description of its API is the one place it answers
+without fetching anything: it serves FlareSolverr's `POST /v1` beside its own
+`POST /load`, and the version every page it fetches is answered with. The adapter
+in front of it asks nothing else of it before handing it a page to fetch.
+"""
+
+[[proof]]
+id      = "byparr.loader-guarded"
+service = "byparr"
+title   = "Byparr's page loader fetches nothing for a caller presenting nothing"
+request = { method = "POST", path = "/load" }
+expect  = { status = 401, json = { detail = "Unauthorized" } }
+fixture = "recordings/byparr/loader-guarded.json"
+why     = """
+Byparr's Open WebUI page loader fetches any page it is handed, as `POST /v1`
+does, and answers anybody unless it is given a key. lemonfiber mints that key
+into Byparr's environment before it first starts and hands it to nobody, so the
+pinned image, started with it, has to refuse the loader to a caller presenting
+nothing.
+"""

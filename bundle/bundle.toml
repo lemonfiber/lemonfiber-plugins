@@ -326,9 +326,9 @@ last_release = "2026-10-03"
 [[plugin]]
 id           = "flaresolverr"
 origin       = "https://github.com/lemonfiber/plugin-flaresolverr"
-revision     = "085e3ff2eef4bfad072d79c5e0806d781cf6d191"
-manifest     = "sha256:e40477084f830fc14df0ecf253fe9ce35cf30ac4df6f75230766f619bd2a5802"
-tree         = "sha256:8fe932bebe1e254eeadc7f5a37abfa4e77d9fe97ae2aef7f4e39e93afc6a8280"
+revision     = "f21b458920c385405ffd389c750dadcbcb389676"
+manifest     = "sha256:478ecc6ee6bbfe684b734be6d3bd12db39ddc36378cc2e7065ff475fa3e61222"
+tree         = "sha256:c42509562f19a9529032bb73026cb219c64dfb7adf824976cfa6dfb47a4df8ae"
 fills        = ["indexer.proxy"]
 stage        = "installed"
 profile      = "search"
@@ -498,6 +498,15 @@ fills        = ["archive.extract"]
 stage        = "installed"
 profile      = "tuning"
 last_release = "2026-08-31"
+
+[[offered]]
+id           = "byparr"
+origin       = "https://github.com/lemonfiber/plugin-byparr"
+revision     = "bb9637d7eff88ca44e464124722f788676aa8e72"
+manifest     = "sha256:10c673b300bc344807dfdb0ad9e9ecd97a12c002569934c108f9b49dcb099b06"
+tree         = "sha256:386027d2829642f9b17b6a90c8e629665d8cafbae20a6c5a2ff495cc0dd7758b"
+profile      = "search"
+last_release = "2026-11-05"
 
 [[offered]]
 id           = "emby"

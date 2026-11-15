@@ -18,11 +18,13 @@ digest      = "sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59
 tag         = "v3.5.2"
 port        = 8191
 bind        = "loopback"
+listens     = 8191
 health      = { kind = "tcp", timeout_s = 60 }
 criticality = "enhancing"
 memory_mib  = 300
 reaches     = "the indexer sites that challenge it"
 asks_for    = "Fetches a page through a headless browser when an indexer sits behind bot protection, which means it visits that indexer directly."
+native      = "flaresolverr"
 replaces    = "flaresolverr"
 network     = { fenced = true }
 
@@ -33,8 +35,8 @@ LOG_LEVEL = { setting = "flaresolverr:log-level", default = "info" }
 id          = "flaresolverr-adapter"
 name        = "FlareSolverr adapter"
 image       = "ghcr.io/lemonfiber/flaresolverr-adapter"
-digest      = "sha256:44209dede06190a4a8933d8cb64d5ae28a7bcfdc5ead8b200e4f88930feeb2f1"
-tag         = "main-440ebf321817"
+digest      = "sha256:89e25ca638e29dc2e3784d21dbfd418817e79ab06a6e325b2eda8cfa9f75de64"
+tag         = "main-3159b326f7e9"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine but the names it looks up. It answers lemonfiber's indexer.proxy contract by handing FlareSolverr, beside it, each address that passes its screen."
