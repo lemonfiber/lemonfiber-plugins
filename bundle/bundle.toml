@@ -370,9 +370,9 @@ last_release = "2026-09-15"
 [[plugin]]
 id           = "lidarr"
 origin       = "https://github.com/lemonfiber/plugin-lidarr"
-revision     = "d2a0e07d99d4c7bd62155469e1b845bb1db74001"
-manifest     = "sha256:dece40d944f59b4b6a51e1ff145f7bdcf8e3117aa1b7e5a0f9946c9a3ed045cb"
-tree         = "sha256:1232c095a642d5fb9fb5520b63707d2cc2b49fa4da82a5981d5803dbc2853f71"
+revision     = "fdd241d938957db10518a61291e8f9c6f8583e44"
+manifest     = "sha256:423f304652fe1211b06411a32f9ceff6e24dfcc152b7bc2097852b7ef214a97a"
+tree         = "sha256:5fd686d34c9e006e150097a39454a273b2c82cac96e1ddf8e3a75cfe512ddda8"
 fills        = ["library.curate", "music.curate"]
 stage        = "installed"
 profile      = "music"
