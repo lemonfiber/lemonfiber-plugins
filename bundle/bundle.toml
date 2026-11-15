@@ -271,9 +271,9 @@ last_release = "2026-09-26"
 [[plugin]]
 id           = "bindery"
 origin       = "https://github.com/lemonfiber/plugin-bindery"
-revision     = "d2ee56bcce6791627746a6dbebdae3ec3bff18d5"
-manifest     = "sha256:7307359c67a60d9b9802afc14a52f6d31de73abb39e37d234a958b8c917cdc6e"
-tree         = "sha256:b3613d47d2d58f061e1eb4802344095256985417037b2daf95a77a0c81f7a2b0"
+revision     = "48a7daa80726fc54e3c321c25b62f524fb2ecec6"
+manifest     = "sha256:204f5b1a7ba6a71a1a45fdeaf2a5dbb7c73c01875e14a23cb2348dc43ec0478c"
+tree         = "sha256:879fe90657f70d99b3ba5c7b492e1be6bf48d4de214c7792337e28c07f51ce28"
 fills        = ["books.curate", "library.curate"]
 stage        = "installed"
 profile      = "books"
