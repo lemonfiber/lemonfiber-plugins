@@ -403,9 +403,9 @@ last_release = "2026-09-24"
 [[plugin]]
 id           = "prowlarr"
 origin       = "https://github.com/lemonfiber/plugin-prowlarr"
-revision     = "79498ad8a3126200c8489176c70ea3529137ae51"
-manifest     = "sha256:f650f532661329fb26fc3942c89ec2d51d187c058eafcfd281afe813c3f6f624"
-tree         = "sha256:13f241e754e4960d4b2b9acc5feeaadb97271d79d4112c8ea6e3ff7c8b45b752"
+revision     = "c59aa2845bcce800dd417b73c634c56c9060e1c4"
+manifest     = "sha256:c9821020e2e8c3fb38bc0f70db791afc7ec22afcbc13c9b3e408f83c0826f0be"
+tree         = "sha256:dadb3c4e5a0d6dcb903a22c98bde0e864a1e41b78863b12f637e0107158a83c0"
 fills        = ["indexer.search"]
 stage        = "installed"
 profile      = "search"
