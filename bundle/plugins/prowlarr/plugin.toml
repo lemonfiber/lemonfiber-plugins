@@ -36,8 +36,8 @@ PROWLARR__AUTH__APIKEY = { secret = "upstream-key" }
 id          = "prowlarr-adapter"
 name        = "Prowlarr adapter"
 image       = "ghcr.io/lemonfiber/prowlarr-adapter"
-digest      = "sha256:9f70dcc5291d69c46f138497f78363c7d1d4ea5ed42ae1bcc465992eea96c7aa"
-tag         = "main-b2951da1e408"
+digest      = "sha256:e61bd7554b13f7de82c20e6238842c60f92159110eb54f18917ef0b1b96dbab3"
+tag         = "main-893b10134e20"
 criticality = "core"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's indexer.search contract by calling Prowlarr, beside it, with the key lemonfiber minted for it."
@@ -89,6 +89,7 @@ each       = true
 [[ask]]
 service    = "prowlarr"
 capability = "indexer.proxy"
+native     = "flaresolverr"
 
 [[ask]]
 service    = "prowlarr"
