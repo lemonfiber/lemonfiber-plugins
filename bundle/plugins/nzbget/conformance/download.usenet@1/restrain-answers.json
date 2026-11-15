@@ -1,0 +1,14 @@
+{
+  "recorded_from": "lscr.io/linuxserver/nzbget@sha256:6f86d5cb17fa12c214e0c699addde8ee5b9622fbafd2f4dc2eb8f89e7251dc49",
+  "note": "Held to the active rate around the clock with no window, written to DownloadRate, and read back.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.usenet/v1/restrain", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {
+      "hours": null,
+      "rates": {"down": 1048576, "up": null},
+      "uploads": false
+    }
+  }
+}

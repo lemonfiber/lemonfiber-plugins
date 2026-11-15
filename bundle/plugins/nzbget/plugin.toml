@@ -1,0 +1,76 @@
+schema_version = 1
+
+[plugin]
+id          = "nzbget"
+name        = "NZBGet"
+version     = "0.1.0"
+description = "Downloads from Usenet"
+without_it  = "No Usenet downloads"
+upstream    = "https://github.com/nzbgetcom/nzbget"
+license     = "GPL-2.0-or-later"
+forms       = ["dl", "hunt", "tv", "movies", "music", "books", "auto", "full"]
+
+[[service]]
+id          = "nzbget"
+name        = "NZBGet"
+image       = "lscr.io/linuxserver/nzbget"
+digest      = "sha256:6f86d5cb17fa12c214e0c699addde8ee5b9622fbafd2f4dc2eb8f89e7251dc49"
+tag         = "v26.3-ls271"
+port        = 6789
+bind        = "loopback"
+listens     = 6789
+health      = { kind = "http", path = "/jsonrpc/version", timeout_s = 60 }
+criticality = "core"
+memory_mib  = 150
+reaches     = "your Usenet provider"
+asks_for    = "Signs in with your account and fetches the articles a download is made of."
+takes_data  = true
+user_mode   = "puid-env"
+native      = "nzbget"
+
+[[service]]
+id          = "nzbget-adapter"
+name        = "NZBGet adapter"
+image       = "ghcr.io/lemonfiber/nzbget-adapter"
+digest      = "sha256:3b88dce28fead845407721ba10159191a63cd25e7a737dbedf4a9cc579a36bc2"
+tag         = "main-7d1222d03ca6"
+criticality = "core"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's download.usenet contract by signing in to NZBGet, beside it, with the account lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["download.usenet@1"]
+fronts      = "nzbget"
+provides    = ["download.usenet"]
+upstream    = { username = { secret = "upstream-username" }, password = { secret = "upstream-password" } }
+
+[[secret]]
+id     = "upstream-username"
+of     = "nzbget"
+minted = true
+why    = "The name of the control account NZBGet answers its API to, which the adapter in front of it signs in as"
+
+[[secret]]
+id     = "upstream-password"
+of     = "nzbget"
+minted = true
+why    = "The password of that account"
+
+[[proof]]
+id      = "nzbget.guarded"
+service = "nzbget"
+title   = "NZBGet shows its queue to nobody signed in"
+fixture = "recordings/nzbget/listgroups-guarded.json"
+why     = """
+The queue names what the household is downloading. NZBGet answers its API to
+the account in its settings, and a fresh NZBGet holds one everybody knows.
+lemonfiber writes the account it minted into nzbget.conf before NZBGet first
+starts, so the pinned image, started from that file, has to refuse the queue
+to a caller presenting nothing.
+"""
+request = { method = "GET", path = "/jsonrpc/listgroups" }
+expect  = { status = 401, content_type = "text/plain" }
+
+[[ask]]
+service    = "nzbget"
+capability = "dashboard.show"

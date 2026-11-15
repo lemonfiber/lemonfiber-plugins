@@ -1,0 +1,6 @@
+{
+  "recorded_from": "lscr.io/linuxserver/nzbget@sha256:6f86d5cb17fa12c214e0c699addde8ee5b9622fbafd2f4dc2eb8f89e7251dc49",
+  "note": "Asked without the plugin's key: the kit refuses it before the adapter is reached.",
+  "request": {"method": "POST", "path": "/lemonfiber/download.usenet/v1/transfers", "accept": "application/json"},
+  "response": {"status": 401}
+}
