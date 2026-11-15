@@ -543,3 +543,12 @@ manifest     = "sha256:6c00a828face519afae808f360b3e203d49199c647555b681e8764ac6
 tree         = "sha256:cb65fb9d9877d72c416fdfe4e715452724dda5f253358344c8066dfb5dcf14a9"
 profile      = "usenet"
 last_release = "2026-08-27"
+
+[[offered]]
+id           = "transmission"
+origin       = "https://github.com/lemonfiber/plugin-transmission"
+revision     = "641fb0ff702824993ceca7f7b24840bad7f592d4"
+manifest     = "sha256:1a592b8da12b230baf38cb4f898eef907a7397841413593de0c7e303eae703b4"
+tree         = "sha256:6d02da25494a197b77436e8c81a2a2c117f7601c90ec35c082706cd14480722c"
+profile      = "torrent"
+last_release = "2026-10-24"

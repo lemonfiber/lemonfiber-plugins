@@ -1,0 +1,80 @@
+schema_version = 1
+
+[plugin]
+id          = "transmission"
+name        = "Transmission"
+version     = "0.1.0"
+description = "Downloads the torrents everything else asks for"
+without_it  = "No torrent downloads"
+upstream    = "https://github.com/transmission/transmission"
+license     = "GPL-2.0-only OR GPL-3.0-only"
+forms       = ["dl", "hunt", "tv", "movies", "music", "books", "auto", "full"]
+
+[[service]]
+id          = "transmission"
+name        = "Transmission"
+image       = "lscr.io/linuxserver/transmission"
+digest      = "sha256:aaf349cd859ca9d5f34f394c56b8097c267a513283698adc4d07ee61d7cb1a85"
+tag         = "4.1.4-r0-ls369"
+port        = 9091
+bind        = "loopback"
+listens     = 9091
+health      = { kind = "http", path = "/transmission/web/", timeout_s = 60 }
+criticality = "core"
+memory_mib  = 200
+reaches     = "trackers and peers, through the tunnel"
+asks_for    = "Announces to a torrent's trackers and exchanges data with peers, which is what a torrent client is; all of it inside gluetun's network, so it stops when the tunnel does."
+takes_data  = true
+user_mode   = "puid-env"
+network     = { via = "network.egress-guard" }
+native      = "transmission"
+
+[service.env]
+FILE__USER = "/config/rpc-username"
+FILE__PASS = "/config/rpc-password"
+
+[[service]]
+id          = "transmission-adapter"
+name        = "Transmission adapter"
+image       = "ghcr.io/lemonfiber/transmission-adapter"
+digest      = "sha256:686efcb5eb54d2c744da6b561cc944fa218281ec322e9fa1fd198ebeb4a9561d"
+tag         = "main-7292d1c583ae"
+criticality = "core"
+reaches     = ""
+asks_for    = "Nothing beyond this machine. It answers lemonfiber's download.torrent contract by calling Transmission, beside it, with the account lemonfiber minted for it."
+config_path = "/config"
+listens     = 8080
+speaks      = ["download.torrent@1"]
+fronts      = "transmission"
+provides    = ["download.torrent"]
+upstream    = { username = { secret = "upstream-username" }, password = { secret = "upstream-password" } }
+
+[[secret]]
+id     = "upstream-username"
+of     = "transmission"
+minted = true
+why    = "The name of the RPC account the adapter in front of Transmission signs in as"
+
+[[secret]]
+id     = "upstream-password"
+of     = "transmission"
+minted = true
+why    = "The password of that account, which Transmission keeps only as a salted hash"
+
+[[proof]]
+id      = "transmission.guarded"
+service = "transmission"
+title   = "Transmission answers its RPC to nobody signed in"
+fixture = "recordings/transmission/rpc-guarded.json"
+why     = """
+The torrents name what the household is downloading. Only the adapter asks,
+signed in with the account lemonfiber minted, so a Transmission that answered
+its RPC to a caller presenting nothing would be telling every device that can
+reach it, and taking orders from them.
+"""
+request = { method = "POST", path = "/transmission/rpc" }
+expect  = { status = 401, body_starts_with = "<h1>401: Unauthorized</h1>" }
+
+[[ask]]
+service    = "transmission"
+capability = "dashboard.show"
