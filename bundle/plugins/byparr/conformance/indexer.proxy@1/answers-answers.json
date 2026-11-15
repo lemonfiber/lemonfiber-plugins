@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/thephaseless/byparr@sha256:c66fa161187b8fa527bfad7eefa2647ea1c553f77df68cbffd6fe83366d1787b",
+  "note": "Whether it answers: the adapter asks Byparr for the description of its API at /openapi.json, which names POST /v1 once Byparr has started, and answers true. Byparr answers it without its browser fetching anything.",
+  "request": {"method": "POST", "path": "/lemonfiber/indexer.proxy/v1/answers", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": true
+  }
+}
