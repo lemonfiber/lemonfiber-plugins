@@ -469,9 +469,9 @@ last_release = "2026-09-08"
 [[plugin]]
 id           = "seerr"
 origin       = "https://github.com/lemonfiber/plugin-seerr"
-revision     = "252debe3fdb03e47d2e1df863e740d777e3043b3"
-manifest     = "sha256:c54e45f637e90a8c356bfc47ffdf0e61bf231992a8400a225a56a45ed8f73cff"
-tree         = "sha256:765b8bb4838a83b3d2891cbbf2f2f8ef9d140fb89731093228ce129d36ad30a1"
+revision     = "bc00881712c6e7e2cfb152aa6106dce661516e60"
+manifest     = "sha256:a2922a9add5486d208a3010d8fbef3890ca0c9d3d1a605d2a503da8d0252e57d"
+tree         = "sha256:d7380f22f48459b26ee56e3dfa8e756ba5d66b4740428417dffaea16d2751542"
 fills        = ["request.intake"]
 stage        = "installed"
 profile      = "media"
