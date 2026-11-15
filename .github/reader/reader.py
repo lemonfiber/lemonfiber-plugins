@@ -468,28 +468,29 @@ def resolves(reference: str) -> str | None:
     raise Unanswered(f"{reference} could not be checked: its registry did not answer in {REGISTRY_ATTEMPTS} attempts ({last})")
 
 
+def pinned_image(service: dict) -> tuple[bool, str]:
+    """Whether one service's pinned digest resolves and its tag still names it, and what to say."""
+    pinned = f"{service['image']}@{service['digest']}"
+    try:
+        held = resolves(pinned) == service["digest"]
+        tagged = resolves(f"{service['image']}:{service['tag']}") if held else None
+    except Unanswered as why:
+        return False, str(why)
+    if not held:
+        return False, f"{pinned} is not in its registry"
+    if tagged and tagged != service["digest"]:
+        return False, f"{service['image']}:{service['tag']} names {tagged}, not the pinned digest"
+    return True, f"{pinned}, which {service['tag']} names" if tagged else pinned
+
+
 def image() -> int:
     """Every pinned digest resolves and its tag still names it (`F3-R8`), then who vouches (`F3-R25`)."""
     services = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("service", [])
     faults = 0
     for service in services:
-        pinned = f"{service['image']}@{service['digest']}"
-        try:
-            held = resolves(pinned) == service["digest"]
-            tagged = resolves(f"{service['image']}:{service['tag']}") if held else None
-        except Unanswered as why:
-            print(f"::error::{why}")
-            faults += 1
-            continue
-        if not held:
-            print(f"::error::{pinned} is not in its registry")
-            faults += 1
-            continue
-        if tagged and tagged != service["digest"]:
-            print(f"::error::{service['image']}:{service['tag']} names {tagged}, not the pinned digest")
-            faults += 1
-        else:
-            print(f"  ok   {pinned}, which {service['tag']} names" if tagged else f"  ok   {pinned}")
+        held, said = pinned_image(service)
+        print(f"  ok   {said}" if held else f"::error::{said}")
+        faults += not held
     vouched = plugin("provenance")
     print(vouched.stdout + vouched.stderr)
     return 1 if faults or vouched.returncode != 0 else 0
