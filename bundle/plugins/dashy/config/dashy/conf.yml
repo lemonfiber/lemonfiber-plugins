@@ -1,0 +1,40 @@
+{
+  "pageInfo": {
+    "title": "Home"
+  },
+  "appConfig": {
+    "preventWriteToDisk": true,
+    "disableConfiguration": true
+  },
+  "sections": [
+    {
+      "name": "This dashboard",
+      "items": [
+        {
+          "title": "Dashy",
+          "description": "This page",
+          "icon": "hl-dashy",
+          "url": "http://dashy:8080/",
+          "statusCheck": true,
+          "statusCheckUrl": "http://dashy:8080/healthz"
+        },
+        {
+          "title": "Proxy",
+          "description": "Forwards only what this page names",
+          "icon": "hl-dashy",
+          "url": "http://dashy:8080/",
+          "statusCheck": true,
+          "statusCheckUrl": "http://dashy:8080/cors-proxy"
+        },
+        {
+          "title": "Icons",
+          "description": "The folder of icons this page draws from",
+          "icon": "hl-dashy",
+          "url": "http://dashy:8080/item-icons/",
+          "statusCheck": true,
+          "statusCheckUrl": "http://dashy:8080/item-icons"
+        }
+      ]
+    }
+  ]
+}

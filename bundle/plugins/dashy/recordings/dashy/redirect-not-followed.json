@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:06e91ea4bc85f77253f3a5e728a397116e579000358e0fdaba5067ce939c2dff",
+  "note": "A status check of Dashy's icon folder, which the plugin's shipped conf.yml names and Dashy answers with a 301 to the folder with a trailing slash, asked by a caller presenting nothing on a fresh instance. EBLOCKED is the pass: the server follows no redirect, even one on the address it was asked.",
+  "request": {"method": "GET", "path": "/status-check?url=http%3A%2F%2Fdashy%3A8080%2Fitem-icons"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {"message": "❌ Service Unavailable: Server resulted in EBLOCKED ", "successStatus": false}
+  }
+}

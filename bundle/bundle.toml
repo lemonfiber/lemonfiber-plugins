@@ -509,6 +509,15 @@ profile      = "search"
 last_release = "2026-11-05"
 
 [[offered]]
+id           = "dashy"
+origin       = "https://github.com/lemonfiber/plugin-dashy"
+revision     = "e4d93033e54cd0ecc6648bf7e1f9fb20b39bb74f"
+manifest     = "sha256:743b40d3a13d055e585fd6455f5876cfd3ea31afa42258967dfc8e2ceac70b88"
+tree         = "sha256:b4d257dea9b5117fd03816f57ab5ebb2dade93391b9a216db3545569be7613fc"
+profile      = "dash"
+last_release = "2026-10-23"
+
+[[offered]]
 id           = "emby"
 origin       = "https://github.com/lemonfiber/plugin-emby"
 revision     = "829f27c69d9d46faad938faf25e5087506993b40"

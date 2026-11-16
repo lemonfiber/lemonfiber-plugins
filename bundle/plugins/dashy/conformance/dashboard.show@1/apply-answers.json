@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:06e91ea4bc85f77253f3a5e728a397116e579000358e0fdaba5067ce939c2dff",
+  "note": "The case's groups and widgets written into conf.yml, the page Dashy reads, and the panel list read back as written.",
+  "request": {"method": "POST", "path": "/lemonfiber/dashboard.show/v1/apply", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

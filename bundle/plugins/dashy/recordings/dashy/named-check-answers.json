@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:06e91ea4bc85f77253f3a5e728a397116e579000358e0fdaba5067ce939c2dff",
+  "note": "A status check of Dashy's own /cors-proxy, which the plugin's shipped conf.yml names and which answers 400 to a request naming no address, asked of Dashy's own endpoint by a caller presenting nothing on a fresh instance, with Dashy answering to its id on the recording network as on the stack. The 400 reported back is the pass: the server asked what the page names and relayed its answer, where an unnamed address is refused before it is asked.",
+  "request": {"method": "GET", "path": "/status-check?url=http%3A%2F%2Fdashy%3A8080%2Fcors-proxy"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {"message": "❌ Service Error - 400 - Bad Request", "successStatus": false}
+  }
+}

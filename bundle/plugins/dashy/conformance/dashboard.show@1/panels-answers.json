@@ -1,0 +1,26 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:06e91ea4bc85f77253f3a5e728a397116e579000358e0fdaba5067ce939c2dff",
+  "note": "The panel list last applied, read back from the record the adapter keeps beside Dashy's page, which both still match.",
+  "request": {"method": "POST", "path": "/lemonfiber/dashboard.show/v1/panels", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {
+      "groups": [
+        {
+          "entries": [
+            {"check": "http://conformance-curator:58989", "description": "conformance", "icon": "conformance", "link": "http://conformance-curator:58989", "name": "conformance", "widget": null}
+          ],
+          "name": "conformance"
+        }
+      ],
+      "hosts": ["conformance-curator"],
+      "widgets": [
+        "resources",
+        {
+          "search": {"url": "http://conformance-search/?q="}
+        }
+      ]
+    }
+  }
+}
