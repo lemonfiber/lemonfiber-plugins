@@ -1,0 +1,125 @@
+schema_version = 1
+
+[plugin]
+id          = "traefik"
+name        = "Traefik"
+version     = "0.1.0"
+description = "Friendly hostnames instead of ports"
+without_it  = "Use localhost:8989 and friends"
+upstream    = "https://github.com/traefik/traefik"
+license     = "MIT"
+forms       = ["proxy"]
+
+[[service]]
+id          = "traefik"
+name        = "Traefik"
+image       = "docker.io/library/traefik"
+digest      = "sha256:aa942a00bce033c909bf1f7e861d93761be4b31a035f10d2410d33e38a8f41cf"
+tag         = "v3.7.19"
+port        = 8080
+bind        = "lan"
+listens     = 8080
+health      = { kind = "http", path = "/ping", timeout_s = 30 }
+criticality = "optional"
+memory_mib  = 100
+reaches     = ""
+asks_for    = "Nothing. It answers names on this machine and forwards to the services beside it; no certificate is fetched, because nothing here is published to the internet, and it checks for no new release and sends no usage data."
+user_mode   = "uid"
+config_path = "/etc/traefik"
+config_ro   = true
+
+[[service.publish]]
+port    = 8443
+listens = 8443
+
+[[service]]
+id            = "traefik-adapter"
+name          = "Traefik adapter"
+image         = "ghcr.io/lemonfiber/traefik-adapter"
+digest        = "sha256:e5193bc859d988d5bb18a81ce35af6fae96ed4587d4a9f6d61d9df3da833c575"
+tag           = "main-b912501e6a02"
+criticality   = "optional"
+reaches       = ""
+asks_for      = "Nothing beyond this machine. It answers lemonfiber's proxy.front contract by writing the routes lemonfiber hands it into the dynamic configuration Traefik, beside it, watches and takes up at once."
+config_path   = "/config"
+listens       = 8080
+speaks        = ["proxy.front@1"]
+fronts        = "traefik"
+provides      = ["proxy.front"]
+shares_config = "/traefik"
+posture       = "confined"
+
+[[proof]]
+id      = "traefik.redirects-plain-http"
+service = "traefik"
+title   = "A household name asked for over plain HTTP is sent to HTTPS"
+fixture = "recordings/traefik/plain-http-is-redirected.json"
+why     = """
+Traefik answers every request on its plain-HTTP entry point with a permanent
+redirect to HTTPS at the same name on 8443, the port lemonfiber publishes its
+HTTPS entry point on. A plain-HTTP answer of anything else would mean a name
+served without TLS.
+"""
+request = { method = "GET", path = "/" }
+expect  = { status = 301 }
+
+[[proof]]
+id      = "traefik.ready-on-ping"
+service = "traefik"
+title   = "Traefik answers its ping on plain HTTP once its first configuration is built"
+fixture = "recordings/traefik/ping.json"
+why     = """
+Traefik listens before its first configuration is built, and until then it
+answers every request 404, the redirect to HTTPS included. Its ping arrives
+in that same configuration, so the health check asks it: Traefik counts as
+healthy only once it serves the redirect. A port proxy answers no body, so the
+body Traefik's ping writes is what says Traefik answered.
+"""
+request = { method = "GET", path = "/ping" }
+expect  = { status = 200, body_starts_with = "OK" }
+
+[[proof]]
+id      = "traefik.serves-no-api"
+service = "traefik"
+title   = "Traefik's API is not served on plain HTTP: it is sent to HTTPS like any page"
+fixture = "recordings/traefik/api-is-redirected.json"
+why     = """
+Traefik's API and dashboard are off, and ping is the one handler of its own
+the plain-HTTP entry point serves. Asked for the API's whole configuration
+there, Traefik answers with the same permanent redirect to HTTPS it gives any
+household name, so nothing of its routes or services is read from it.
+"""
+request = { method = "GET", path = "/api/rawdata" }
+expect  = { status = 301 }
+
+[[proof]]
+id      = "traefik.version"
+service = "traefik"
+title   = "The image's own Traefik says which release it is"
+run     = { args = ["sh", "-c", "set -o pipefail; traefik version | grep '^Version:'"] }
+expect  = { exit = 0, stdout_starts_with = "Version:      3.7.19\n" }
+fixture = "recordings/traefik/version.json"
+why     = """
+A redirect is a status the configuration chose, which another server could give
+as well. Run as the image's own command, Traefik names the release it was built
+from, which says the image is the Traefik this plugin pins. Only that line is
+kept: the rest names the machine's architecture, which differs between the
+machines that take the recording again.
+"""
+
+[[proof]]
+id      = "traefik.holds-no-privilege"
+service = "traefik"
+title   = "Traefik runs as the operator, holding no capability and unable to gain one"
+run     = { args = ["sh", "-c", "test \"$(id -u)\" -ne 0 && test \"$(id -g)\" -ne 0 && grep -E '^(Cap(Prm|Eff|Amb)|NoNewPrivs):' /proc/self/status && grep -E '^(Uid|Gid|CapBnd):' /proc/self/status"] }
+expect  = { exit = 0, stdout_starts_with = "CapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapAmb:\t0000000000000000\nNoNewPrivs:\t1\n" }
+fixture = "recordings/traefik/holds-no-privilege.json"
+why     = """
+Traefik's image starts as root, and Caddy's is rebuilt to start as a user of
+its own with its binary's file capabilities taken out. A run is made in the
+container lemonfiber makes for the service, with its user, its capabilities and
+its posture, so what it reads of itself is what Traefik holds: it exits 0 only
+as a user that is not root, every capability it holds, may take up or passes on
+is none, and no-new-privileges is set, so nothing it runs can raise it. The uid,
+gid and bounding set it ran with follow in the recording.
+"""

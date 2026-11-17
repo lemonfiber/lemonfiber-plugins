@@ -1,0 +1,21 @@
+[global]
+checkNewVersion = false
+sendAnonymousUsage = false
+
+[entryPoints.web]
+address = ":8080"
+
+[entryPoints.web.http.redirections.entryPoint]
+to = ":8443"
+scheme = "https"
+permanent = true
+
+[entryPoints.websecure]
+address = ":8443"
+
+[providers.file]
+filename = "/etc/traefik/dynamic.toml"
+watch = true
+
+[ping]
+entryPoint = "web"
