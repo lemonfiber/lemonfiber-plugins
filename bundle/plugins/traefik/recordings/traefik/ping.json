@@ -1,0 +1,6 @@
+{
+  "recorded_from": "docker.io/library/traefik@sha256:aa942a00bce033c909bf1f7e861d93761be4b31a035f10d2410d33e38a8f41cf",
+  "note": "Traefik's ping on the plain-HTTP entry point, asked presenting nothing, once the health check that asks it passed: it answers OK, which a port proxy does not write.",
+  "request": {"method": "GET", "path": "/ping"},
+  "response": {"status": 200, "body_starts_with": "OK"}
+}

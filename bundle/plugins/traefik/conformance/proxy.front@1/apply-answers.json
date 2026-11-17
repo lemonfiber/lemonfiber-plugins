@@ -1,0 +1,10 @@
+{
+  "recorded_from": "docker.io/library/traefik@sha256:aa942a00bce033c909bf1f7e861d93761be4b31a035f10d2410d33e38a8f41cf",
+  "note": "The case's routes written as Traefik's dynamic configuration, which its file provider watches, and read back as written: in force at once, with no restart.",
+  "request": {"method": "POST", "path": "/lemonfiber/proxy.front/v1/apply", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

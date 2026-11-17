@@ -1,0 +1,15 @@
+{
+  "recorded_from": "docker.io/library/traefik@sha256:aa942a00bce033c909bf1f7e861d93761be4b31a035f10d2410d33e38a8f41cf",
+  "note": "The table last applied, read back from the dynamic configuration Traefik serves, which is the one rendered from that table.",
+  "request": {"method": "POST", "path": "/lemonfiber/proxy.front/v1/routing", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {
+      "routes": [
+        {"host": "conformance-upstream", "name": "conformance.home.local", "port": 80}
+      ],
+      "tls": "automatic"
+    }
+  }
+}

@@ -545,6 +545,15 @@ profile      = "usenet"
 last_release = "2026-08-27"
 
 [[offered]]
+id           = "traefik"
+origin       = "https://github.com/lemonfiber/plugin-traefik"
+revision     = "07ba83b713abbeda2e6ef74bceb1ada9b90cbf36"
+manifest     = "sha256:37668fbecaedaeb64154b52db0fadf1ac3309f6641540f5d364e3786973571f4"
+tree         = "sha256:9374a1836c49245a2b819f764993d9b37672d567a7c8cf6f247c138452389126"
+profile      = "proxy"
+last_release = "2026-11-13"
+
+[[offered]]
 id           = "transmission"
 origin       = "https://github.com/lemonfiber/plugin-transmission"
 revision     = "641fb0ff702824993ceca7f7b24840bad7f592d4"
