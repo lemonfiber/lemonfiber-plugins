@@ -1,0 +1,6 @@
+{
+  "recorded_from": "ghcr.io/raydak-labs/configarr@sha256:48893921c607e96e40310d3ced50a92584667a84595dc9b782f523d46267f2e7",
+  "note": "Asked without the plugin's key: the kit refuses it before the adapter is reached.",
+  "request": {"method": "POST", "path": "/lemonfiber/quality.sync/v1/apply", "accept": "application/json"},
+  "response": {"status": 401}
+}

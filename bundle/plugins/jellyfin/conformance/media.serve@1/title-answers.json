@@ -5,20 +5,6 @@
   "response": {
     "status": 200,
     "headers": {"content-type": "application/json"},
-    "json": {
-      "certificate": null,
-      "genres": [],
-      "item": {
-        "holds": {"backdrop": false, "plays": false, "poster": false},
-        "id": "e9d5075a555c1cbc394eec4cef295274",
-        "medium": "other",
-        "title": "Media Folders",
-        "year": null
-      },
-      "minutes": null,
-      "overview": null,
-      "released": null,
-      "seasons": []
-    }
+    "body_starts_with": "null"
   }
 }

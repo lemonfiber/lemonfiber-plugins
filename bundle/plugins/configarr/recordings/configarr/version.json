@@ -1,0 +1,8 @@
+{
+  "recorded_from": "ghcr.io/raydak-labs/configarr@sha256:48893921c607e96e40310d3ced50a92584667a84595dc9b782f523d46267f2e7",
+  "note": "The pinned program, started in the container lemonfiber makes for the service, as the operator's user under its posture with no network and pointed at a configuration that is not there, names the release it was built from before it stops; only that line is kept.",
+  "run": {
+    "args": ["sh", "-c", "CONFIG_LOCATION=/nonexistent node index.js 2>&1 | grep -o 'Configarr Version: v[0-9.]*'"]
+  },
+  "result": {"exit": 0, "stdout_starts_with": "Configarr Version: v1.39.2\n"}
+}

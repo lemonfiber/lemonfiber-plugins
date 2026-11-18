@@ -1,0 +1,10 @@
+{
+  "recorded_from": "docker.io/jellyfin/jellyfin@sha256:aefb67e6a7ff1debdd154a78a7bbb780fd0c873d8639210a7f6a2016ad2b35db",
+  "note": "Jellyfin holds its own accounts, so no outside service issues a code to sign a device in by: answered unsupported, and nothing was asked of Jellyfin.",
+  "request": {"method": "POST", "path": "/lemonfiber/identity.source/v1/sign_in_by_code", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "Jellyfin holds its accounts itself, so no outside service issues a code to sign in by", "type": "unsupported"}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/raydak-labs/configarr@sha256:48893921c607e96e40310d3ced50a92584667a84595dc9b782f523d46267f2e7",
+  "note": "The configuration is the one the adapter wrote, its digest line still holding, so there is no hand edit to show and the answer is none.",
+  "request": {"method": "POST", "path": "/lemonfiber/quality.sync/v1/edited", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "recorded_from": "ghcr.io/raydak-labs/configarr@sha256:48893921c607e96e40310d3ced50a92584667a84595dc9b782f523d46267f2e7",
+  "note": "The case's preset written into the curator's section of config.yml, which the adapter enables and points at the curator, and its key into secrets.yml beside it; Configarr reads both when its next run starts, which a restart owes it, so the adapter answers that the preset takes hold on restart. Recorded with the adapter alone over a copy of Configarr's starting files, since a scheduled service is never started to be recorded.",
+  "request": {"method": "POST", "path": "/lemonfiber/quality.sync/v1/apply", "accept": "application/json"},
+  "response": {"status": 205}
+}

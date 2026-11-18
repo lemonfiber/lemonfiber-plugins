@@ -1,0 +1,10 @@
+{
+  "recorded_from": "docker.io/emby/embyserver@sha256:7082c63b10a2fcb3805a7eaebba407d5723bc57c085c9f0b29b7d0a702765cc1",
+  "note": "Emby holds its own accounts, so no outside service issues who a code proved: answered unsupported, and nothing was asked of Emby.",
+  "request": {"method": "POST", "path": "/lemonfiber/identity.source/v1/signed_by_code", "accept": "application/json"},
+  "response": {
+    "status": 500,
+    "headers": {"content-type": "application/problem+json"},
+    "json": {"detail": "identity.source@1/sign_in_by_code-answers was answered unsupported", "type": "unsupported"}
+  }
+}
