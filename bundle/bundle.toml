@@ -502,9 +502,9 @@ last_release = "2026-08-31"
 [[offered]]
 id           = "byparr"
 origin       = "https://github.com/lemonfiber/plugin-byparr"
-revision     = "09622f962f3a4a8f17605570a28491096dcf5c8b"
-manifest     = "sha256:eaf86a79087fbf1f53ed99b9b08a6e970a88403f2b57711ac8553ebd17c5416c"
-tree         = "sha256:1dd1edeafd0a532acd607e58edb8276d334ae33dee76951d824a066642c70900"
+revision     = "fd74748bd531bb50d0265a0f279f7af006aa9286"
+manifest     = "sha256:43a0634450a32d08c8d69ddfd212627aa2e4f19267d8f6b5cf00950cad78e537"
+tree         = "sha256:787105c000ce56c39945e4417699c7617e00b62f30f8dce57bde5241972dcf2e"
 profile      = "search"
 last_release = "2026-11-05"
 
