@@ -1,0 +1,43 @@
+# Configarr: keeps quality profiles in line with TRaSH Guides community
+# guidance, so nobody has to tune scoring by hand. It runs at the times its
+# schedule names, syncs every instance here that is enabled, and exits.
+#
+# Instances are reached over the Compose network by service name and container
+# port, not the published loopback port: Configarr runs beside them, not on the
+# host.
+#
+# lemonfiber's adapter writes each instance's address, its key and the preset
+# its profiles are held to when it is told which preset a curator is held to:
+# the address here, the key into secrets.yml beside this file, named by
+# `!secret`. Until then each instance is disabled, so a run syncs nothing it
+# holds no key for.
+#
+# A preset is one TRaSH Guides quality profile, named by its trash_id, and the
+# quality sizes it is paired with. Configarr reads both from the guides it
+# clones on each run.
+
+sonarr:
+  series:
+    enabled: false
+    base_url: http://sonarr:8989
+    api_key: !secret sonarr_api_key
+
+    quality_definition:
+      type: series
+
+    include:
+      - template: 72dae194fc92bf828f32cde7744e51a1
+        source: TRASH
+
+radarr:
+  films:
+    enabled: false
+    base_url: http://radarr:7878
+    api_key: !secret radarr_api_key
+
+    quality_definition:
+      type: movie
+
+    include:
+      - template: d1d67249d3890e49bc12e275d989a7e9
+        source: TRASH

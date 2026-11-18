@@ -1,0 +1,90 @@
+schema_version = 1
+
+[plugin]
+id          = "configarr"
+name        = "Configarr"
+version     = "0.1.0"
+description = "Keeps quality settings in line with community guidance"
+without_it  = "Tune quality profiles by hand"
+upstream    = "https://github.com/raydak-labs/configarr"
+license     = "AGPL-3.0-only"
+forms       = ["auto", "full"]
+
+[[service]]
+id          = "configarr"
+name        = "Configarr"
+image       = "ghcr.io/raydak-labs/configarr"
+digest      = "sha256:48893921c607e96e40310d3ced50a92584667a84595dc9b782f523d46267f2e7"
+tag         = "1.39.2"
+criticality = "enhancing"
+memory_mib  = 200
+reaches     = "the community quality-guide repositories"
+asks_for    = "Syncs the quality profiles at the times its schedule names, runs to completion and exits — its own errand, not one anything else here sets off. It sends no usage data."
+user_mode   = "uid"
+posture     = "confined"
+tmpfs       = ["/tmp"]
+schedule    = { setting = "configarr:schedule", default = "@daily" }
+
+[service.env]
+CONFIG_LOCATION                     = "/config/config.yml"
+SECRETS_LOCATION                    = "/config/secrets.yml"
+CUSTOM_REPO_ROOT                    = "/config/repos"
+TELEMETRY_ENABLED                   = "false"
+CONFIGARR_ENFORCE_CONFIG_VALIDATION = "true"
+
+[[service]]
+id            = "configarr-adapter"
+name          = "Configarr adapter"
+image         = "ghcr.io/lemonfiber/configarr-adapter"
+digest        = "sha256:72fd268582faff1027877032e562fdc6a5c3f87138d15ea55944328882ca425b"
+tag           = "main-fc608c73a4ec"
+criticality   = "optional"
+reaches       = ""
+asks_for      = "Nothing beyond this machine. It answers lemonfiber's quality.sync contract by writing the preset and curator lemonfiber hands it into the configuration Configarr, beside it, reads on each run, each curator's key into the secrets file beside it."
+config_path   = "/config"
+listens       = 8080
+speaks        = ["quality.sync@1"]
+fronts        = "configarr"
+provides      = ["quality.sync"]
+shares_config = "/configarr"
+posture       = "confined"
+
+[[proof]]
+id      = "configarr.version"
+service = "configarr"
+title   = "Configarr's own program says which release it is"
+run     = { args = ["sh", "-c", "CONFIG_LOCATION=/nonexistent node index.js 2>&1 | grep -o 'Configarr Version: v[0-9.]*'"] }
+expect  = { exit = 0, stdout_starts_with = "Configarr Version: v1.39.2\n" }
+fixture = "recordings/configarr/version.json"
+why     = """
+Configarr answers nothing over a port: it runs at the times its schedule
+names, syncs the curators it is pointed at and exits. The one thing it can be
+asked is its own program. Started with a configuration that is not there, it
+names the release it was built from before it stops, which says the pinned
+image is Configarr at the release this manifest names. Only that line is kept:
+the rest carries the time it ran.
+"""
+
+[[proof]]
+id      = "configarr.reads-its-configuration"
+service = "configarr"
+title   = "Configarr reads the configuration it starts with and holds it valid"
+run     = { args = ["sh", "-c", "node index.js 2>&1 | grep -o -e 'Configarr Version: v[0-9.]*' -e 'Checking Recyclarr repo'"] }
+expect  = { exit = 0, stdout_starts_with = "Configarr Version: v1.39.2\nChecking Recyclarr repo\n" }
+fixture = "recordings/configarr/reads-its-configuration.json"
+why     = """
+Run in the container lemonfiber makes for the service, with its configuration
+directory and its environment, Configarr reads config.yml and the secrets.yml
+beside it, resolves each `!secret`, and holds the whole against its schema,
+which this service makes strict: a key it does not know or a value of the wrong
+kind stops the run there. Only once the configuration holds does it turn to the
+guides, which it checks out from GitHub. A run has no network, so it stops at
+that step; reaching it is what says the configuration was read and found
+valid. Only those two lines are kept: the rest carries the time it ran.
+"""
+
+[[ask]]
+service    = "configarr"
+capability = "library.curate"
+native     = "servarr"
+each       = true

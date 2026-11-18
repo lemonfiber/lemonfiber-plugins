@@ -3,8 +3,8 @@
   "note": "A picture of a title Jellyfin does not hold: none.",
   "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/picture", "accept": "application/json"},
   "response": {
-    "status": 500,
-    "headers": {"content-type": "application/problem+json"},
-    "json": {"detail": "the media server would not answer the picture", "type": "refused"}
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
   }
 }

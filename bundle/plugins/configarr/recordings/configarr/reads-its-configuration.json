@@ -1,0 +1,8 @@
+{
+  "recorded_from": "ghcr.io/raydak-labs/configarr@sha256:48893921c607e96e40310d3ced50a92584667a84595dc9b782f523d46267f2e7",
+  "note": "The pinned program, started in the container lemonfiber makes for the service, as the operator's user under its posture with no network, with the starting files and the environment the manifest gives it, reads config.yml and secrets.yml, resolves each !secret and holds the whole to its schema strictly before it turns to the guides; reaching the guides' checkout, which fails for want of a network, is what says the configuration was read and found valid. Only the release line and that step are kept.",
+  "run": {
+    "args": ["sh", "-c", "node index.js 2>&1 | grep -o -e 'Configarr Version: v[0-9.]*' -e 'Checking Recyclarr repo'"]
+  },
+  "result": {"exit": 0, "stdout_starts_with": "Configarr Version: v1.39.2\nChecking Recyclarr repo\n"}
+}

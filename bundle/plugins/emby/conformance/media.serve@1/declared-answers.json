@@ -1,6 +1,6 @@
 {
   "recorded_from": "docker.io/emby/embyserver@sha256:7082c63b10a2fcb3805a7eaebba407d5723bc57c085c9f0b29b7d0a702765cc1",
-  "note": "What a guard in front of Emby enforces and where it serves each item, answered without asking Emby. The guard asks the adapter about each item, and the adapter asks Emby with the member's own token.",
+  "note": "What a guard in front of Emby enforces and where it serves each item, answered without asking Emby. The guard asks the adapter about each item, and the adapter asks Emby with the member's own token. The stream and the browser's playlist carry a fresh play session for each play, which Emby writes into every segment it lists.",
   "request": {"method": "POST", "path": "/lemonfiber/media.serve/v1/declared", "accept": "application/json"},
   "response": {
     "status": 200,
@@ -59,7 +59,7 @@
       "live": [
         {"pattern": "(?i)^(?:/emby|/mediabrowser)?/LiveTv/LiveStreamFiles/(?P<stream>[^/]+)/(?:stream\\.|hls/)", "stream": "^[0-9a-f]{32}$"}
       ],
-      "locations": {"backdrop": "{base}/Items/{item}/Images/Backdrop", "poster": "{base}/Items/{item}/Images/Primary", "stream": "{base}/Videos/{item}/master.m3u8?MediaSourceId=mediasource_{item}&VideoCodec=h264&AudioCodec=aac,mp3,ac3,eac3"},
+      "locations": {"backdrop": "{base}/Items/{item}/Images/Backdrop", "playlist": "{base}/Videos/{item}/master.m3u8?MediaSourceId=mediasource_{item}&PlaySessionId={play}&VideoCodec=h264&AudioCodec=aac,mp3,ac3,eac3", "poster": "{base}/Items/{item}/Images/Primary", "stream": "{base}/Videos/{item}/master.m3u8?MediaSourceId=mediasource_{item}&PlaySessionId={play}&VideoCodec=h264&AudioCodec=aac,mp3,ac3,eac3"},
       "ports": {"encrypted": 8920, "internal_tls": 8920, "upstream": 8096},
       "question": {
         "answers": {

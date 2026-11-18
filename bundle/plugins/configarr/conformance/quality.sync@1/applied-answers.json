@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/raydak-labs/configarr@sha256:48893921c607e96e40310d3ced50a92584667a84595dc9b782f523d46267f2e7",
+  "note": "The preset last applied to the curator, read from the record the adapter keeps beside config.yml, whose section for that curator still names that preset's TRaSH profile and quality sizes.",
+  "request": {"method": "POST", "path": "/lemonfiber/quality.sync/v1/applied", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": "balanced"
+  }
+}

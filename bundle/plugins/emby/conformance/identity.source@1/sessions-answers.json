@@ -6,8 +6,8 @@
     "status": 200,
     "headers": {"content-type": "application/json"},
     "json": [
-      {"client": "lemonfiber", "device": "lemonfiber", "device_id": "lemonfiber", "last_seen": "2026-11-06T22:32:25.5960280Z"},
-      {"client": "lemonfiber", "device": "lemonfiber", "device_id": "conformance-whoever", "last_seen": "2026-11-06T22:32:24.8345308Z"}
+      {"client": "lemonfiber", "device": "lemonfiber", "device_id": "lemonfiber", "last_seen": 1794763250},
+      {"client": "lemonfiber", "device": "lemonfiber", "device_id": "conformance-whoever", "last_seen": 1794763250}
     ]
   }
 }
