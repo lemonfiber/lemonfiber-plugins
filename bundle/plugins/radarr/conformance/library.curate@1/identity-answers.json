@@ -1,10 +1,10 @@
 {
-  "recorded_from": "lscr.io/linuxserver/radarr@sha256:c984533510abe0219a70e80d15bd0d212b7df21baa0913759c4ce6cc9092240b",
+  "recorded_from": "lscr.io/linuxserver/radarr@sha256:044788f5508b7f67a3e0368cdd142c77c4d4cd5aec2efaba53e1a68b6b6231e7",
   "note": "Who a fresh Radarr says it is, and the release it runs.",
   "request": {"method": "POST", "path": "/lemonfiber/library.curate/v1/identity", "accept": "application/json"},
   "response": {
     "status": 200,
     "headers": {"content-type": "application/json"},
-    "json": {"name": "Radarr", "version": "5.28.0.10274"}
+    "json": {"name": "Radarr", "version": "7.0.3.10918"}
   }
 }
