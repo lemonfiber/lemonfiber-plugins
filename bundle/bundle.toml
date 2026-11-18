@@ -271,13 +271,13 @@ last_release = "2026-09-26"
 [[plugin]]
 id           = "bindery"
 origin       = "https://github.com/lemonfiber/plugin-bindery"
-revision     = "a0ca9807b6c8a9417db2cf2e675e468b1d26e5de"
-manifest     = "sha256:9b9d1b78cb8f876e9342a51b7e64d68ab533d7f6778fa98af487caf771d1d296"
-tree         = "sha256:1caf1333db1d409edf837a29da560d681c749e4e9eba79c4adaec9ef21a189fe"
+revision     = "72b4181ca730efb20408cfdfbc6d395690d3d41b"
+manifest     = "sha256:d2e355826a4a56dbd07f75b7c25ba934c9461bd7f1c87e7fa53f9d805b4f9bbb"
+tree         = "sha256:bf05799452145b41e8f2b54c6d9f5197d99d86089b40d2f9590cd7e23c2da548"
 fills        = ["books.curate", "library.curate"]
 stage        = "installed"
 profile      = "books"
-last_release = "2026-10-18"
+last_release = "2026-11-16"
 
 [[plugin]]
 id           = "caddy"
@@ -370,13 +370,13 @@ last_release = "2026-09-15"
 [[plugin]]
 id           = "lidarr"
 origin       = "https://github.com/lemonfiber/plugin-lidarr"
-revision     = "095dee50ea55c6ff13d24009e1cab610fd923903"
-manifest     = "sha256:959acf39990e7216779c06a3eb025e7566521fc48b4b2cd9e28b9de27016ab2b"
-tree         = "sha256:63a02b8e510a866d69e9dbecaed377d240238cddd421b24af19c408e5ab860d0"
+revision     = "122f71d7fb63a1f5900a55f0eb08468bae20a7bf"
+manifest     = "sha256:0cbb6f1e59de0189b3c80dd55daa7aef4b304ed9621fbdc6d7885e452815e4a6"
+tree         = "sha256:a3ba20635f0121699b2eaf8e92784d7b64d0891dee33d6b331aa5e074a02eb2f"
 fills        = ["library.curate", "music.curate"]
 stage        = "installed"
 profile      = "music"
-last_release = "2025-11-16"
+last_release = "2026-10-26"
 
 [[plugin]]
 id           = "navidrome"
@@ -414,9 +414,9 @@ last_release = "2026-09-16"
 [[plugin]]
 id           = "qbittorrent"
 origin       = "https://github.com/lemonfiber/plugin-qbittorrent"
-revision     = "1c96efff77fb83f80d4130934bb01475bab1f334"
-manifest     = "sha256:df168badfc92359afbec928a498afdce3b761ec48ffcefe21ac9f1aa310d5b61"
-tree         = "sha256:9f6fa86d941888e6f98d36cd513278aec24399329c872bf3221678288671279b"
+revision     = "aad9f89b418063b8d6575c6c19c7660c8c8db165"
+manifest     = "sha256:5e6aa4ab157f4ca0b87fbac6015ae64001ca76616ad34de17b80c186b87de6d7"
+tree         = "sha256:fc23d37cd0f510702685bc0b68f13578bd22c2574054df4af44ade09c0e00868"
 fills        = ["download.torrent"]
 stage        = "installed"
 profile      = "torrent"
@@ -425,13 +425,13 @@ last_release = "2026-09-28"
 [[plugin]]
 id           = "radarr"
 origin       = "https://github.com/lemonfiber/plugin-radarr"
-revision     = "c2198a6eea57014ebf620c752820de2c7845c7c6"
-manifest     = "sha256:8c7c573193c69cb5b9dfb7f49790cc8349024681d767c3fb981c55c5ef3202b4"
-tree         = "sha256:3e4dd62a4ef17ab89c5deb91a6ab0c59eddf873d8f039dc9f0855f12c705a531"
+revision     = "f3dae5904c8e7e28b74a451575a0dceadbbc3ada"
+manifest     = "sha256:9e680aeea5e2f0c194d7642a7ee784eb42a5ef13adab50e6310e2ff1f561e82a"
+tree         = "sha256:5ec298c724b79739181a4ebd73c7ab1822331e945bca7923a4f37b5064a33198"
 fills        = ["library.curate"]
 stage        = "installed"
 profile      = "movies"
-last_release = "2026-09-16"
+last_release = "2026-11-16"
 
 [[plugin]]
 id           = "recyclarr"
