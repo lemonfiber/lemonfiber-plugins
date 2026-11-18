@@ -37,8 +37,8 @@ SONARR__AUTH__APIKEY = { secret = "upstream-key" }
 id          = "sonarr-adapter"
 name        = "Sonarr adapter"
 image       = "ghcr.io/lemonfiber/sonarr-adapter"
-digest      = "sha256:fa2f57d837ee0a4cef6f4b83678dbc7deda2df5b460eba9d92ac321c7e5187bd"
-tag         = "main-3ba91774e6fd"
+digest      = "sha256:4b3f7948c472fa2c0634e5155035a176a7af2d39c4f9f41fb4e52e4e2a624a8b"
+tag         = "main-c3edac2133f6"
 criticality = "core"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's library.curate contract by calling Sonarr, beside it, with the key lemonfiber minted for it."
@@ -84,12 +84,12 @@ expect  = { status = 401 }
 [[ask]]
 service    = "sonarr"
 capability = "download.usenet"
-native     = "sabnzbd"
+native     = ["sabnzbd", "nzbget"]
 
 [[ask]]
 service    = "sonarr"
 capability = "download.torrent"
-native     = "qbittorrent"
+native     = ["qbittorrent", "transmission"]
 
 [[ask]]
 service    = "sonarr"

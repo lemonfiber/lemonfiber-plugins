@@ -37,8 +37,8 @@ LIDARR__AUTH__APIKEY = { secret = "upstream-key" }
 id          = "lidarr-adapter"
 name        = "Lidarr adapter"
 image       = "ghcr.io/lemonfiber/lidarr-adapter"
-digest      = "sha256:c5d2932b8bc7c24179ee4e0ff781b8aefc57b77152052a6a33265855176a2b34"
-tag         = "main-4ef71bd9c766"
+digest      = "sha256:9bc18bbdadba01e5d5e0ac6ae414cc3fe33c24878423864cfbdfa2fcddf97630"
+tag         = "main-31c09083d87d"
 criticality = "core"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's library.curate and music.curate contracts by calling Lidarr, beside it, with the key lemonfiber minted for it."
@@ -85,12 +85,12 @@ expect  = { status = 401 }
 [[ask]]
 service    = "lidarr"
 capability = "download.usenet"
-native     = "sabnzbd"
+native     = ["sabnzbd", "nzbget"]
 
 [[ask]]
 service    = "lidarr"
 capability = "download.torrent"
-native     = "qbittorrent"
+native     = ["qbittorrent", "transmission"]
 
 [[ask]]
 service    = "lidarr"
