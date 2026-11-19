@@ -1,4 +1,4 @@
-#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/9de49da3b6378475a2147bb388577b6370d8ad95/contract/plugin-manifest.schema.json
+#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/98bd419bed917ea8b3569dea33d7482bcd16eb7c/contract/plugin-manifest.schema.json
 # Emby, as a lemonfiber plugin.
 #
 # Contract: https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/plugin-manifest.md
@@ -44,8 +44,8 @@ native      = "emby"
 id          = "emby-adapter"
 name        = "Emby adapter"
 image       = "ghcr.io/lemonfiber/emby-adapter"
-digest      = "sha256:08cec468b9f2032a184168c40e7477fb5031d16f812f85579989c77e29479092"
-tag         = "main-1426459bcb74"
+digest      = "sha256:6d5b5f1cb05d1e578eb83f2b3baa000cd5128678accfb15faa16509a016fbb8f"
+tag         = "main-7bcf41cab478"
 criticality = "important"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's media.serve and identity.source contracts by calling Emby, beside it, with the administrator's account lemonfiber minted for it."

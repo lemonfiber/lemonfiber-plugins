@@ -19,7 +19,7 @@ tag         = "3.1.1"
 listens     = 8191
 health      = { kind = "tcp", timeout_s = 120 }
 criticality = "enhancing"
-memory_mib  = 1024
+memory_mib  = 1400
 reaches     = "the indexer sites that challenge it, GitHub for its GeoIP database, and a lookup service for the house's public address"
 asks_for    = "Fetches a page through a headless browser when an indexer sits behind bot protection, which means it visits that indexer directly. Each time it starts it downloads a GeoIP database from GitHub and asks a lookup service for the house's address, so its browser's timezone and language match where the house appears to be."
 native      = "flaresolverr"
@@ -33,8 +33,8 @@ OWUI_API_KEY = { secret = "loader-key" }
 id          = "byparr-adapter"
 name        = "Byparr adapter"
 image       = "ghcr.io/lemonfiber/byparr-adapter"
-digest      = "sha256:d2a11024fc341bca804a7a34227f7f42b6dbf038afbe441fd2ee60347a25df9c"
-tag         = "main-ff5b66cb005b"
+digest      = "sha256:0ceecc90ffe168c09c50f5f6053f5d02da48873612265307d11004050cb5325b"
+tag         = "main-5898a527553e"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine but the names it looks up. It answers lemonfiber's indexer.proxy contract by handing Byparr, beside it, each address that passes its screen."

@@ -1,0 +1,23 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:69dbe34522ed9b6c7689fa36addc77b745c98043d24d284777c8e8abdb6c6da1",
+  "note": "The page Dashy serves its browser, asked of a fresh instance started from the plugin's own conf.yml: lemonfiber's title, and preventWriteToDisk set, so the page is the one lemonfiber wrote and Dashy holds it against saving.",
+  "request": {"method": "GET", "path": "/conf.yml"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "text/yaml; charset=utf-8"},
+    "json": {
+      "appConfig": {"disableConfiguration": true, "preventWriteToDisk": true},
+      "pageInfo": {"title": "Home"},
+      "sections": [
+        {
+          "items": [
+            {"description": "This page", "icon": "hl-dashy", "statusCheck": true, "statusCheckUrl": "http://dashy:8080/healthz", "title": "Dashy", "url": "http://dashy:8080/"},
+            {"description": "Answers nobody, as this page sets no API", "icon": "hl-dashy", "statusCheck": true, "statusCheckUrl": "http://dashy:8080/api", "title": "API", "url": "http://dashy:8080/"},
+            {"description": "The folder of icons this page draws from", "icon": "hl-dashy", "statusCheck": true, "statusCheckUrl": "http://dashy:8080/item-icons", "title": "Icons", "url": "http://dashy:8080/item-icons/"}
+          ],
+          "name": "This dashboard"
+        }
+      ]
+    }
+  }
+}

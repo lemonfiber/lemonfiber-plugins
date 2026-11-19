@@ -1,0 +1,183 @@
+schema_version = 1
+
+[plugin]
+id          = "dashy"
+name        = "Dashy"
+version     = "0.1.0"
+description = "One page linking everything, with live status"
+without_it  = "Remember a dozen URLs and ports"
+upstream    = "https://github.com/lissy93/dashy"
+license     = "MIT"
+forms       = ["full"]
+
+[[service]]
+id          = "dashy"
+name        = "Dashy"
+image       = "ghcr.io/lemonfiber/dashy"
+digest      = "sha256:69dbe34522ed9b6c7689fa36addc77b745c98043d24d284777c8e8abdb6c6da1"
+tag         = "main-32fdd59ab1e0"
+port        = 4000
+bind        = "lan"
+listens     = 8080
+health      = { kind = "http", path = "/healthz", timeout_s = 60 }
+criticality = "enhancing"
+memory_mib  = 250
+reaches     = ""
+asks_for    = "Nothing beyond this machine. Its server asks only the status-check and status-page addresses its page names, each a service on the stack's internal network, to show whether each service is up, follows no redirect and pings nothing."
+config_path = "/app/user-data"
+user_mode   = "uid"
+
+[[service]]
+id            = "dashy-adapter"
+name          = "Dashy adapter"
+image         = "ghcr.io/lemonfiber/dashy-adapter"
+digest        = "sha256:032028f4feb172db4b25c818f2560ff54fe1dd29436670beebad1e6e743552cb"
+tag           = "main-79beb698d97d"
+criticality   = "optional"
+reaches       = ""
+asks_for      = "Nothing beyond this machine. It answers lemonfiber's dashboard.show contract by writing the groups and widgets lemonfiber hands it into the page Dashy, beside it, reads."
+config_path   = "/config"
+listens       = 8080
+speaks        = ["dashboard.show@1"]
+fronts        = "dashy"
+provides      = ["dashboard.show"]
+shares_config = "/dashy"
+posture       = "confined"
+
+[[proof]]
+id      = "dashy.page"
+service = "dashy"
+title   = "Dashy serves the page lemonfiber wrote"
+request = { method = "GET", path = "/conf.yml" }
+expect  = { status = 200, json = { "/pageInfo/title" = "Home", "/appConfig/preventWriteToDisk" = true } }
+fixture = "recordings/dashy/page.json"
+why     = """
+The dashboard is a page the browser draws from the configuration lemonfiber
+writes. Dashy serving that file back, as written, is the pinned image reading
+lemonfiber's page rather than one of its own, which a status alone could not
+say of a page the browser draws.
+"""
+
+[[proof]]
+id      = "dashy.save-refused"
+service = "dashy"
+title   = "Dashy refuses to save its page for anybody who asks"
+request = { method = "POST", path = "/config-manager/save" }
+expect  = { status = 403, json = { error = "Editing config has been disabled by your administrator" } }
+fixture = "recordings/dashy/save-refused.json"
+why     = """
+The household reaches the page without signing in. A Dashy that saved what
+any caller posted would let any device on the network rewrite the links
+everybody follows. The page lemonfiber writes says preventWriteToDisk, so
+Dashy refuses every save.
+"""
+
+[[proof]]
+id      = "dashy.unnamed-refused"
+service = "dashy"
+title   = "Dashy's server asks no address its page does not name"
+request = { method = "GET", path = "/status-check?url=http%3A%2F%2Fsonarr%3A8989%2Fping" }
+expect  = { status = 200, json = { "/successStatus" = false, "/message" = "❌ Service Unavailable: Server resulted in EBLOCKED " } }
+fixture = "recordings/dashy/unnamed-refused.json"
+why     = """
+Dashy's own /status-check fetches whatever address its caller names, and the
+household reaches the page without signing in. lemonfiber-dashy's image asks
+only what the page names, so a service on the stack's network the page does
+not name is refused before anything is asked, where Dashy's own image would
+have asked it.
+"""
+
+[[proof]]
+id      = "dashy.pings-nothing"
+service = "dashy"
+title   = "Dashy's server pings no host"
+request = { method = "GET", path = "/ping-check?host=example.com" }
+expect  = { status = 200, json = { "/successStatus" = false, "/message" = "This dashboard pings nothing." } }
+fixture = "recordings/dashy/pings-nothing.json"
+why     = """
+Dashy's own /ping-check pings whatever host its caller names, for anybody who
+reaches the page. lemonfiber-dashy's image answers every ping with the same
+refusal, which names no host and so tells nobody what is there.
+"""
+
+[[proof]]
+id      = "dashy.named-check-answers"
+service = "dashy"
+title   = "Dashy's server still checks an address its page names"
+request = { method = "GET", path = "/status-check?url=http%3A%2F%2Fdashy%3A8080%2Fapi" }
+expect  = { status = 200, json = { "/successStatus" = false, "/message" = "❌ Service Error - 404 - Not Found" } }
+fixture = "recordings/dashy/named-check-answers.json"
+why     = """
+A dashboard whose server refused every address would hold nobody to anything
+and show every service down. The page the plugin ships names Dashy's own
+`/api`, which answers 404 because the page sets no API, and Dashy's server asks
+it and reports that answer, where an address the page does not name is refused
+before it is asked. So the refusals beside this one are
+the page's names at work rather than a server that asks nothing.
+"""
+
+[[proof]]
+id      = "dashy.redirect-not-followed"
+service = "dashy"
+title   = "Dashy's server follows no redirect from an address its page names"
+request = { method = "GET", path = "/status-check?url=http%3A%2F%2Fdashy%3A8080%2Fitem-icons" }
+expect  = { status = 200, json = { "/successStatus" = false, "/message" = "❌ Service Unavailable: Server resulted in EBLOCKED " } }
+fixture = "recordings/dashy/redirect-not-followed.json"
+why     = """
+An address the page names could answer with a redirect to one it does not, and
+a server following it would reach whatever the redirect says. The page the
+plugin ships names Dashy's icon folder, which Dashy answers with a 301 to the
+same folder with a trailing slash, and Dashy's server refuses to follow even
+that.
+"""
+
+[[proof]]
+id      = "dashy.check-takes-no-header"
+service = "dashy"
+title   = "Dashy's server sends no header a caller hands its status check"
+request = { method = "GET", path = "/status-check?url=http%3A%2F%2Fdashy%3A8080%2Fcors-proxy&headers=%7B%22Target-URL%22%3A%22http%3A%2F%2Fsonarr%3A8989%2Fping%22%7D" }
+expect  = { status = 200, json = { "/successStatus" = false, "/message" = "❌ Service Unavailable: Server resulted in EBLOCKED " } }
+fixture = "recordings/dashy/check-takes-no-header.json"
+why     = """
+A status check that sent the headers its caller names could be aimed at
+Dashy's own /cors-proxy with a Target-URL of the caller's choosing, turning a
+check into a forward to any address. The page names no such check, so the
+check is refused before it is asked, whatever header rides along, and
+lemonfiber-dashy's image sends no caller's header with any check.
+"""
+
+[[proof]]
+id      = "dashy.proxy-forwards-only-get"
+service = "dashy"
+title   = "Dashy's proxy forwards nothing but a GET"
+request = { method = "POST", path = "/cors-proxy" }
+expect  = { status = 405, json = { error = "Only a GET is forwarded" } }
+fixture = "recordings/dashy/proxy-forwards-only-get.json"
+why     = """
+Dashy's own /cors-proxy forwards any method with any body to the address its
+caller names. lemonfiber-dashy's image forwards only a GET, with no caller's
+header or body, to a status page the page names, so a caller can change
+nothing anywhere through it.
+"""
+
+[[proof]]
+id      = "dashy.proxy-refuses-unnamed"
+service = "dashy"
+title   = "Dashy's proxy forwards to no address its page does not name"
+request = { method = "GET", path = "/cors-proxy", headers = { "Target-URL" = "http://sonarr:8989/ping" } }
+expect  = { status = 403, json = { error = "Target-URL is not an address this dashboard names" } }
+fixture = "recordings/dashy/proxy-refuses-unnamed.json"
+why     = """
+Dashy's own /cors-proxy forwards to whatever address its caller names in
+Target-URL, for anybody who reaches the page. lemonfiber-dashy's image forwards
+only to a status page the page names, so a GET aimed at a service on the
+stack's network the page does not name is refused before anything is asked.
+"""
+
+[[ask]]
+service    = "dashy"
+capability = "proxy.front"
+
+[[wiring]]
+service  = "dashy"
+hostname = "dash"

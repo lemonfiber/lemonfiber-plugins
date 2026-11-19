@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:69dbe34522ed9b6c7689fa36addc77b745c98043d24d284777c8e8abdb6c6da1",
+  "note": "A status check of a service on the stack's network that the page does not name, asked of Dashy's own endpoint by a caller presenting nothing, on a fresh instance started from the plugin's own conf.yml, which names only Dashy's own addresses. EBLOCKED is the pass: the address is refused before it is asked, where Dashy's own image would have asked it.",
+  "request": {"method": "GET", "path": "/status-check?url=http%3A%2F%2Fsonarr%3A8989%2Fping"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {"message": "❌ Service Unavailable: Server resulted in EBLOCKED ", "successStatus": false}
+  }
+}

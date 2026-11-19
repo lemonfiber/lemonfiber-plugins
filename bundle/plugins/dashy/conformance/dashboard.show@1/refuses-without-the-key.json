@@ -1,0 +1,6 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:69dbe34522ed9b6c7689fa36addc77b745c98043d24d284777c8e8abdb6c6da1",
+  "note": "Asked without the plugin's key: the kit refuses it before the adapter is reached.",
+  "request": {"method": "POST", "path": "/lemonfiber/dashboard.show/v1/apply", "accept": "application/json"},
+  "response": {"status": 401}
+}

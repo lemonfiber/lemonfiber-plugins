@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:69dbe34522ed9b6c7689fa36addc77b745c98043d24d284777c8e8abdb6c6da1",
+  "note": "A ping of a host, asked of Dashy's own endpoint by a caller presenting nothing, on a fresh instance started from the plugin's own conf.yml. The refusal is the pass: the image pings no host, for anybody who reaches the page.",
+  "request": {"method": "GET", "path": "/ping-check?host=example.com"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {"message": "This dashboard pings nothing.", "successStatus": false}
+  }
+}
