@@ -1,0 +1,40 @@
+{
+  "pageInfo": {
+    "title": "Home"
+  },
+  "appConfig": {
+    "preventWriteToDisk": true,
+    "disableConfiguration": true
+  },
+  "sections": [
+    {
+      "name": "This dashboard",
+      "items": [
+        {
+          "title": "Dashy",
+          "description": "This page",
+          "icon": "hl-dashy",
+          "url": "http://dashy:8080/",
+          "statusCheck": true,
+          "statusCheckUrl": "http://dashy:8080/healthz"
+        },
+        {
+          "title": "API",
+          "description": "Answers nobody, as this page sets no API",
+          "icon": "hl-dashy",
+          "url": "http://dashy:8080/",
+          "statusCheck": true,
+          "statusCheckUrl": "http://dashy:8080/api"
+        },
+        {
+          "title": "Icons",
+          "description": "The folder of icons this page draws from",
+          "icon": "hl-dashy",
+          "url": "http://dashy:8080/item-icons/",
+          "statusCheck": true,
+          "statusCheckUrl": "http://dashy:8080/item-icons"
+        }
+      ]
+    }
+  ]
+}

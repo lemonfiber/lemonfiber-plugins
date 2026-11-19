@@ -1,0 +1,10 @@
+{
+  "recorded_from": "ghcr.io/lemonfiber/dashy@sha256:69dbe34522ed9b6c7689fa36addc77b745c98043d24d284777c8e8abdb6c6da1",
+  "note": "A status check of Dashy's own /api, which the plugin's shipped conf.yml names and which answers 404 because the page sets no API, asked of Dashy's own endpoint by a caller presenting nothing on a fresh instance, with Dashy answering to its id on the recording network as on the stack. The 404 reported back is the pass: the server asked what the page names and relayed its answer, where an unnamed address is refused before it is asked.",
+  "request": {"method": "GET", "path": "/status-check?url=http%3A%2F%2Fdashy%3A8080%2Fapi"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "json": {"message": "❌ Service Error - 404 - Not Found", "successStatus": false}
+  }
+}

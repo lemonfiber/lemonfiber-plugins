@@ -1,0 +1,10 @@
+{
+  "recorded_from": "lscr.io/linuxserver/radarr@sha256:044788f5508b7f67a3e0368cdd142c77c4d4cd5aec2efaba53e1a68b6b6231e7",
+  "note": "A download client by an id no Servarr assigns, forgotten: answered as done without asking Radarr, as a client it no longer holds is.",
+  "request": {"method": "POST", "path": "/lemonfiber/library.curate/v1/forget_download_client", "accept": "application/json"},
+  "response": {
+    "status": 200,
+    "headers": {"content-type": "application/json"},
+    "body_starts_with": "null"
+  }
+}

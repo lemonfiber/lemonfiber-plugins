@@ -1,4 +1,4 @@
-#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/9de49da3b6378475a2147bb388577b6370d8ad95/contract/plugin-manifest.schema.json
+#:schema https://raw.githubusercontent.com/lemonfiber/lemonfiber/98bd419bed917ea8b3569dea33d7482bcd16eb7c/contract/plugin-manifest.schema.json
 # Jellyfin, as a first-party lemonfiber plugin (ADR-0041, ADR-0042).
 #
 # Contract: https://github.com/lemonfiber/spec/blob/main/20-architecture/contracts/plugin-manifest.md
@@ -52,8 +52,8 @@ to   = "/cache"
 id          = "jellyfin-adapter"
 name        = "Jellyfin adapter"
 image       = "ghcr.io/lemonfiber/jellyfin-adapter"
-digest      = "sha256:e2f966cecd832b4adeb30fcae6395f4ddea406661c55bf4b4d3220aada9b0cbd"
-tag         = "main-84a9c36798ea"
+digest      = "sha256:106a7a30248c7e0e5fd96f25071b75bd9ccf796ea42159a607eade68e66421f9"
+tag         = "main-635957f1901b"
 criticality = "important"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's media.serve and identity.source contracts by calling Jellyfin, beside it, with the key lemonfiber minted for it."
