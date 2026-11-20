@@ -20,21 +20,24 @@ listens     = 8191
 health      = { kind = "tcp", timeout_s = 120 }
 criticality = "enhancing"
 memory_mib  = 1400
-reaches     = "the indexer sites that challenge it, GitHub for its GeoIP database, and a lookup service for the house's public address"
-asks_for    = "Fetches a page through a headless browser when an indexer sits behind bot protection, which means it visits that indexer directly. Each time it starts it downloads a GeoIP database from GitHub and asks a lookup service for the house's address, so its browser's timezone and language match where the house appears to be."
+reaches     = "the indexer sites that challenge it, and a lookup service for the house's public address"
+asks_for    = "Fetches a page through a headless browser when an indexer sits behind bot protection, which means it visits that indexer directly. Its browser takes the house's own time zone and language, and each time it starts it asks a lookup service for the house's public address."
 native      = "flaresolverr"
 network     = { fenced = true }
 
 [service.env]
-LOG_LEVEL    = { setting = "byparr:log-level", default = "info" }
-OWUI_API_KEY = { secret = "loader-key" }
+LOG_LEVEL             = { setting = "byparr:log-level", default = "info" }
+OWUI_API_KEY          = { secret = "loader-key" }
+BROWSER_TIMEZONE      = { setting = "timezone", default = "Europe/Amsterdam" }
+BROWSER_LOCALE        = { setting = "locale", default = "en-US" }
+STEALTHFOX_GEOIP_MMDB = "/nonexistent/geoip.mmdb"
 
 [[service]]
 id          = "byparr-adapter"
 name        = "Byparr adapter"
 image       = "ghcr.io/lemonfiber/byparr-adapter"
-digest      = "sha256:0ceecc90ffe168c09c50f5f6053f5d02da48873612265307d11004050cb5325b"
-tag         = "main-5898a527553e"
+digest      = "sha256:885374f685ce4fe1db9394a9e2ac3e81501bdfc1af3ec649bdbcfda9bdcbe093"
+tag         = "main-ff282e01df5b"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine but the names it looks up. It answers lemonfiber's indexer.proxy contract by handing Byparr, beside it, each address that passes its screen."
