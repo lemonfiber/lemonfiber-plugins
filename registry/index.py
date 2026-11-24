@@ -157,14 +157,13 @@ def read_of(plugin: dict, into: pathlib.Path) -> tuple[dict | None, str | None]:
     return {"manifest": digest(held), **facts}, None
 
 
-def self_test() -> int:
-    """Hold `indexed` and `written` to what the release signs, without a network."""
+def index_faults(facts: dict) -> list[str]:
+    """What `indexed` and `written` get wrong about what the release signs."""
     broken: list[str] = []
     entries = [
         {"id": "uptime-kuma", "origin": "https://example.invalid/b", "revision": "b" * 40},
         {"id": "komga", "origin": "https://example.invalid/a", "revision": "a" * 40},
     ]
-    facts = {"name": "Komga", "description": "Reads comics", "version": "1.2.3", "without_it": "No comics"}
     read = {
         "komga": {"manifest": DIGEST + "1" * 64, **facts},
         "uptime-kuma": {"manifest": DIGEST + "2" * 64, **facts},
@@ -192,6 +191,14 @@ def self_test() -> int:
         broken.append("two releases wrote the same index")
     if b'"published": "2023-11-14T22:13:20Z"' not in written(index):
         broken.append("the date published is not inside the bytes that are signed, in UTC")
+    if not written(index).endswith(b"}\n"):
+        broken.append("the signed bytes do not end in one newline")
+    return broken
+
+
+def listing_faults(facts: dict) -> list[str]:
+    """What `listed` gets wrong about the facts a manifest states or lacks."""
+    broken: list[str] = []
     taken, why = listed(
         b'[plugin]\nname = "Komga"\ndescription = "Reads comics"\nversion = "1.2.3"\n'
         b'without_it = "No comics"\nlicense = "MIT"\n'
@@ -204,14 +211,25 @@ def self_test() -> int:
     _, why = listed(b"[plugin\n")
     if not why:
         broken.append("a manifest that cannot be read was not refused")
+    return broken
+
+
+def checkout_faults() -> list[str]:
+    """What this checkout's release cannot say about itself: its date and its serial."""
+    broken: list[str] = []
     _, why = published_of()
     if why:
         broken.append(f"this checkout's date could not be read: {why}")
     serial, why = serial_of()
     if why or not serial:
         broken.append(f"this checkout's serial could not be read: {why}")
-    if not written(index).endswith(b"}\n"):
-        broken.append("the signed bytes do not end in one newline")
+    return broken
+
+
+def self_test() -> int:
+    """Hold `indexed` and `written` to what the release signs, without a network."""
+    facts = {"name": "Komga", "description": "Reads comics", "version": "1.2.3", "without_it": "No comics"}
+    broken = [*index_faults(facts), *listing_faults(facts), *checkout_faults()]
     for line in broken:
         print(f"::error::{line}")
     if broken:
