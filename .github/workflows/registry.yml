@@ -110,3 +110,8 @@ jobs:
         run: python3 registry/convert.py --self-test
       - name: Every copy is its origin's manifest at the pinned revision
         run: python3 registry/bundle.py
+      - name: The platform check refuses what it exists to refuse
+        run: python3 registry/platforms.py --self-test
+      - name: Every upstream image a bundled plugin pins carries linux/arm64 and linux/amd64
+        timeout-minutes: 6
+        run: python3 registry/platforms.py
