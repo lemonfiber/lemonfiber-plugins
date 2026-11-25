@@ -181,10 +181,21 @@ on a plugin that builds no image or a built image not tagged at it, and an id,
 published port or proxy hostname taken by two pinned plugins, the hostnames the
 proxy's configuration in its copy answers on included.
 
+At schema 2, and for a part and an offered plugin alike: an upstream image a
+pinned plugin's service runs, any image not under `ghcr.io/lemonfiber/`, whose
+pinned digest is not an index carrying both `linux/arm64` and `linux/amd64`
+(F2-R6). `registry/platforms.py` asks each digest of its registry with an
+anonymous pull token, and refuses it naming the image, the digest and why: a
+single-platform image, a platform missing, a media type it does not know, or a
+registry that cannot be reached, answers an error or limits the rate. Every
+request has a timeout and the whole check a budget.
+
 ```sh
-python3 registry/bundle.py --self-test   # the gate refuses what it should
-python3 registry/bundle.py --offline     # the bundle and its copies, nothing fetched
-python3 registry/bundle.py               # every pin, held to its origin
+python3 registry/bundle.py --self-test      # the gate refuses what it should
+python3 registry/bundle.py --offline        # the bundle and its copies, nothing fetched
+python3 registry/bundle.py                  # every pin, held to its origin
+python3 registry/platforms.py --self-test   # the platform check refuses what it should
+python3 registry/platforms.py               # every upstream image, asked of its registry
 ```
 
 ### A part's repository, written from the media stack

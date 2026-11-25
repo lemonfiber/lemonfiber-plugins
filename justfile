@@ -65,6 +65,8 @@ bundle:
     python3 registry/bundle.py --self-test
     python3 registry/convert.py --self-test
     python3 registry/bundle.py
+    python3 registry/platforms.py --self-test
+    python3 registry/platforms.py
 
 # The template an author starts from, against these same commands. It is not
 # registered — it is the thing somebody copies rather than a thing to install —
