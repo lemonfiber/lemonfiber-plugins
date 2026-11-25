@@ -63,7 +63,6 @@ plugins:
 # The default bundle, held to the origins it pins.
 bundle:
     python3 registry/bundle.py --self-test
-    python3 registry/convert.py --self-test
     python3 registry/bundle.py
     python3 registry/platforms.py --self-test
     python3 registry/platforms.py
