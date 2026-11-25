@@ -576,6 +576,8 @@ def tree_refusals() -> list[tuple[str, str, tuple[str, dict]]]:
         ("an assembled plugin of two services refused", 'declares 2 services, not exactly one',
          changed("sabnzbd", "plugin.toml", b"[[claim]]", b'[[service]]\nid = "extra"\nreaches = ""\n'
                  b'asks_for = "x"\n\n[[claim]]')),
+        ("an assembled plugin declaring no service refused", 'declares 0 services, not exactly one',
+         changed("sabnzbd", "plugin.toml", b"[[service]]", b"[[retired]]")),
         ("an assembled plugin that speaks a contract refused", "service 'sabnzbd' speaks",
          changed("sabnzbd", "plugin.toml", b'provides = ["download.usenet"]',
                  b'provides = ["download.usenet"]\nspeaks = ["download.usenet@1"]')),
@@ -583,6 +585,8 @@ def tree_refusals() -> list[tuple[str, str, tuple[str, dict]]]:
          changed("sabnzbd", "plugin.toml", b'id = "sabnzbd"\nimage', b'id = "nzb"\nimage')),
         ("an assembled plugin's claim recorded outside recordings/<id>/ refused", 'outside recordings/sabnzbd/',
          changed("sabnzbd", "plugin.toml", b'"recordings/sabnzbd/queue.json"', b'"config/sabnzbd/sabnzbd.ini"')),
+        ("an installed plugin declaring no service of its id refused", "declares no service 'jellyfin' to take the part's place",
+         changed("jellyfin", "plugin.toml", b'id = "jellyfin"\nimage', b'id = "jelly"\nimage')),
         ("an installed plugin's service not replacing its id refused", 'jellyfin.replaces is None',
          changed("jellyfin", "plugin.toml", b'replaces = "jellyfin"\n', b"")),
         ("an installed plugin naming an in-process adapter refused", 'jellyfin-adapter.api',
@@ -744,8 +748,10 @@ def tree_apply() -> list[Case]:
                                    catalogue / bundle.BUNDLE_FILE, held)
             pinned_now = next(one for one in bundle.read(
                 (catalogue / bundle.BUNDLE_FILE).read_text(encoding="utf-8")).pins if one["id"] == "jellyfin")
-            kept, check.holds = check.holds, lambda source, carried=None: (True, [f"carried {carried}"])
+            kept, check.holds = check.holds, lambda source, carried=None: (False, ["FAIL claim jellyfin:media.serve probe items"])
             try:
+                refuted = bundle.held_to_origin(pinned_now, held / "jellyfin")
+                check.holds = lambda source, carried=None: (True, [f"carried {carried}"])
                 same = bundle.held_to_origin(pinned_now, held / "jellyfin")
                 (held / "jellyfin" / "conformance" / "media.serve.json").write_bytes(b"{}\n")
                 drifted = bundle.held_to_origin(pinned_now, held / "jellyfin")
@@ -768,6 +774,9 @@ def tree_apply() -> list[Case]:
         ("a copy that is its origin's tree holds, carrying the tree but its manifest", True,
          same == (True, ["the copy is the origin's tree at the pinned revision",
                          "carried ['conformance/media.serve.json']"])),
+        ("a copy whose claims its recordings refute is refused, naming what refuted them", True,
+         refuted == (False, ["the copy is the origin's tree at the pinned revision",
+                             "FAIL claim jellyfin:media.serve probe items"])),
         ("a copy that differs from its origin's tree is refused at the path", True,
          drifted == (False, ["conformance/media.serve.json differs from the origin's"])),
         ("a copy and its origin that differ are named at the path", True,
