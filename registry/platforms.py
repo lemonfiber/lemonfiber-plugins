@@ -38,12 +38,12 @@ from collections.abc import Callable, Iterator
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+import parts  # noqa: E402
 import tree  # noqa: E402
 
 import bundle  # noqa: E402
 
 REQUIRED = ("linux/amd64", "linux/arm64")
-OURS = "ghcr.io/lemonfiber/"
 SCHEME = "https"
 TIMEOUT_S = 15
 BUDGET_S = 240
@@ -250,7 +250,7 @@ def pinned(held: dict[str, pathlib.Path]) -> Iterator[tuple[str, str, object]]:
         text = path.read_bytes() if path.is_file() else tree.contained(path, tree.MANIFEST).read_bytes()
         for service in bundle.parsed(text).get("service", []):
             image = service.get("image") if isinstance(service, dict) else None
-            if isinstance(image, str) and not image.startswith(OURS):
+            if isinstance(image, str) and not image.startswith(parts.OWN_IMAGES):
                 yield f"{name}/{service.get('id')}", image, service.get("digest")
 
 
