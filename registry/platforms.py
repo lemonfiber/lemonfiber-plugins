@@ -180,7 +180,7 @@ def anonymous_token(ask: Callable[[str, dict[str, str]], Reply], challenge: str)
                      "the token service")
     try:
         document = json.loads(reply.body)
-    except (ValueError, UnicodeDecodeError) as error:
+    except ValueError as error:
         raise Unanswered("the token service answered with something that is not JSON") from error
     token = (document.get("token") or document.get("access_token")) if isinstance(document, dict) else None
     if not isinstance(token, str) or not token:
@@ -229,7 +229,7 @@ def refusal(fetch: Fetch, clock: Callable[[], float], deadline: float, image: st
         return f"was served content whose digest is {served}"
     try:
         document = json.loads(reply.body)
-    except (ValueError, UnicodeDecodeError):
+    except ValueError:
         return "was answered with something that is not JSON"
     if not isinstance(document, dict):
         return "was answered with a manifest that is not a JSON object"
