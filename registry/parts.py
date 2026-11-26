@@ -5,8 +5,10 @@ OPS-R86, REPO-R92): its stage, its services, its fills, its forms, its licence, 
 and, from its origin's tree, that it runs the image it builds rather than what that image
 builds on. An offered plugin is held to the same at its own stage, `offered`, but for
 its licence: its services are no bundled service (ARCH-R394, F2-R5).
-Across the parts: the reserved register of ids, published ports and proxy hostnames
-(ARCH-R269), and the services and asks the bundle's wiring names (ARCH-R268).
+No copy declares a stack table, `[[profile]]`, `[[form]]` or `[[removed]]` (ARCH-R265).
+Across the parts: the reserved register of ids, published ports and proxy hostnames,
+those the proxy's configuration answers on read by `proxied` (ARCH-R269), and the
+services and asks the bundle's wiring names (ARCH-R268).
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ import functools
 import pathlib
 import re
 
+import proxied
 import tree
 
 ASSEMBLED = "assembled"
@@ -26,10 +29,8 @@ OSI = pathlib.Path(__file__).resolve().parent / "spdx_osi.txt"
 CRITICAL = "critical"
 EGRESS_GUARD = "egress-guard"
 HOUSEHOLD = "lan"
-PROXY = "proxy.front"
-DOMAIN = ".{$DOMAIN"
-LABEL = re.compile(r"\A[a-z0-9-]+\Z")
 DOCKERFILE = "Dockerfile"
+STACK_ONLY = ("profile", "form", "removed")
 REFERENCE = re.compile(r"((?:[^@/:]+(?::\d+)?/)?[^@:]+)(?::[^@/]+)?(?:@sha256:[0-9a-f]{64})?", re.ASCII)
 
 Register = dict[tuple[str, str], set[str]]
@@ -221,6 +222,8 @@ def part_problems(pin: dict, manifest: dict, forms: list[dict], profiles: list[d
     services = services_of(manifest)
     built = built_of(services)
     said = [] if plugin.get("id") == name else [f"the copy declares [plugin].id {plugin.get('id')!r}, not {name!r}"]
+    said += [f"the copy declares [[{table}]], which only the bundle declares (ARCH-R265)"
+             for table in STACK_ONLY if table in manifest]
     said += stage_problems(pin, manifest, services)
     said += [line for service in services for line in service_problems(service)]
     filled = filled_by(services)
@@ -238,35 +241,6 @@ def fenced_problems(manifest: dict, fence: dict | None) -> list[str]:
     return [f"its service {service.get('id')!r} is fenced, and the bundle pins no [fence] image"
             for service in services_of(manifest)
             if isinstance(service.get("network"), dict) and service["network"].get("fenced") is True]
-
-
-def proxied_to(text: str) -> str | None:
-    """The service a `reverse_proxy <service>:<port>` in `text` names."""
-    target = text.partition("reverse_proxy ")[2].split()
-    return (target[0].split(":")[0] or None) if target else None
-
-
-def answered(text: str) -> list[tuple[str, str | None]]:
-    """Each label a proxy configuration answers on in front of the operator's domain, with the
-    service its stanza's first `reverse_proxy` names. A commented-out stanza still names its label."""
-    found: list[tuple[str, str | None]] = []
-    opened: str | None = None
-    for line in text.splitlines():
-        said = line.lstrip().lstrip("#").lstrip()
-        label, marker, rest = said.partition(DOMAIN)
-        if marker and LABEL.match(label):
-            if opened is not None:
-                found.append((opened, None))
-            opened, said = label, rest
-        if opened is None:
-            continue
-        target = proxied_to(said)
-        if target is not None or said.startswith("}"):
-            found.append((opened, target))
-            opened = None
-    if opened is not None:
-        found.append((opened, None))
-    return found
 
 
 def hostnames_of(manifest: dict) -> list[tuple[str, str]]:
@@ -293,13 +267,6 @@ def held(register: Register, kind: str, value: object, name: str) -> None:
     register.setdefault((kind, str(value)), set()).add(name)
 
 
-def proxy_labels(root: pathlib.Path, service: dict) -> list[tuple[str, str | None]]:
-    """Every label the starting files of a proxy service answer on, with the service each routes to."""
-    starting, _ = tree.starting_files(root, str(service.get("id")))
-    return [label for path in starting
-            for label in answered(tree.contained(root, path).read_text(encoding="utf-8", errors="replace"))]
-
-
 def service_holdings(reserved: Register, name: str, part: dict) -> None:
     """Record every id, published port and household hostname `name`'s services hold."""
     for service in services_of(part):
@@ -310,24 +277,31 @@ def service_holdings(reserved: Register, name: str, part: dict) -> None:
         held(reserved, "hostname", label, name)
 
 
-def proxy_holdings(reserved: Register, name: str, part: dict, root: pathlib.Path, owner: dict[str, str]) -> None:
-    """Record every label `name`'s proxy configuration answers on, held by the plugin of the
-    pinned service it routes to, or by `name` where it routes to none."""
-    for service in services_of(part):
-        if PROXY in listed(service, "provides"):
-            for label, target in proxy_labels(root, service):
-                held(reserved, "hostname", label, owner.get(str(target), name))
+def proxy_holdings(reserved: Register, name: str, part: dict, root: pathlib.Path, owner: dict[str, str]) -> list[str]:
+    """Record every label the proxy configuration `name` starts its services with answers on,
+    held by the plugin of the pinned services it forwards to where they are all one plugin's,
+    or by `name` where they are not, and say every file of it that cannot be read for that."""
+    services = services_of(part)
+    if not any(proxied.PROXY in listed(service, "provides") for service in services):
+        return []
+    found, refused = proxied.answered(root, [str(service.get("id")) for service in services])
+    for label, targets in found:
+        owners = {owner.get(target) for target in targets}
+        held(reserved, "hostname", label, owners.pop() if len(owners) == 1 and None not in owners else name)
+    return [f"{name}: {line} (ARCH-R269)" for line in refused]
 
 
-def register(parts: dict[str, dict], roots: dict[str, pathlib.Path]) -> Register:
-    """The reserved register: each id, port and hostname, and the plugins holding it (ARCH-R269)."""
+def register(parts: dict[str, dict], roots: dict[str, pathlib.Path]) -> tuple[Register, list[str]]:
+    """The reserved register: each id, port and hostname, and the plugins holding it, and every
+    proxy configuration it cannot be read from (ARCH-R269)."""
     reserved: Register = {}
+    unread: list[str] = []
     owner = {str(service.get("id")): name for name, part in parts.items() for service in services_of(part)}
     for name, part in parts.items():
         service_holdings(reserved, name, part)
         if name in roots:
-            proxy_holdings(reserved, name, part, roots[name], owner)
-    return reserved
+            unread += proxy_holdings(reserved, name, part, roots[name], owner)
+    return reserved, unread
 
 
 def wiring_named(row: dict) -> str:
@@ -355,9 +329,10 @@ def asked_problems(row: dict, part: dict, services: dict[str, tuple[str, dict]])
 
 def across(wirings: list[dict], parts: dict[str, dict], roots: dict[str, pathlib.Path]) -> list[str]:
     """What holds across the pinned plugins: the reserved register, and the wiring's services and asks."""
-    problems = [
+    reserved, problems = register(parts, roots)
+    problems += [
         f"{kind} {value!r} is reserved by {' and '.join(sorted(holders))} (ARCH-R269)"
-        for (kind, value), holders in sorted(register(parts, roots).items())
+        for (kind, value), holders in sorted(reserved.items())
         if len(holders) > 1
     ]
     services = {str(service.get("id")): (name, service) for name, part in parts.items()

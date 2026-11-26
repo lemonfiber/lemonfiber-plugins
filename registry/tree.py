@@ -37,6 +37,9 @@ CONFIG = "config"
 #: Where a plugin that speaks a contract keeps its conformance.
 CONFORMANCE = "conformance"
 
+#: The empty file git keeps an otherwise empty directory by.
+PLACEHOLDER = ".gitkeep"
+
 #: The key every recording a manifest names is written under.
 RECORDING = "fixture"
 
