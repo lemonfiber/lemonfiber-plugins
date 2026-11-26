@@ -162,7 +162,7 @@ class Rule:
     """A Traefik rule read whole, as the hosts it is limited to, or none where it is not."""
 
     def __init__(self, rule: str) -> None:
-        self.rule = rule
+        self.written = rule
         self.read = tokens(rule)
         self.at = 0
 
@@ -173,7 +173,7 @@ class Rule:
     def take(self, kind: str) -> str:
         """The next token's text, which has to be of `kind`."""
         if self.peek() != kind:
-            raise Unread(f"rule {self.rule!r} cannot be read: {kind} wanted at token {self.at + 1}")
+            raise Unread(f"rule {self.written!r} cannot be read: {kind} wanted at token {self.at + 1}")
         self.at += 1
         return self.read[self.at - 1][1]
 
@@ -181,7 +181,7 @@ class Rule:
         """The rule, every token of it."""
         hosts = self.either()
         if self.peek() is not None:
-            raise Unread(f"rule {self.rule!r} cannot be read past token {self.at + 1}")
+            raise Unread(f"rule {self.written!r} cannot be read past token {self.at + 1}")
         return hosts
 
     def either(self) -> Hosts:
@@ -199,7 +199,10 @@ class Rule:
         while self.peek() == "and":
             self.take("and")
             other = self.one()
-            hosts = other if hosts is None else hosts if other is None else hosts & other
+            if hosts is None:
+                hosts = other
+            elif other is not None:
+                hosts = hosts & other
         return hosts
 
     def one(self) -> Hosts:
@@ -220,7 +223,7 @@ class Rule:
         spelled = self.take("name")
         name = SPELLINGS.get(spelled)
         if name is None:
-            raise Unread(f"rule {self.rule!r} matches by {spelled}, which this does not read")
+            raise Unread(f"rule {self.written!r} matches by {spelled}, which this does not read")
         self.take("open")
         arguments = [self.take("string")]
         while self.peek() == "comma":

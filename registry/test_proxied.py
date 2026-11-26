@@ -103,6 +103,8 @@ def cases() -> list[Case]:
         ("a Traefik rule grouping alternatives under a host is read", True,
          answers(proxied.traefik, routed("(Host(`watch.home.local`) || Host(`tv.home.local`)) && Path(`/`)"))
          == [("tv", ["door"]), ("watch", ["door"])]),
+        ("a Traefik rule requiring two hosts at once answers on neither", True,
+         answers(proxied.traefik, routed("Host(`watch.home.local`) && Host(`tv.home.local`)")) == []),
         ("a Traefik matcher this does not read refused", True,
          unread(proxied.traefik, routed("Host(`watch.home.local`) && Hots(`x`)"))),
         ("a Traefik rule not read to its end refused", True,
