@@ -5,8 +5,9 @@ Caddy's JSON configuration (`*.json`) or Traefik's (`*.toml`). Each host a route
 router answers on is held by its first label, beside every service it forwards to. What
 cannot be read with certainty is refused rather than read as answering on nothing: a
 file in any other format or one that does not parse, a host no label can be read from,
-a route or router that answers on hosts it does not name, and an upstream that cannot
-be named.
+a route or router that answers on hosts it does not name, an upstream that cannot be
+named, and a key either proxy reads as a field read here without it being spelled as read
+here: both match a key to a field regardless of case.
 """
 
 from __future__ import annotations
@@ -29,6 +30,12 @@ TEMPLATE = "{{"
 ROUTED = ("http", "tcp")
 BALANCER = "loadBalancer"
 PROVIDER = "@"
+DYNAMIC = "dynamic_upstreams"
+ROUTES = "routes"
+
+#: The characters beyond ASCII that Go's simple case folding, by which Caddy's encoding/json
+#: and Traefik's paerser match a key to a field, folds into an ASCII letter.
+FOLDS = {"\u017f": "s", "\u212a": "k"}
 
 #: Traefik's matchers this reads, each in every spelling its parser accepts: as declared,
 #: lower case, upper case and capitalised.
@@ -51,6 +58,24 @@ class Unread(Exception):
     """Why a proxy configuration cannot be read for what it answers on."""
 
 
+def fold(key: str) -> str:
+    """`key` as Go compares it to a field name spelled in ASCII, regardless of case."""
+    return "".join(FOLDS.get(char, char.lower() if char.isascii() else char) for char in key)
+
+
+def exact(table: dict, name: str) -> dict:
+    """`table`, refused where a key other than `name` is the proxy's field `name`."""
+    for key in table:
+        if key != name and fold(key) == fold(name):
+            raise Unread(f"key {key!r} is {name!r} to the proxy, which matches keys regardless of case")
+    return table
+
+
+def value_of(table: dict, name: str, default: object = None) -> object:
+    """The value of the field `name` in `table`, refused where another key is that field."""
+    return exact(table, name).get(name, default)
+
+
 def label(host: object) -> str:
     """The first label of `host`, which the reserved register holds it by."""
     first = host.split(".", 1)[0] if isinstance(host, str) else ""
@@ -61,7 +86,7 @@ def label(host: object) -> str:
 
 def dial_of(upstream: object) -> str:
     """The service a Caddy upstream dials."""
-    dial = upstream.get("dial") if isinstance(upstream, dict) else None
+    dial = value_of(upstream, "dial") if isinstance(upstream, dict) else None
     matched = DIAL.match(dial) if isinstance(dial, str) else None
     if matched is None:
         raise Unread(f"upstream {upstream!r} dials no service named by host and port")
@@ -70,8 +95,8 @@ def dial_of(upstream: object) -> str:
 
 def forwarded(handler: dict) -> list[str]:
     """Every service a `reverse_proxy` handler forwards to, which has to be named."""
-    upstreams = handler.get("upstreams")
-    if not isinstance(upstreams, list) or not upstreams or "dynamic_upstreams" in handler:
+    upstreams = value_of(handler, "upstreams")
+    if not isinstance(upstreams, list) or not upstreams or DYNAMIC in exact(handler, DYNAMIC):
         raise Unread("a reverse_proxy names no fixed upstreams")
     return [dial_of(upstream) for upstream in upstreams]
 
@@ -91,7 +116,7 @@ def dialled(value: object, found: list[str]) -> list[str]:
 
 def matcher_sets(route: dict) -> list[list[str]]:
     """The hosts each of a Caddy route's matcher sets names; Caddy ORs the sets."""
-    sets = route.get("match", [])
+    sets = value_of(route, "match", [])
     if not isinstance(sets, list) or not all(isinstance(one, dict) for one in sets):
         raise Unread("a route's match is not a list of matcher sets")
     named: list[list[str]] = []
@@ -112,7 +137,7 @@ def caddy_route(route: object, hosted: bool, found: Answered) -> None:
     limited = bool(sets) and all(sets)
     if not hosted and not limited:
         raise Unread("a route with no matcher set, or one naming no host, answers on every host")
-    targets = dialled(route.get("handle", []), [])
+    targets = dialled(value_of(route, "handle", []), [])
     found += [(label(host), targets) for hosts in sets for host in hosts]
     caddy_routes(route, hosted or limited, found)
 
@@ -125,8 +150,8 @@ def caddy_routes(value: object, hosted: bool, found: Answered) -> None:
         return
     if not isinstance(value, dict):
         return
-    for field, inner in value.items():
-        if field == "routes" and isinstance(inner, list):
+    for field, inner in exact(value, ROUTES).items():
+        if field == ROUTES and isinstance(inner, list):
             for route in inner:
                 caddy_route(route, hosted, found)
         elif field != "match":
@@ -246,7 +271,7 @@ def rule_hosts(rule: object) -> list[str]:
 def server_host(server: object, kind: str) -> str:
     """The service a server of a Traefik load balancer forwards to."""
     field = "url" if kind == "http" else "address"
-    written = server.get(field) if isinstance(server, dict) else None
+    written = value_of(server, field) if isinstance(server, dict) else None
     host = None
     if isinstance(written, str):
         host = urllib.parse.urlsplit(written).hostname if kind == "http" else written.rsplit(":", 1)[0]
@@ -262,7 +287,7 @@ def upstreams(services: dict, name: object, kind: str) -> list[str]:
     service = services.get(name)
     if not isinstance(service, dict) or set(service) != {BALANCER}:
         raise Unread(f"service {name!r} is not a plain load balancer of this file")
-    servers = service[BALANCER].get("servers") if isinstance(service[BALANCER], dict) else None
+    servers = value_of(service[BALANCER], "servers") if isinstance(service[BALANCER], dict) else None
     if not isinstance(servers, list) or not servers:
         raise Unread(f"service {name!r} names no servers")
     return [server_host(server, kind) for server in servers]
@@ -270,9 +295,9 @@ def upstreams(services: dict, name: object, kind: str) -> list[str]:
 
 def routing(read: dict, kind: str) -> tuple[dict, dict]:
     """The routers and the services of one kind a Traefik configuration declares."""
-    table = read.get(kind, {})
-    routers = table.get("routers", {}) if isinstance(table, dict) else None
-    services = table.get("services", {}) if isinstance(table, dict) else None
+    table = value_of(read, kind, {})
+    routers = value_of(table, "routers", {}) if isinstance(table, dict) else None
+    services = value_of(table, "services", {}) if isinstance(table, dict) else None
     if not isinstance(routers, dict) or not isinstance(services, dict):
         raise Unread(f"{kind} is not a table of routers and services")
     return routers, services
@@ -292,8 +317,8 @@ def traefik(text: str) -> Answered:
         for router in routers.values():
             if not isinstance(router, dict):
                 raise Unread(f"a {kind} router is not a table")
-            targets = upstreams(services, router.get("service"), kind)
-            found += [(label(host), targets) for host in rule_hosts(router.get("rule"))]
+            targets = upstreams(services, value_of(router, "service"), kind)
+            found += [(label(host), targets) for host in rule_hosts(value_of(router, "rule"))]
     return found
 
 

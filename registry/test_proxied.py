@@ -54,6 +54,77 @@ def caddy_route(match: list[dict], handle: list[dict] | None = None) -> str:
     return json.dumps({"routes": [{"match": match, "handle": handle or []}]})
 
 
+LONG_S = "\u017f"
+KELVIN = "\u212a"
+
+
+def long_s(field: str) -> str:
+    """`field` with its last s written as the long s, which Go folds to s."""
+    return LONG_S.join(field.rsplit("s", 1))
+
+
+HOSTED = {"match": [{"host": ["watch.home.local"]}], "handle": []}
+DOOR = [{"dial": "door:8096"}]
+
+
+def caddy_server(**fields: object) -> str:
+    """Caddy's JSON configuration of one server of `fields`."""
+    return json.dumps({"apps": {"http": {"servers": {"s": fields}}}})
+
+
+def forwarding(**fields: object) -> str:
+    """Caddy's JSON configuration of one route forwarding by a `reverse_proxy` of `fields`."""
+    return caddy_route([{"host": ["watch.home.local"]}], [{"handler": "reverse_proxy", **fields}])
+
+
+
+def folded() -> list[Case]:
+    """A key either proxy reads as a field read here, regardless of case, refused unless it is
+    spelled as read here (ARCH-R269)."""
+    return [
+        ("a key is folded as Go folds it, the long s to s and the Kelvin sign to k", True,
+         proxied.fold(f"ROUTE{LONG_S}{KELVIN}\u00c9") == "routesk\u00c9"),
+        ("a Caddy server's routes under a key of another case refused", True,
+         unread(proxied.caddy, caddy_server(Routes=[HOSTED]))),
+        ("a Caddy server's routes twice, once with the long s, refused", True,
+         unread(proxied.caddy, caddy_server(routes=[HOSTED], **{long_s("routes"): [HOSTED]}))),
+        ("a Caddy route's match twice, once in another case, refused", True,
+         unread(proxied.caddy, json.dumps({"routes": [{**HOSTED, "Match": [{"host": ["tv.home.local"]}]}]}))),
+        ("a Caddy route's handlers under a key of another case refused", True,
+         unread(proxied.caddy, json.dumps({"routes": [{"match": HOSTED["match"], "Handle": [
+             {"handler": "reverse_proxy", "upstreams": DOOR}]}]}))),
+        ("a Caddy reverse_proxy's upstreams twice, once in another case, refused", True,
+         unread(proxied.caddy, forwarding(upstreams=DOOR, Upstreams=[{"dial": "sonarr:8989"}]))),
+        ("a Caddy reverse_proxy of dynamic upstreams under a key of another case refused", True,
+         unread(proxied.caddy, forwarding(upstreams=DOOR, Dynamic_Upstreams={"source": "a", "name": "x"}))),
+        ("a Caddy upstream's dial twice, once in another case, refused", True,
+         unread(proxied.caddy, forwarding(upstreams=[{"dial": "door:8096", "Dial": "sonarr:8989"}]))),
+        ("a Caddy key no field read here is ignored", True,
+         answers(proxied.caddy, forwarding(upstreams=DOOR, Transport={"protocol": "http"})) == [("watch", ["door"])]),
+        ("a Traefik table of routers under a key of another case refused", True,
+         unread(proxied.traefik, routed("Host(`watch.home.local`)").replace("[http.routers.", "[HTTP.routers."))),
+        ("a Traefik table's routers twice, once in another case, refused", True,
+         unread(proxied.traefik, routed("Host(`watch.home.local`)") + "[http.Routers.t]\nrule = 'Host(`tv.home.local`)'\n")),
+        ("a Traefik table's services twice, once in another case, refused", True,
+         unread(proxied.traefik, routed("Host(`watch.home.local`)") + "[http.Services.t]\n")),
+        ("a Traefik router's service twice, once with the long s, refused", True,
+         unread(proxied.traefik, routed("Host(`watch.home.local`)").replace(
+             "service = 's'", f"service = 's'\n\"{long_s('service')}\" = 't'"))),
+        ("a Traefik router's rule twice, once in another case, refused", True,
+         unread(proxied.traefik, routed("Host(`watch.home.local`)").replace(
+             "service = 's'", "service = 's'\nRule = 'Host(`tv.home.local`)'"))),
+        ("a Traefik load balancer's servers twice, once with the long s, refused", True,
+         unread(proxied.traefik, routed("Host(`watch.home.local`)") + f'"{long_s("servers")}" = [{{ url = "http://x:1" }}]\n')),
+        ("a Traefik server's url twice, once in another case, refused", True,
+         unread(proxied.traefik, routed("Host(`watch.home.local`)", '{ url = "http://door:8096", URL = "http://x:1" }'))),
+        ("a Traefik server's address twice, once in another case, refused", True,
+         unread(proxied.traefik, TRAEFIK_CONFIG.replace('address = "calibre:8083"', 'address = "calibre:8083", Address = "x:1"'))),
+        ("a Traefik key no field read here is ignored", True,
+         answers(proxied.traefik, routed("Host(`watch.home.local`)").replace(
+             "service = 's'", "service = 's'\nentryPoints = ['web']")) == [("watch", ["door"])]),
+    ]
+
+
 def cases() -> list[Case]:
     """What a proxy configuration answers on, as the reserved register reads it (ARCH-R269)."""
     caddy = caddy_config(("watch.home.local", "door:8096"), ("bare.home.local", "")).decode()
@@ -137,4 +208,5 @@ def cases() -> list[Case]:
          unread(proxied.traefik, routed("Host(`watch.home.local`)").replace("rule = 'Host(`watch.home.local`)'", "rule = 1"))),
         ("Traefik routers that are not a table refused", True, unread(proxied.traefik, 'http = { routers = 1 }\n')),
         ("a Traefik configuration that is not TOML refused", True, unread(proxied.traefik, "[http")),
+        *folded(),
     ]
