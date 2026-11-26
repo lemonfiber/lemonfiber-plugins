@@ -279,14 +279,15 @@ def service_holdings(reserved: Register, name: str, part: dict) -> None:
 
 def proxy_holdings(reserved: Register, name: str, part: dict, root: pathlib.Path, owner: dict[str, str]) -> list[str]:
     """Record every label the proxy configuration `name` starts its services with answers on,
-    held by the plugin of the pinned service it forwards to, or by `name` where it forwards to
-    none, and say every file of it that cannot be read for that."""
+    held by the plugin of the pinned services it forwards to where they are all one plugin's,
+    or by `name` where they are not, and say every file of it that cannot be read for that."""
     services = services_of(part)
     if not any(proxied.PROXY in listed(service, "provides") for service in services):
         return []
     found, refused = proxied.answered(root, [str(service.get("id")) for service in services])
-    for label, target in found:
-        held(reserved, "hostname", label, owner.get(str(target), name))
+    for label, targets in found:
+        owners = {owner.get(target) for target in targets}
+        held(reserved, "hostname", label, owners.pop() if len(owners) == 1 and None not in owners else name)
     return [f"{name}: {line} (ARCH-R269)" for line in refused]
 
 

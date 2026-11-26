@@ -183,10 +183,17 @@ declares, and an id, published port or proxy hostname taken by two pinned
 plugins, the hostnames the proxy's configuration in its copy answers on
 included. `registry/proxied.py` reads every starting file of a plugin providing
 `proxy.front`: Caddy's JSON configuration (`*.json`) and Traefik's (`*.toml`),
-each host by its first label. A file in any other format or one that does not
-parse, a host with no such label, a wildcard or pattern among them, and a route
-or router that answers on hosts it does not name, matching no host, negating a
-matcher or with an alternative matching no host, are refused.
+each host by its first label. A hostname is held by the plugin of the services
+its route forwards to where every one of them is that plugin's, and by the
+proxy's plugin otherwise. What it cannot read with certainty is refused: a file
+in any other format, one that does not parse, a placeholder holding anything, a
+Traefik file holding `{{`, which Traefik expands as a template; a host with no
+such label, a wildcard or pattern among them; a route or router that answers on
+hosts it does not name, by a matcher set or an alternative naming no host or by
+a negation; a Traefik matcher outside the ones it reads, in the spellings
+Traefik's parser accepts, or a rule it cannot read to its end; and an upstream it
+cannot name, a Caddy upstream dialled by placeholder or found dynamically, or a
+Traefik service that is not a plain load balancer of the same file.
 
 At schema 2, and for a part and an offered plugin alike: an upstream image a
 pinned plugin's service runs, any image not under `ghcr.io/lemonfiber/`, whose

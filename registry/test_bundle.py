@@ -14,7 +14,6 @@ import check
 import entry as entries_module
 import index
 import parts
-import proxied
 import tree
 
 import bundle
@@ -401,13 +400,19 @@ asks_for = "Nothing"
 provides = ["proxy.front"]
 """
 
-def caddy_config(*routes: tuple[str, str]) -> bytes:
-    """Caddy's JSON configuration answering on each host, forwarding it to its upstream."""
+def caddy_config(*routes: tuple[str, str | tuple[str, ...]]) -> bytes:
+    """Caddy's JSON configuration answering on each host, forwarding it to every upstream
+    named, or answering it itself where none is."""
+    def handled(dials: str | tuple[str, ...]) -> list[dict]:
+        named = dials if isinstance(dials, tuple) else (dials,) if dials else ()
+        if not named:
+            return [{"handler": "static_response", "status_code": 404}]
+        return [{"handler": "reverse_proxy", "upstreams": [{"dial": dial} for dial in named]}]
+
     return json.dumps({"apps": {"http": {"servers": {"srv0": {"routes": [
         {"match": [{"host": [host]}],
-         "handle": [{"handler": "subroute", "routes": [
-             {"handle": [{"handler": "reverse_proxy", "upstreams": [{"dial": dial}]}]}]}]}
-        for host, dial in routes
+         "handle": [{"handler": "subroute", "routes": [{"handle": handled(dials)}]}]}
+        for host, dials in routes
     ]}}}}}, indent=2).encode() + b"\n"
 
 
@@ -655,7 +660,14 @@ def tree_refusals() -> list[tuple[str, str, tuple[str, dict]]]:
              "plugin.toml": (b'provides = ["proxy.front"]\n', CADDY_ADAPTER),
              "config/caddy/caddy.json": (CADDY_CONFIG, caddy_config(("jellyfin.home.local", "nowhere:1"))),
          })),
-        ("a proxy configuration in a format no reader reads refused", "config/caddy/Caddyfile is in no format read",
+        ("a hostname the proxy forwards to two plugins' services is the proxy's, taken by another refused",
+         "hostname 'jellyfin' is reserved by caddy and jellyfin",
+         changed("caddy", "config/caddy/caddy.json", CADDY_CONFIG,
+                 caddy_config(("jellyfin.home.local", ("jellyfin:8096", "sabnzbd:8080"))))),
+        ("a placeholder holding anything is read as a proxy configuration and refused",
+         "config/caddy/.gitkeep cannot be read for the hosts it answers on: it is in no format",
+         added("caddy", "config/caddy/.gitkeep", b'{"routes": [{"handle": []}]}\n')),
+        ("a proxy configuration in a format no reader reads refused", "config/caddy/Caddyfile cannot be read for the hosts it answers on: it is in no format",
          added("caddy", "config/caddy/Caddyfile", b"jellyfin.{$DOMAIN} { reverse_proxy nowhere:1 }\n")),
         ("a proxy configuration that does not parse refused", "config/caddy/caddy.json cannot be read",
          changed("caddy", "config/caddy/caddy.json", CADDY_CONFIG, b"{")),
@@ -689,6 +701,8 @@ def trees_held() -> list[Case]:
             *changed("caddy", "config/caddy/caddy.json", CADDY_CONFIG,
                      caddy_config(("jellyfin.home.local", "jellyfin:8096")))) == []),
         *((what, True, any(said in line for line in offline(*case))) for what, said, case in tree_refusals()),
+        ("an empty placeholder in a proxy's configuration is no configuration", True,
+         offline(*added("caddy", "config/caddy/.gitkeep", b"")) == []),
         ("a file in a copy outside the plugin's tree refused", True, bool(offline(good, stray))),
         ("a copy whose tree is not its pin's refused", True, bool(offline(good, unpinned))),
         ("a release named by a plugin that builds no image refused", True, bool(offline(released_without_image))),
@@ -712,70 +726,6 @@ def fenced_held() -> list[Case]:
         ("a fenced service beside a pinned fence image holds", True, offline(with_fence, trees) == []),
         ("a fence image pinned for no fenced service holds", True,
          offline(stack_of(PINS).replace("\n[[plugin]]", "\n" + FENCE + "[[plugin]]", 1)) == []),
-    ]
-
-
-def unread(reader, text: str) -> bool:
-    """Whether `reader` refuses `text` rather than reading what it answers on."""
-    try:
-        reader(text)
-    except proxied.Unread:
-        return True
-    return False
-
-
-TRAEFIK_CONFIG = """
-[http.routers.watch]
-rule = "Host(`watch.home.local`) || Host(`tv.home.local`) && PathPrefix(`/`)"
-service = "door"
-
-[http.services.door.loadBalancer]
-servers = [{ url = "http://door:8096" }]
-
-[tcp.routers.books]
-rule = "HostSNI(`books.home.local`)"
-service = "books"
-
-[tcp.services.books.loadBalancer]
-servers = [{ address = "calibre:8083" }]
-"""
-
-
-def proxy() -> list[Case]:
-    """What a proxy configuration answers on, as the reserved register reads it (ARCH-R269)."""
-    caddy = caddy_config(("watch.home.local", "door:8096"), ("bare.home.local", "")).decode()
-    unhosted = json.dumps({"apps": {"http": {"servers": {"s": {"routes": [{"handle": []}]}}}}})
-    nested = json.dumps({"routes": [{"match": [{"host": ["watch.home.local"]}], "handle": [
-        {"handler": "subroute", "routes": [{"match": [{"path": ["/x"]}], "handle": []}]}]}]})
-    router = '[http.routers.r]\nrule = "{}"\nservice = "s"\n'
-    return [
-        ("each host Caddy's JSON answers on is read by its label with the service it forwards to", True,
-         proxied.caddy(caddy) == [("watch", "door"), ("bare", None)]),
-        ("a route inside a host's route matching no host of its own is read", True,
-         proxied.caddy(nested) == [("watch", None)]),
-        ("a Caddy route matching no host refused", True, unread(proxied.caddy, unhosted)),
-        ("a Caddy wildcard host refused", True,
-         unread(proxied.caddy, caddy_config(("*.home.local", "door:8096")).decode())),
-        ("a Caddy host matcher that is not a list refused", True,
-         unread(proxied.caddy, nested.replace('{"path": ["/x"]}', '{"host": "tv.home.local"}'))),
-        ("a Caddy configuration that is not JSON refused", True, unread(proxied.caddy, "watch.{$DOMAIN} {}")),
-        ("each host Traefik's TOML answers on is read by its label with the service it forwards to", True,
-         proxied.traefik(TRAEFIK_CONFIG) == [("watch", "door"), ("tv", "door"), ("books", "calibre")]),
-        ("Traefik's static configuration answers on nothing", True,
-         proxied.traefik('[entryPoints.web]\naddress = ":8080"\n[providers.file]\nfilename = "d.toml"\n') == []),
-        ("an empty Traefik configuration answers on nothing", True, proxied.traefik("") == []),
-        ("a Traefik router matching hosts by a pattern refused", True,
-         unread(proxied.traefik, router.format("Host(`watch.home.local`) || HostRegexp(`^.+$`)"))),
-        ("a Traefik router matching no host refused", True,
-         unread(proxied.traefik, router.format("PathPrefix(`/`)"))),
-        ("a Traefik rule with an alternative matching no host refused", True,
-         unread(proxied.traefik, router.format("Host(`watch.home.local`) || PathPrefix(`/`)"))),
-        ("a Traefik rule negating a matcher refused", True,
-         unread(proxied.traefik, router.format("!Host(`watch.home.local`)"))),
-        ("a Traefik router whose rule is not text refused", True,
-         unread(proxied.traefik, '[http.routers.r]\nrule = 1\n')),
-        ("Traefik routers that are not a table refused", True, unread(proxied.traefik, 'http = { routers = 1 }\n')),
-        ("a Traefik configuration that is not TOML refused", True, unread(proxied.traefik, "[http")),
     ]
 
 
@@ -1002,11 +952,12 @@ def first_pins() -> list[Case]:
 
 def self_test() -> int:
     """Each rule, against the shape it exists to refuse."""
+    import test_proxied
     import test_stack
 
     failures = 0
     for what, expected, got in (*shapes(), *pairs(), *held_copies(), *moves(), *bindings(), *vector(), *escapes(),
-                                *test_stack.cases(), *fence_shapes(), *trees_held(), *proxy(), *tree_moves(), *tree_apply(),
+                                *test_stack.cases(), *fence_shapes(), *trees_held(), *test_proxied.cases(), *tree_moves(), *tree_apply(),
                                 *target_shapes(), *template_targets(), *first_pins()):
         print(f"  {'ok  ' if expected == got else 'FAIL'} {what}")
         failures += expected != got
