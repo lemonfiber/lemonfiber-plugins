@@ -177,9 +177,16 @@ replace it or which names an in-process adapter, `[plugin].forms` that are not
 exactly the forms holding its profile, a licence that is neither OSI nor, for
 lemonfiber's own code and image, `Hippocratic-3.0`, a service without both
 `reaches` and `asks_for`, `critical` without the egress guard's shape, a release
-on a plugin that builds no image or a built image not tagged at it, and an id,
-published port or proxy hostname taken by two pinned plugins, the hostnames the
-proxy's configuration in its copy answers on included.
+on a plugin that builds no image or a built image not tagged at it, a copy
+declaring a `[[profile]]`, `[[form]]` or `[[removed]]`, which only the bundle
+declares, and an id, published port or proxy hostname taken by two pinned
+plugins, the hostnames the proxy's configuration in its copy answers on
+included. `registry/proxied.py` reads every starting file of a plugin providing
+`proxy.front`: Caddy's JSON configuration (`*.json`) and Traefik's (`*.toml`),
+each host by its first label. A file in any other format or one that does not
+parse, a host with no such label, a wildcard or pattern among them, and a route
+or router that answers on hosts it does not name, matching no host, negating a
+matcher or with an alternative matching no host, are refused.
 
 At schema 2, and for a part and an offered plugin alike: an upstream image a
 pinned plugin's service runs, any image not under `ghcr.io/lemonfiber/`, whose

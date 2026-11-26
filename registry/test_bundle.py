@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import os
 import pathlib
 import tempfile
@@ -13,6 +14,7 @@ import check
 import entry as entries_module
 import index
 import parts
+import proxied
 import tree
 
 import bundle
@@ -116,7 +118,7 @@ def pairs() -> list[Case]:
     """`copies` and `paired` over a directory of schema 1 copies."""
     with tempfile.TemporaryDirectory() as box:
         directory = pathlib.Path(box)
-        (directory / bundle.PLACEHOLDER).touch()
+        (directory / tree.PLACEHOLDER).touch()
         (directory / "jellyfin.toml").write_bytes(COPY)
         found = bundle.copies(directory)
         said = [
@@ -399,13 +401,21 @@ asks_for = "Nothing"
 provides = ["proxy.front"]
 """
 
-CADDYFILE = b"""# Routes.
-watch.{$DOMAIN:home.local} {
-\treverse_proxy jellyfin:8096
-}
+def caddy_config(*routes: tuple[str, str]) -> bytes:
+    """Caddy's JSON configuration answering on each host, forwarding it to its upstream."""
+    return json.dumps({"apps": {"http": {"servers": {"srv0": {"routes": [
+        {"match": [{"host": [host]}],
+         "handle": [{"handler": "subroute", "routes": [
+             {"handle": [{"handler": "reverse_proxy", "upstreams": [{"dial": dial}]}]}]}]}
+        for host, dial in routes
+    ]}}}}}, indent=2).encode() + b"\n"
 
-# sabnzbd.{$DOMAIN:home.local} { reverse_proxy sabnzbd:8080 }
-"""
+
+CADDY_ADAPTER = (b'\n[[service]]\nid = "caddy-adapter"\nimage = "ghcr.io/lemonfiber/caddy-adapter"\n'
+                 b'tag = "0.18.0"\nreaches = ""\nasks_for = "Nothing"\nspeaks = ["proxy.front@1"]\n'
+                 b'fronts = "caddy"\nprovides = ["proxy.front"]\n')
+
+CADDY_CONFIG = caddy_config(("watch.home.local", "jellyfin:8096"), ("sabnzbd.home.local", "sabnzbd:8080"))
 
 TREES = {
     "sabnzbd": {
@@ -419,7 +429,7 @@ TREES = {
     },
     "caddy": {
         "plugin.toml": CADDY,
-        "config/caddy/Caddyfile": CADDYFILE,
+        "config/caddy/caddy.json": CADDY_CONFIG,
     },
 }
 
@@ -519,15 +529,26 @@ def offline(text: str, trees: dict[str, dict[str, bytes]] | None = None) -> list
         return [line for lines in bundle.offline_problems(read, held).values() for line in lines]
 
 
-def changed(name: str, path: str, old: bytes, new: bytes) -> tuple[str, dict[str, dict[str, bytes]]]:
-    """The bundle and its copies with one file of one tree changed, the pin following it."""
+def edited(name: str, edits: dict[str, tuple[bytes, bytes]]) -> tuple[str, dict[str, dict[str, bytes]]]:
+    """The bundle and its copies with files of one tree changed, a file it lacks written from
+    nothing, the pin following them."""
     trees = {key: dict(files) for key, files in TREES.items()}
-    trees[name][path] = trees[name][path].replace(old, new)
+    for path, (old, new) in edits.items():
+        trees[name][path] = trees[name].get(path, b"").replace(old, new)
     pins = dict(PINS)
-    kept = {key: value for key, value in PINS[name].items()
-            if key not in ("manifest", "tree", "id")}
+    kept = {key: value for key, value in PINS[name].items() if key not in ("manifest", "tree", "id")}
     pins[name] = pinned(name, trees[name], **kept)
     return stack_of(pins), trees
+
+
+def changed(name: str, path: str, old: bytes, new: bytes) -> tuple[str, dict[str, dict[str, bytes]]]:
+    """The bundle and its copies with one file of one tree changed, the pin following it."""
+    return edited(name, {path: (old, new)})
+
+
+def added(name: str, path: str, content: bytes) -> tuple[str, dict[str, dict[str, bytes]]]:
+    """The bundle and its copies with one file added to one tree, the pin following it."""
+    return edited(name, {path: (b"", content)})
 
 
 FENCE = f"""[fence]
@@ -593,6 +614,9 @@ def tree_refusals() -> list[tuple[str, str, tuple[str, dict]]]:
          changed("jellyfin", "plugin.toml", b'fronts = "jellyfin"', b'fronts = "jellyfin"\napi = { kind = "x" }')),
         ("replaces naming another id refused", "caddy.replaces 'x' is not its own id",
          changed("caddy", "plugin.toml", b'provides = ["proxy.front"]', b'provides = ["proxy.front"]\nreplaces = "x"')),
+        *((f"a copy declaring a [[{table}]] refused", f"declares [[{table}]], which only the bundle declares",
+           changed("caddy", "plugin.toml", b"[[service]]", f'[[{table}]]\nid = "x"\n\n[[service]]'.encode()))
+          for table in parts.STACK_ONLY),
         ("a copy declaring another [plugin].id refused", "[plugin].id 'proxy', not 'caddy'",
          changed("caddy", "plugin.toml", b'id = "caddy"\nupstream', b'id = "proxy"\nupstream')),
         ("a service without asks_for refused", 'does not declare both reaches and asks_for',
@@ -612,13 +636,29 @@ def tree_refusals() -> list[tuple[str, str, tuple[str, dict]]]:
          changed("jellyfin", "plugin.toml", b'tag = "0.18.0"', b'tag = "main-0123456789ab"')),
         ("a fill nothing provides refused", "fills 'proxy.front'",
          changed("caddy", "plugin.toml", b'provides = ["proxy.front"]', b"provides = []")),
+        ("a service id reserved twice refused", "id 'caddy' is reserved by caddy and jellyfin",
+         changed("jellyfin", "plugin.toml", b'id = "jellyfin-adapter"', b'id = "caddy"')),
         ("a port reserved twice refused", "port '8096' is reserved by caddy and jellyfin",
          changed("caddy", "plugin.toml", b"port = 80", b"port = 8096")),
         ("a hostname reserved twice refused", "hostname 'jellyfin' is reserved by caddy and jellyfin",
          changed("caddy", "plugin.toml", b'provides = ["proxy.front"]',
                  b'provides = ["proxy.front"]\n\n[[wiring]]\nhostname = "jellyfin"')),
         ("a hostname the proxy's configuration answers on, taken by another, refused", "hostname 'jellyfin' is reserved by caddy and jellyfin",
-         changed("caddy", "config/caddy/Caddyfile", b"# Routes.", b"jellyfin.{$DOMAIN} { reverse_proxy nowhere:1 }")),
+         changed("caddy", "config/caddy/caddy.json", CADDY_CONFIG, caddy_config(("jellyfin.home.local", "nowhere:1")))),
+        ("a hostname a Traefik configuration answers on, taken by another, refused", "hostname 'jellyfin' is reserved by caddy and jellyfin",
+         added("caddy", "config/caddy/dynamic.toml",
+               b'[http.routers.r]\nrule = "Host(`jellyfin.home.local`)"\nservice = "s"\n'
+               b'[http.services.s.loadBalancer]\nservers = [{ url = "http://nowhere:1" }]\n')),
+        ("a hostname the proxy's configuration answers on is read where the plugin's adapter provides the proxy",
+         "hostname 'jellyfin' is reserved by caddy and jellyfin",
+         edited("caddy", {
+             "plugin.toml": (b'provides = ["proxy.front"]\n', CADDY_ADAPTER),
+             "config/caddy/caddy.json": (CADDY_CONFIG, caddy_config(("jellyfin.home.local", "nowhere:1"))),
+         })),
+        ("a proxy configuration in a format no reader reads refused", "config/caddy/Caddyfile is in no format read",
+         added("caddy", "config/caddy/Caddyfile", b"jellyfin.{$DOMAIN} { reverse_proxy nowhere:1 }\n")),
+        ("a proxy configuration that does not parse refused", "config/caddy/caddy.json cannot be read",
+         changed("caddy", "config/caddy/caddy.json", CADDY_CONFIG, b"{")),
         ("a wiring by a plugin that does not ask it refused", "asks no 'download.usenet'",
          changed("jellyfin", "plugin.toml", b'capability = "download.usenet"', b'capability = "indexer.search"')),
         ("a wiring by a plugin that asks each refused", 'of each filler',
@@ -626,6 +666,10 @@ def tree_refusals() -> list[tuple[str, str, tuple[str, dict]]]:
                  b'capability = "download.usenet"\neach = true')),
         ("a filled_by that does not fill the capability refused", 'sabnzbd neither provides nor speaks',
          changed("sabnzbd", "plugin.toml", b'provides = ["download.usenet"]', b'provides = ["download.torrent"]')),
+        ("a wiring to a service of no pinned plugin refused", "to 'plex' is no service of a pinned plugin",
+         (stack_of(PINS).replace('to  = "jellyfin"', 'to  = "plex"'), TREES)),
+        ("a filled_by of no pinned plugin refused", "filled_by 'nzbget' is no service of a pinned plugin",
+         (stack_of(PINS).replace('filled_by = "sabnzbd"', 'filled_by = "nzbget"'), TREES)),
     ]
 
 
@@ -635,15 +679,15 @@ def trees_held() -> list[Case]:
     stray = {key: dict(files) for key, files in TREES.items()}
     stray["caddy"]["notes.md"] = b"no\n"
     unpinned = {key: dict(files) for key, files in TREES.items()}
-    unpinned["caddy"]["config/caddy/Caddyfile"] += b"\n"
+    unpinned["caddy"]["config/caddy/caddy.json"] += b"\n"
     released_without_image = stack_of({**PINS, "caddy": {**PINS["caddy"], "release": "0.18.0"}})
     unbuilt_jelly = changed("jellyfin", "plugin.toml", b'"ghcr.io/lemonfiber/plugin-jellyfin"',
                             b'"docker.io/jellyfin/adapter"')
     return [
         ("copies that are their pins' trees hold", True, offline(good) == []),
         ("a hostname the proxy answers on for the service holding it is not taken twice", True, offline(
-            *changed("caddy", "config/caddy/Caddyfile", b"# Routes.",
-                     b"jellyfin.{$DOMAIN} { reverse_proxy jellyfin:8096 }")) == []),
+            *changed("caddy", "config/caddy/caddy.json", CADDY_CONFIG,
+                     caddy_config(("jellyfin.home.local", "jellyfin:8096")))) == []),
         *((what, True, any(said in line for line in offline(*case))) for what, said, case in tree_refusals()),
         ("a file in a copy outside the plugin's tree refused", True, bool(offline(good, stray))),
         ("a copy whose tree is not its pin's refused", True, bool(offline(good, unpinned))),
@@ -671,17 +715,67 @@ def fenced_held() -> list[Case]:
     ]
 
 
+def unread(reader, text: str) -> bool:
+    """Whether `reader` refuses `text` rather than reading what it answers on."""
+    try:
+        reader(text)
+    except proxied.Unread:
+        return True
+    return False
+
+
+TRAEFIK_CONFIG = """
+[http.routers.watch]
+rule = "Host(`watch.home.local`) || Host(`tv.home.local`) && PathPrefix(`/`)"
+service = "door"
+
+[http.services.door.loadBalancer]
+servers = [{ url = "http://door:8096" }]
+
+[tcp.routers.books]
+rule = "HostSNI(`books.home.local`)"
+service = "books"
+
+[tcp.services.books.loadBalancer]
+servers = [{ address = "calibre:8083" }]
+"""
+
+
 def proxy() -> list[Case]:
-    """What a proxy configuration answers on, as the reserved register reads it."""
-    text = (
-        "# prose about {$DOMAIN} with no label\n"
-        "watch.{$DOMAIN:home.local} {\n\treverse_proxy door:8096\n}\n"
-        "# sonarr.{$DOMAIN:home.local}      { reverse_proxy sonarr:8989 }\n"
-        "bare.{$DOMAIN:home.local} {\n\trespond 404\n}\n"
-    )
+    """What a proxy configuration answers on, as the reserved register reads it (ARCH-R269)."""
+    caddy = caddy_config(("watch.home.local", "door:8096"), ("bare.home.local", "")).decode()
+    unhosted = json.dumps({"apps": {"http": {"servers": {"s": {"routes": [{"handle": []}]}}}}})
+    nested = json.dumps({"routes": [{"match": [{"host": ["watch.home.local"]}], "handle": [
+        {"handler": "subroute", "routes": [{"match": [{"path": ["/x"]}], "handle": []}]}]}]})
+    router = '[http.routers.r]\nrule = "{}"\nservice = "s"\n'
     return [
-        ("each label is read with the service it routes to, commented-out ones included", True,
-         parts.answered(text) == [("watch", "door"), ("sonarr", "sonarr"), ("bare", None)]),
+        ("each host Caddy's JSON answers on is read by its label with the service it forwards to", True,
+         proxied.caddy(caddy) == [("watch", "door"), ("bare", None)]),
+        ("a route inside a host's route matching no host of its own is read", True,
+         proxied.caddy(nested) == [("watch", None)]),
+        ("a Caddy route matching no host refused", True, unread(proxied.caddy, unhosted)),
+        ("a Caddy wildcard host refused", True,
+         unread(proxied.caddy, caddy_config(("*.home.local", "door:8096")).decode())),
+        ("a Caddy host matcher that is not a list refused", True,
+         unread(proxied.caddy, nested.replace('{"path": ["/x"]}', '{"host": "tv.home.local"}'))),
+        ("a Caddy configuration that is not JSON refused", True, unread(proxied.caddy, "watch.{$DOMAIN} {}")),
+        ("each host Traefik's TOML answers on is read by its label with the service it forwards to", True,
+         proxied.traefik(TRAEFIK_CONFIG) == [("watch", "door"), ("tv", "door"), ("books", "calibre")]),
+        ("Traefik's static configuration answers on nothing", True,
+         proxied.traefik('[entryPoints.web]\naddress = ":8080"\n[providers.file]\nfilename = "d.toml"\n') == []),
+        ("an empty Traefik configuration answers on nothing", True, proxied.traefik("") == []),
+        ("a Traefik router matching hosts by a pattern refused", True,
+         unread(proxied.traefik, router.format("Host(`watch.home.local`) || HostRegexp(`^.+$`)"))),
+        ("a Traefik router matching no host refused", True,
+         unread(proxied.traefik, router.format("PathPrefix(`/`)"))),
+        ("a Traefik rule with an alternative matching no host refused", True,
+         unread(proxied.traefik, router.format("Host(`watch.home.local`) || PathPrefix(`/`)"))),
+        ("a Traefik rule negating a matcher refused", True,
+         unread(proxied.traefik, router.format("!Host(`watch.home.local`)"))),
+        ("a Traefik router whose rule is not text refused", True,
+         unread(proxied.traefik, '[http.routers.r]\nrule = 1\n')),
+        ("Traefik routers that are not a table refused", True, unread(proxied.traefik, 'http = { routers = 1 }\n')),
+        ("a Traefik configuration that is not TOML refused", True, unread(proxied.traefik, "[http")),
     ]
 
 

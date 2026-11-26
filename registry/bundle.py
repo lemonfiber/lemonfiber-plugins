@@ -17,7 +17,8 @@ builds an image (ARCH-R266, OPS-R86). `bundle/plugins/<id>/` is the plugin's tre
 the pinned revision, each file at its path in the plugin's repository. The ids,
 published ports and proxy hostnames every pinned plugin declares, and every hostname
 the proxy's configuration in its copy answers on, are reserved, and none is taken
-twice (ARCH-R269).
+twice (ARCH-R269); a proxy configuration that cannot be read for its hostnames is
+refused. No copy declares a profile, a form or a removed service (ARCH-R265).
 
 At schema 2 the bundle may also pin, as `[[offered]]`, a first-party plugin the stack
 does not ship: pinned as a part is, by its revision, the digests of its manifest and its
@@ -124,8 +125,6 @@ IMAGE_DIGEST = re.compile(r"\Asha256:[0-9a-f]{64}\Z")
 
 STAGES = (parts.ASSEMBLED, "installed")
 PROTOCOLS = ("usenet", "torrent")
-
-PLACEHOLDER = ".gitkeep"
 
 RELEASE = re.compile(r"\A(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\Z")
 DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
@@ -527,7 +526,7 @@ def copies(directory: pathlib.Path, schema: int = 1) -> dict[str, pathlib.Path]:
     found: dict[str, pathlib.Path] = {}
     strays = []
     for path in sorted(directory.iterdir()):
-        if path.name == PLACEHOLDER:
+        if path.name == tree.PLACEHOLDER:
             continue
         name = path.stem if schema == 1 else path.name
         shaped_right = (
