@@ -33,8 +33,8 @@ replaces    = "nzbhydra2"
 id          = "nzbhydra2-adapter"
 name        = "NZBHydra2 adapter"
 image       = "ghcr.io/lemonfiber/nzbhydra2-adapter"
-digest      = "sha256:3e03a4102a455a5f1ef44cf3985e2c1c97058753cdb347af8e45d50d140d31ca"
-tag         = "main-95bbd33b687b"
+digest      = "sha256:17b5197d34bc3cd473bfe0598412bd5a985f9d7a07029f573ebc10376a366f0d"
+tag         = "main-a28308ae6bee"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's owner.claim and indexer.search contracts by calling NZBHydra2, beside it, as the administrator lemonfiber minted for it."
@@ -44,6 +44,12 @@ speaks      = ["owner.claim@1", "indexer.search@1"]
 fronts      = "nzbhydra2"
 provides    = ["indexer.search"]
 upstream    = { username = { secret = "admin-username" }, password = { secret = "admin-password" } }
+
+[[secret]]
+id     = "api-key"
+of     = "nzbhydra2"
+minted = true
+why    = "The key NZBHydra2 answers its Newznab API to, which a curator reading NZBHydra2 as a Newznab indexer presents"
 
 [[secret]]
 id     = "admin-username"
