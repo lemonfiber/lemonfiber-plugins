@@ -33,8 +33,8 @@ replaces    = "nzbhydra2"
 id          = "nzbhydra2-adapter"
 name        = "NZBHydra2 adapter"
 image       = "ghcr.io/lemonfiber/nzbhydra2-adapter"
-digest      = "sha256:3e03a4102a455a5f1ef44cf3985e2c1c97058753cdb347af8e45d50d140d31ca"
-tag         = "main-95bbd33b687b"
+digest      = "sha256:83ad6486a4cc43648e9c9200a58fc7e62817a085d14ce9f9bcf93d2a60707377"
+tag         = "main-a2521663f213"
 criticality = "enhancing"
 reaches     = ""
 asks_for    = "Nothing beyond this machine. It answers lemonfiber's owner.claim and indexer.search contracts by calling NZBHydra2, beside it, as the administrator lemonfiber minted for it."
@@ -44,6 +44,12 @@ speaks      = ["owner.claim@1", "indexer.search@1"]
 fronts      = "nzbhydra2"
 provides    = ["indexer.search"]
 upstream    = { username = { secret = "admin-username" }, password = { secret = "admin-password" } }
+
+[[secret]]
+id     = "api-key"
+of     = "nzbhydra2"
+minted = true
+why    = "The key NZBHydra2 answers its Newznab API to, which a curator reading NZBHydra2 as a Newznab indexer presents"
 
 [[secret]]
 id     = "admin-username"
@@ -60,13 +66,28 @@ why    = "The password of the administrator NZBHydra2 is claimed for, which the 
 [[proof]]
 id      = "nzbhydra2.guarded"
 service = "nzbhydra2"
-title   = "A claimed NZBHydra2 shows its configuration to nobody presenting nothing"
+title   = "NZBHydra2 shows its configuration to nobody presenting nothing"
 fixture = "recordings/nzbhydra2/config-guarded.json"
 why     = """
-NZBHydra2's configuration holds every indexer's key and the administrator it was
-claimed for. Once claimed, only the adapter reads it, signed in as that
-administrator, so a NZBHydra2 that answered it to a caller presenting nothing
-would be handing those keys to every device that can reach it.
+NZBHydra2's configuration holds every indexer's key, the key its Newznab API
+answers to and the administrator it is guarded for. It starts guarded for the
+administrator lemonfiber minted, and only the adapter reads it, signed in as
+that administrator, so a NZBHydra2 that answered it to a caller presenting
+nothing would be handing those keys to every device that can reach it.
 """
 request = { method = "GET", path = "/internalapi/config" }
 expect  = { status = 401, body_starts_with = "<!doctype html><html lang=\"en\"><head><title>HTTP Status 401" }
+
+[[proof]]
+id      = "nzbhydra2.keyed"
+service = "nzbhydra2"
+title   = "NZBHydra2 searches for nobody presenting no key"
+fixture = "recordings/nzbhydra2/search-keyed.json"
+why     = """
+NZBHydra2's Newznab API searches every indexer it holds, with their keys, and
+hands out what they find. lemonfiber mints the key it answers to and writes it
+into the starting nzbhydra.yml, so a search asked presenting no key has to be
+refused by the pinned image.
+"""
+request = { method = "GET", path = "/api?t=search&q=lemonfiber" }
+expect  = { status = 200, body_starts_with = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<error xmlns:atom=\"http://www.w3.org/2005/Atom\"  xmlns:newznab=\"http://www.newznab.com/DTD/2010/feeds/attributes/\" code=\"100\" description=\"Wrong api key\"" }
