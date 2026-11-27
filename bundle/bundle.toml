@@ -243,8 +243,8 @@ replaced_by = "bindery"
 
 [fence]
 image  = "ghcr.io/lemonfiber/fence"
-tag    = "main-6af3cc63936f"
-digest = "sha256:9972b63f70ca5b4263321a6fba905aa7965eddd517aa5bbed1e6dce64323c769"
+tag    = "main-6961d5c312e9"
+digest = "sha256:ea5b88657647750e087ba000bd1c7b292fed3074a23019963117f2f35ad262b9"
 
 [[plugin]]
 id           = "audiobookshelf"
