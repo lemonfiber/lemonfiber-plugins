@@ -392,9 +392,9 @@ last_release = "2026-09-24"
 [[plugin]]
 id           = "nzbhydra2"
 origin       = "https://github.com/lemonfiber/plugin-nzbhydra2"
-revision     = "2499a25fa61887702ff960b37ca4566cc8117011"
-manifest     = "sha256:6ad6a06a974070b4bcac77505f1cacfa4b5aa210f03491489d1f907dd1d929c2"
-tree         = "sha256:eab8d8abf0e121b0395f8634227f22f8206555a8e71de623fc358f719bd87ef5"
+revision     = "c9793f121624f9f81f4b49045945002b534b7513"
+manifest     = "sha256:f02a814f9b5dce32556a05a32cb7f08a0084d026c522c2570545750cecdc79f4"
+tree         = "sha256:24a79403c5ddb261e970dd13a14a56a2025be08bb75f7d0055592628289f3515"
 fills        = ["indexer.search"]
 stage        = "installed"
 profile      = "search"

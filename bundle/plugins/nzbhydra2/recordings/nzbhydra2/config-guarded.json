@@ -1,6 +1,6 @@
 {
   "recorded_from": "lscr.io/linuxserver/nzbhydra2@sha256:3cdcea6fc97861bb30ef2551884f1c371e08a884c2f75230c7a3a2e14c5f0516",
-  "note": "The whole configuration, the indexers' keys among it, asked for presenting nothing on an instance the adapter has claimed. A refusal is the pass: an indexer account is an account somebody paid for.",
+  "note": "The whole configuration, the indexers' keys among it, asked for presenting nothing on an instance that started guarded for the minted administrator. A refusal is the pass: an indexer account is an account somebody paid for.",
   "request": {"method": "GET", "path": "/internalapi/config"},
   "response": {
     "status": 401,

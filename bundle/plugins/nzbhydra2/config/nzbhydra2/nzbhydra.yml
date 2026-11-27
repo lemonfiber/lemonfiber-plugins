@@ -2,14 +2,14 @@
 auth:
   authHeader: null
   authHeaderIpRanges: []
-  authType: "NONE"
+  authType: "BASIC"
   rememberUsers: true
   rememberMeValidityDays: 14
-  restrictAdmin: false
-  restrictDetailsDl: false
-  restrictIndexerSelection: false
-  restrictSearch: false
-  restrictStats: false
+  restrictAdmin: true
+  restrictDetailsDl: true
+  restrictIndexerSelection: true
+  restrictSearch: true
+  restrictStats: true
   allowApiStats: true
   oidcIssuerUri: null
   oidcAuthorizationUri: null
@@ -24,7 +24,13 @@ auth:
     - "openid"
     - "profile"
     - "email"
-  users: []
+  users:
+    - maySeeAdmin: true
+      maySeeDetailsDl: true
+      maySeeStats: true
+      showIndexerSelection: true
+      username: "{{secret:admin-username}}"
+      password: "{bcrypt}{{secret:admin-password|bcrypt}}"
 categoriesConfig:
   enableCategorySizes: true
   overwriteNaWithSearchCategory: true
