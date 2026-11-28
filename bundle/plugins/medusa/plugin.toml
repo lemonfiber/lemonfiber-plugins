@@ -15,8 +15,8 @@ forms       = ["tv", "auto", "full"]
 id          = "medusa"
 name        = "Medusa"
 image       = "lscr.io/linuxserver/medusa"
-digest      = "sha256:aad89df58a047bab3521a695f0508f2e89fc9ba1f1196866dc8e9a810fc3ae5d"
-tag         = "v1.0.27-ls297"
+digest      = "sha256:b1fbd7a9eb699eed4873b9d8325bbff2981d673e26935093c0f8a4c12dca9de0"
+tag         = "v1.0.27-ls300"
 port        = 8086
 bind        = "loopback"
 listens     = 8081
@@ -34,11 +34,11 @@ native      = "medusa"
 id          = "medusa-adapter"
 name        = "Medusa adapter"
 image       = "ghcr.io/lemonfiber/medusa-adapter"
-digest      = "sha256:74988aa3562e65e300cd467f09d7642534c380c8373feb724cc828d3e3ee0eb8"
-tag         = "main-8dbcbd0039f5"
+digest      = "sha256:797fb9a1c4f1d2102fc3e156b8128524f7ef22b5402703bf6681b4355210f96a"
+tag         = "main-d7f61228f0e2"
 criticality = "core"
-reaches     = "TheTVDB's API at api4.thetvdb.com, only while the operator switches medusa:thetvdb-lookup on"
-asks_for    = "It answers lemonfiber's indexer.pull and library.curate contracts by calling Medusa, beside it, with the key and the account lemonfiber minted for it, and asks nothing beyond this machine unless the operator switches medusa:thetvdb-lookup on. Switched on, it signs in to TheTVDB with the operator's own key, and PIN where the key needs one, and asks it for the name, year and seasons of a series Medusa does not hold, so a household can request that series. Switched off, as it is until the operator turns it on, a series Medusa does not hold cannot be requested."
+reaches     = "TVmaze's API at api.tvmaze.com, only while the operator sets medusa:thetvdb-lookup to tvmaze, and TheTVDB's API at api4.thetvdb.com, only while the operator switches it on"
+asks_for    = "It answers lemonfiber's indexer.pull and library.curate contracts by calling Medusa, beside it, with the key and the account lemonfiber minted for it, and asks nothing beyond this machine unless the operator switches medusa:thetvdb-lookup on. Set to tvmaze, it asks TVmaze, with no key and nothing about the operator or their library, which show has a series' TheTVDB id and that show's name, year and seasons, for a series Medusa does not hold, so a household can request that series; that information is TVmaze's, under CC BY-SA 4.0. Set to on, it signs in to TheTVDB with the operator's own key, and PIN where the key needs one, and asks it the same. Switched off, as it is until the operator turns it on, a series Medusa does not hold cannot be requested."
 config_path = "/config"
 listens     = 8080
 media_types = ["tv"]
@@ -49,7 +49,7 @@ upstream    = { api_key = { secret = "upstream-key" }, username = { secret = "we
 
 [service.env]
 IMPORT_STUCK_AFTER_MINUTES = { setting = "medusa:import-stuck-after", default = "60" }
-THETVDB_LOOKUP             = { setting = "medusa:thetvdb-lookup", default = "off", one_of = ["off", "on", "on-with-pin"] }
+THETVDB_LOOKUP             = { setting = "medusa:thetvdb-lookup", default = "off", one_of = ["off", "tvmaze", "on", "on-with-pin"] }
 THETVDB_KEY                = { secret = "thetvdb-key" }
 THETVDB_PIN                = { secret = "thetvdb-pin" }
 

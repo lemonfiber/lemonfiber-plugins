@@ -538,9 +538,9 @@ last_release = "2026-10-20"
 [[offered]]
 id           = "medusa"
 origin       = "https://github.com/lemonfiber/plugin-medusa"
-revision     = "cdf434327984ef281d86fe7aee931bc32ab3e869"
-manifest     = "sha256:893af39b435c18b20b351eae127320edc6a07bd4d8866c09e62908494d7ce418"
-tree         = "sha256:760ec0e7e959dbc8a16793e2f3633c7b6fdaf272a05b90cbd9d83af1244dc89e"
+revision     = "50d84494a5aa920cab085fb6a5bb81418c815456"
+manifest     = "sha256:76ca85bf682235f8a30281664b45e2099b4144cb9fc5b044f024d0d08c527a23"
+tree         = "sha256:e23c96c27598a44292560527e1b0e274cedb3d60b6bca23258c6e5b9500dd8b4"
 profile      = "tv"
 last_release = "2026-10-18"
 
